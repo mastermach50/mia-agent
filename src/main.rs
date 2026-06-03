@@ -1,16 +1,18 @@
 use anyhow::{Ok, Result};
 use clap::Parser;
 use env_logger::Env;
-use std::env;
+use tokio;
 
 mod config;
 mod tui;
 mod cli;
+mod api;
 use cli::Cli;
 use config::AppConfig;
 use log::{info, trace};
 
-fn main() -> Result<()>{
+#[tokio::main]
+async fn main() -> Result<()>{
 
     // Setup logging
     let env = Env::new().filter_or("MIA_LOG", "info");

@@ -1,9 +1,9 @@
-use std::fs;
+use std::{env, fs};
 use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
 use config::{Config, Environment, File};
-use log::{debug, info};
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 
 /// Cached config that is loaded on load() and accessed on global()
@@ -14,6 +14,7 @@ static CONFIG_CACHE: OnceLock<AppConfig> = OnceLock::new();
 pub struct AppConfig {
     pub model: ModelConfig,
     pub documents: DocumentConfig,
+    pub cli: CliConfig,
 }
 
 impl Default for AppConfig {
@@ -21,6 +22,7 @@ impl Default for AppConfig {
         Self {
             model: ModelConfig::default(),
             documents: DocumentConfig::default(),
+            cli: CliConfig::default(),
         }
     }
 }
@@ -28,16 +30,12 @@ impl Default for AppConfig {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModelConfig {
     pub name: String,
-    pub provider: String,
-    pub api_key: Option<String>,
 }
 
 impl Default for ModelConfig {
     fn default() -> Self {
         Self {
             name: "owl-alpha".to_string(),
-            provider: "openrouter".to_string(),
-            api_key: None,
         }
     }
 }
@@ -53,8 +51,21 @@ impl Default for DocumentConfig {
     fn default() -> Self {
         Self {
             soul: "SOUL.md".to_string(),
-            user_memory: "USER.md".to_string(),
-            system_memory: "MEMORY.md".to_string(),
+            user_memory: "memories/USER.md".to_string(),
+            system_memory: "memories/MEMORY.md".to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CliConfig {
+    pub username: String,
+}
+
+impl Default for CliConfig {
+    fn default() -> Self {
+        Self {
+            username: "user".to_string(),
         }
     }
 }
@@ -123,6 +134,51 @@ impl AppConfig {
         let _ = CONFIG_CACHE.set(app_config.clone());
         debug!("Loaded and cached config");
 
+        Self::post_config_load(&app_config)?;
+
         Ok(app_config)
+    }
+
+    /// Executes checks and actions to be done right after config load
+    fn post_config_load(config: &AppConfig) -> Result<()> {
+
+        // Check if required api keys are present in env
+        if env::var("OPENROUTER_API_KEY").is_err() {
+            error!("OPENROUTER_API_KEY not set in .env");
+            anyhow::bail!("OPENROUTER_API_KEY not set in .env");
+        };
+
+        // Make soul, user memory and system memory files if they don't exist
+        let mia_dir = std::env::home_dir().unwrap().join(".mia");
+        let soul_path = mia_dir.join(config.documents.soul.clone());
+        let user_memory_path = mia_dir.join(config.documents.user_memory.clone());
+        let system_memory_path = mia_dir.join(config.documents.system_memory.clone());
+
+        let initial_soul = "You are Mia, a personal assistant. Respond accurately and concisely";
+        if !soul_path.exists() {
+            fs::write(&soul_path, initial_soul)
+                .context("Failed to create soul file")?;
+            info!("Created soul file at {:?}", soul_path);
+        };
+        if !user_memory_path.exists() {
+            if user_memory_path.parent().is_some() {
+                fs::create_dir_all(user_memory_path.parent().unwrap())
+                    .context("Failed to create user memory directory")?;
+            }
+            fs::write(&user_memory_path, "")
+                .context("Failed to create user memory file")?;
+            info!("Created user memory file at {:?}", user_memory_path);
+        };
+        if !system_memory_path.exists() {
+            if system_memory_path.parent().is_some() {
+                fs::create_dir_all(system_memory_path.parent().unwrap())
+                    .context("Failed to create system memory directory")?;
+            }
+            fs::write(&system_memory_path, "")
+                .context("Failed to create system memory file")?;
+            info!("Created system memory file at {:?}", system_memory_path);
+        };
+
+        Ok(())
     }
 }
