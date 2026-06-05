@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use crate::agent_tools::execute_tools;
 use crate::api::{History, Message, completion};
+use crate::config::AppConfig;
 
 /// Takes in a message history that includes the next prompt from the user and returns
 /// a new history that includes the assistant's response and any tools calls processed
@@ -11,7 +12,21 @@ pub async fn run_agent(
 ) -> Result<History> {
     let mut history = history;
 
-    loop {
+    for iterations in 1..=AppConfig::global().agent.max_iterations {
+        // Send a message if the agent does a lot of iterations
+        if iterations >= 3 && (
+                iterations % 10 == 0 ||
+                iterations == 3 ||
+                iterations == AppConfig::global().agent.max_iterations
+            )
+        {
+            intermediate_message_proxy(&Message::new(
+                "assistant", 
+                format!("🔁 Iteration {}/{}", iterations, AppConfig::global().agent.max_iterations)
+            ));
+        }
+
+
         // Get the next message from the assistant and append it to the history
         let assistant_msg = completion(&history).await?;
         intermediate_message_proxy(&assistant_msg);

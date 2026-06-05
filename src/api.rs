@@ -1,4 +1,4 @@
-use log::{debug, trace};
+use log::{debug, error, trace};
 use reqwest::{Client, header::{AUTHORIZATION, REFERER, HeaderMap}};
 use anyhow::{Context, Ok, Result};
 use serde::{Deserialize, Serialize};
@@ -111,7 +111,11 @@ pub async fn completion(history: &History) -> Result<Message> {
     debug!("Response Status: {}", response.status());
 
     if !response.status().is_success() {
-        anyhow::bail!("API request failed with status {}", response.status());
+        let status = response.status();
+        let json = response.json::<serde_json::Value>().await?;
+        error!("API request failed with status {}", status);
+        error!("Response: {:?}", json);
+        anyhow::bail!("API request failed with status {}", status);
     }
 
     let content = response.json::<serde_json::Value>().await?;
