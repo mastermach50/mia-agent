@@ -8,6 +8,8 @@ mod tui;
 mod cli;
 mod api;
 mod utils;
+mod agent_loop;
+mod agent_tools;
 
 use cli::Cli;
 use config::AppConfig;

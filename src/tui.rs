@@ -1,22 +1,19 @@
 use std::{fs, io::Write};
 use anyhow::Result;
 
-use crate::{api::{Message, completion}, config::AppConfig, utils::generate_think_lines};
+use crate::utils::generate_think_lines;
+use crate::config::AppConfig;
+use crate::agent_loop;
+use crate::api::{History, Message};
 
 pub async fn run() -> Result<()> {
 
-    let mut history: Vec<Message> = Vec::new();
+    let mut history = History::new();
+    let mut system_prompt = String::new();
     let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
-    history.push(Message {
-        role: "system".to_string(),
-        content: soul,
-        reasoning: None
-    });
-    history.push(Message {
-        role: "system".to_string(),
-        content: format!("You are talking to {} via a CLI", AppConfig::global().cli.username),
-        reasoning: None
-    });
+    system_prompt.push_str(&soul);
+    system_prompt.push_str(&format!("\nYou are talking to {} via a TUI.", AppConfig::global().cli.username));
+    history.set_system_prompt(system_prompt);
     
     loop {
         print!("User > ");
@@ -30,23 +27,26 @@ pub async fn run() -> Result<()> {
             break;
         }
 
-        history.push(Message {
-            role: "user".to_string(),
-            content: input.clone(),
-            reasoning: None
-        });
+        history.add_message(Message::new("user", input));
 
-        print!("Mia  > Thinking...");
-        std::io::stdout().flush()?;
+        println!("Mia  > Thinking...");
 
-        let response = completion(&history).await?;
-        if let Some(reasoning) = response.reasoning.clone() {
-            println!("\rMia  > 💭       ");
-            println!("{}", generate_think_lines(reasoning.trim()))
-        }
-        println!("\rMia  > {}", response.content.trim());
-
-        history.push(response);
+        history = agent_loop::run_agent(history, message_printer).await?;
     }
     Ok(())
+}
+
+pub fn message_printer(message: &Message) {
+        if let Some(reasoning) = message.reasoning.clone() {
+            println!("Mia  > 💭");
+            println!("{}", generate_think_lines(reasoning.trim()))
+        }
+        if let Some(content) = message.content.clone() {
+            println!("Mia  > {}", content.trim());
+        }
+        if let Some(tool_calls) = message.tool_calls.clone() {
+            for tool_call in tool_calls {
+                println!("Mia  > Tool call: {}", tool_call.function.name);
+            }
+        }
 }

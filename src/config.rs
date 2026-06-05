@@ -14,6 +14,7 @@ static CONFIG_CACHE: OnceLock<AppConfig> = OnceLock::new();
 pub struct AppConfig {
     pub model: ModelConfig,
     pub documents: DocumentConfig,
+    pub agent: AgentConfig,
     pub cli: CliConfig,
 }
 
@@ -22,6 +23,7 @@ impl Default for AppConfig {
         Self {
             model: ModelConfig::default(),
             documents: DocumentConfig::default(),
+            agent: AgentConfig::default(),
             cli: CliConfig::default(),
         }
     }
@@ -55,6 +57,19 @@ impl Default for DocumentConfig {
             soul: "SOUL.md".to_string(),
             user_memory: "memories/USER.md".to_string(),
             system_memory: "memories/MEMORY.md".to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentConfig {
+    pub max_iterations: i32,
+}
+
+impl Default for AgentConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: 10,
         }
     }
 }
