@@ -1,5 +1,5 @@
 {
-  description = "The clara-agent";
+  description = "The mia-agent";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -26,6 +26,10 @@
           git
           python313
           rust-analyzer
+        ];
+
+        buildInputs = with pkgs; [
+          tree
         ];
       };
     };

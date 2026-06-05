@@ -42,18 +42,24 @@ pub async fn run() -> Result<()> {
 }
 
 pub fn message_printer(message: &Message) {
-        if let Some(reasoning) = message.reasoning.clone() {
-            println!("{}  > 💭", "Mia".red());
-            println!("{}", generate_think_lines(reasoning.trim()))
+    if let Some(reasoning) = message.reasoning.clone() {
+        println!("{}  > 💭             ", "Mia".red());
+        println!("{}", generate_think_lines(reasoning.trim()))
+    }
+    if let Some(content) = message.content.clone() {
+        if content.trim() != "" {
+            println!("{}  > {}", "Mia".red(), content.trim());
         }
-        if let Some(content) = message.content.clone() {
-            if content.trim() != "" {
-                println!("{}  > {}", "Mia".red(), content.trim());
-            }
+    }
+    if let Some(tool_calls) = message.tool_calls.clone() {
+        for tool_call in tool_calls {
+            println!(
+                "{}  > {} {}: {}",
+                "Mia".red(),
+                get_tool_icon(&tool_call.function.name),
+                tool_call.function.name,
+                serde_json::to_string(&tool_call.function.arguments).unwrap()
+            );
         }
-        if let Some(tool_calls) = message.tool_calls.clone() {
-            for tool_call in tool_calls {
-                println!("{}  > {} {}", "Mia".red(), get_tool_icon(&tool_call.function.name), tool_call.function.name);
-            }
-        }
+    }
 }
