@@ -11,7 +11,7 @@ pub fn get_agent_tools() -> serde_json::Value {
             "type": "function",
             "function": {
                 "name": "get_current_datetime",
-                "description": "Get the current date and time",
+                "description": "Get the current date and time in RFC2822 format",
                 "parameters": {
                     "type": "object",
                     "properties": {}
@@ -30,12 +30,20 @@ pub fn execute_tools(name: &str, arguments: serde_json::Value) -> Result<serde_j
     }
 }
 
-/// Returns the current date and time in RFC3339 format
+/// A helper function to get the icon for a tool for showing in the ui
+pub fn get_tool_icon(name: &str) -> String {
+    match name {
+        "get_current_datetime" => "📅".to_string(),
+        _ => "???".to_string(),
+    }
+}
+
+/// Returns the current date and time in RFC2822 format
 fn get_current_datetime(_arguments: serde_json::Value) -> serde_json::Value {
     let now = Local::now();
     debug!("Fetched current datetime");
     json!({
         "status": "success",
-        "datetime": now.to_rfc3339(),
+        "datetime": now.to_rfc2822(),
     })
 }

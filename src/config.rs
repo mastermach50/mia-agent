@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
 use config::{Config, Environment, File, FileFormat};
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 use serde::{Deserialize, Serialize};
 
 /// Cached config that is loaded on load() and accessed on global()
@@ -94,7 +94,7 @@ impl AppConfig {
             .get()
             .expect("Failed to load cached config");
 
-        debug!("Fetched config from cache");
+        trace!("Fetched config from cache");
         cached_config
     }
 

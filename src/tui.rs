@@ -1,6 +1,9 @@
+use std::io::stdout;
 use std::{fs, io::Write};
 use anyhow::Result;
+use colored::Colorize;
 
+use crate::agent_tools::get_tool_icon;
 use crate::utils::generate_think_lines;
 use crate::config::AppConfig;
 use crate::agent_loop;
@@ -15,8 +18,9 @@ pub async fn run() -> Result<()> {
     system_prompt.push_str(&format!("\nYou are talking to {} via a TUI.", AppConfig::global().cli.username));
     history.set_system_prompt(system_prompt);
     
+    println!("{} > Use {} to exit the chat", "System".yellow(), "/exit".yellow());
     loop {
-        print!("User > ");
+        print!("{} > ", "User".blue());
         std::io::stdout().flush()?;
 
         let mut input = String::new();
@@ -29,7 +33,8 @@ pub async fn run() -> Result<()> {
 
         history.add_message(Message::new("user", input));
 
-        println!("Mia  > Thinking...");
+        print!("{}  > Thinking...\r", "Mia".red());
+        stdout().flush()?;
 
         history = agent_loop::run_agent(history, message_printer).await?;
     }
@@ -38,15 +43,17 @@ pub async fn run() -> Result<()> {
 
 pub fn message_printer(message: &Message) {
         if let Some(reasoning) = message.reasoning.clone() {
-            println!("Mia  > 💭");
+            println!("{}  > 💭", "Mia".red());
             println!("{}", generate_think_lines(reasoning.trim()))
         }
         if let Some(content) = message.content.clone() {
-            println!("Mia  > {}", content.trim());
+            if content.trim() != "" {
+                println!("{}  > {}", "Mia".red(), content.trim());
+            }
         }
         if let Some(tool_calls) = message.tool_calls.clone() {
             for tool_call in tool_calls {
-                println!("Mia  > Tool call: {}", tool_call.function.name);
+                println!("{}  > {} {}", "Mia".red(), get_tool_icon(&tool_call.function.name), tool_call.function.name);
             }
         }
 }
