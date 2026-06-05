@@ -8,7 +8,7 @@ use crate::config::AppConfig;
 /// a new history that includes the assistant's response and any tools calls processed
 pub async fn run_agent(
     history: History,
-    intermediate_message_proxy: fn(&Message),
+    on_message: impl Fn(&Message)
 ) -> Result<History> {
     let mut history = history;
 
@@ -20,7 +20,7 @@ pub async fn run_agent(
                 iterations == AppConfig::global().agent.max_iterations
             )
         {
-            intermediate_message_proxy(&Message::new(
+            on_message(&Message::new(
                 "assistant", 
                 format!("🔁 Iteration {}/{}", iterations, AppConfig::global().agent.max_iterations)
             ));
@@ -29,13 +29,13 @@ pub async fn run_agent(
 
         // Get the next message from the assistant and append it to the history
         let assistant_msg = completion(&history).await?;
-        intermediate_message_proxy(&assistant_msg);
+        on_message(&assistant_msg);
         history.add_message(assistant_msg.clone());
 
         // If the assistant requested tool calls then do the tool calls
         // Append the result of the tool calls to the history and continue the loop
-        if assistant_msg.tool_calls.is_some() {
-            for tool_call in assistant_msg.tool_calls.unwrap() {
+        if let Some(tool_calls) = assistant_msg.tool_calls {
+            for tool_call in tool_calls {
                 let content = execute_tools(&tool_call.function.name, tool_call.function.arguments)?;
                 history.add_message(Message::new_tool_call_response(
                     tool_call.id.clone(),
