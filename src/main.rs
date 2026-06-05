@@ -7,6 +7,8 @@ mod config;
 mod tui;
 mod cli;
 mod api;
+mod utils;
+
 use cli::Cli;
 use config::AppConfig;
 use log::{info, trace};
@@ -34,7 +36,7 @@ async fn main() -> Result<()>{
         },
         Some(cli::Commands::Tui) => {
             info!("Starting TUI...");
-            tui::run()?;
+            tui::run().await?;
         },
         None => {
             println!("No command provided. Use --help for usage.");

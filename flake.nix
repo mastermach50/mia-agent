@@ -15,6 +15,8 @@
       devShells.${system}.default = pkgs.mkShell {
         name = "mia";
 
+        MIA_LOG = "trace";
+
         nativeBuildInputs = with pkgs; [
           cargo
           rustfmt

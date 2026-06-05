@@ -2,7 +2,7 @@ use std::{env, fs};
 use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
-use config::{Config, Environment, File};
+use config::{Config, Environment, File, FileFormat};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 
@@ -30,12 +30,14 @@ impl Default for AppConfig {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModelConfig {
     pub name: String,
+    pub reasoning: String 
 }
 
 impl Default for ModelConfig {
     fn default() -> Self {
         Self {
             name: "owl-alpha".to_string(),
+            reasoning: "auto".to_string()
         }
     }
 }
@@ -118,29 +120,38 @@ impl AppConfig {
         // Build config with priority
         // Env > Config file
         let config_builder = Config::builder()
+            // Hardcoded default config
+            .add_source(
+                File::from_str(&toml::to_string(&AppConfig::default())?, FileFormat::Toml).required(true)
+            )
+
+            // Config file
             .add_source(
                 File::with_name(config_file.to_str().unwrap())
             )
+
+            // Environment variables
             .add_source(
                 Environment::with_prefix("MIA")
                     .separator("__")
             )
+
             .build()
             .context("Failed to assemble configuration sources");
 
         let app_config: AppConfig = config_builder?
             .try_deserialize()?;
         
-        let _ = CONFIG_CACHE.set(app_config.clone());
+        let parsed_config = Self::post_config_load(app_config)?;
+
+        let _ = CONFIG_CACHE.set(parsed_config.clone());
         debug!("Loaded and cached config");
 
-        Self::post_config_load(&app_config)?;
-
-        Ok(app_config)
+        Ok(parsed_config)
     }
 
     /// Executes checks and actions to be done right after config load
-    fn post_config_load(config: &AppConfig) -> Result<()> {
+    fn post_config_load(mut config: AppConfig) -> Result<AppConfig> {
 
         // Check if required api keys are present in env
         if env::var("OPENROUTER_API_KEY").is_err() {
@@ -179,6 +190,10 @@ impl AppConfig {
             info!("Created system memory file at {:?}", system_memory_path);
         };
 
-        Ok(())
+        config.documents.soul = soul_path.to_str().unwrap().to_string();
+        config.documents.user_memory = user_memory_path.to_str().unwrap().to_string();
+        config.documents.system_memory = system_memory_path.to_str().unwrap().to_string();
+
+        Ok(config)
     }
 }
