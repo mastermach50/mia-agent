@@ -3,6 +3,7 @@ use log::{debug, warn};
 use serde_json::{self, json};
 
 mod datetime;
+mod shell;
 
 /// All tools must have this trait implemented
 /// Individual tools can be defined in agent_tools/
@@ -21,6 +22,7 @@ impl ToolRegistry {
         let mut registry = HashMap::new();
         
         Self::register(&mut registry, datetime::DateTime.name(), datetime::DateTime);
+        Self::register(&mut registry, shell::Shell.name(), shell::Shell);
 
         TOOL_REGISTRY.set(registry).unwrap();
     }
