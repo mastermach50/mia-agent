@@ -5,6 +5,8 @@ use serde_json::{self, json};
 mod datetime;
 mod shell;
 mod file_read;
+mod python;
+mod memory;
 
 /// All tools must have this trait implemented
 /// Individual tools can be defined in agent_tools/
@@ -25,6 +27,8 @@ impl ToolRegistry {
         Self::register(&mut registry, datetime::DateTime.name(), datetime::DateTime);
         Self::register(&mut registry, shell::Shell.name(), shell::Shell);
         Self::register(&mut registry, file_read::FileReader.name(), file_read::FileReader);
+        Self::register(&mut registry, python::Python.name(), python::Python);
+        Self::register(&mut registry, memory::Memory.name(), memory::Memory);
 
         TOOL_REGISTRY.set(registry).unwrap();
     }

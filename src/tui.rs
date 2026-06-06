@@ -1,11 +1,11 @@
 use std::io::stdout;
-use std::{fs, io::Write};
+use std::io::Write;
 use anyhow::Result;
 use colored::Colorize;
 use termimad;
 
 use crate::agent_tools::ToolRegistry;
-use crate::utils::{generate_think_lines, load_history, save_history};
+use crate::utils::{generate_system_prompt, generate_think_lines, load_history, save_history};
 use crate::config::AppConfig;
 use crate::agent_loop;
 use crate::api::{History, Message};
@@ -17,16 +17,13 @@ pub async fn run() -> Result<()> {
     let mut history = History::new();
     if let Ok(loaded_history) = load_history("tui-agent-history.json") {
         history = loaded_history;
-    } else {
-        let mut system_prompt = String::new();
-        let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
-        system_prompt.push_str(&soul);
-        system_prompt.push_str(&format!("\nYou are talking to {} via a TUI.", AppConfig::global().cli.username));
-        history.set_system_prompt(system_prompt);
     }
     
     println!("{} > Use {} to exit the chat, {} to start a new session.", "System".yellow(), "/exit".yellow(), "/new".yellow());
     loop {
+        // Update the system prompt every turn in case the user or system memory changed
+        history.set_system_prompt(get_tui_system_prompt()?);
+
         print!("{} > ", "User".blue());
         std::io::stdout().flush()?;
 
@@ -41,11 +38,7 @@ pub async fn run() -> Result<()> {
             }
             "/new" => {
                 history = History::new();
-                let mut system_prompt = String::new();
-                let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
-                system_prompt.push_str(&soul);
-                system_prompt.push_str(&format!("\nYou are talking to {} via a TUI.", AppConfig::global().cli.username));
-                history.set_system_prompt(system_prompt);
+                continue;
             }
             _ => {}
         }
@@ -56,6 +49,9 @@ pub async fn run() -> Result<()> {
         stdout().flush()?;
 
         history = agent_loop::run_agent(history, message_printer).await?;
+
+        // Save history at the end of turn
+        save_history("tui-agent-history.json", &history)?;
     }
     Ok(())
 }
@@ -84,4 +80,11 @@ pub fn message_printer(message: &Message) {
     }
 
     termimad::print_inline(&output);
+}
+
+fn get_tui_system_prompt() -> Result<String> {
+    let mut system_prompt = String::new();
+    system_prompt = generate_system_prompt(&mut system_prompt)?.to_owned();
+    system_prompt.push_str(&format!("\nYou are talking to {} via a TUI.", AppConfig::global().cli.username));
+    Ok(system_prompt)
 }
