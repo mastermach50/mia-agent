@@ -19,7 +19,7 @@ pub struct ToolCall {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FunctionCall {
     pub name: String,
-    pub arguments: serde_json::Value,
+    pub arguments: String // The arguments are a JSON string that may or may not be valid
 }
 
 /// A message structure that can hold any type of message from any role

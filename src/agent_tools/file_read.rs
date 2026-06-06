@@ -1,0 +1,60 @@
+// This file was AI generated
+
+use std::fs;
+use serde_json::json;
+
+use crate::agent_tools::Tool;
+
+#[derive(Debug)]
+pub struct FileReader;
+
+impl Tool for FileReader {
+    fn name(&self) -> String { "file_read".to_string() }
+    fn icon(&self) -> String { "📖".to_string() }
+    fn schema(&self) -> serde_json::Value {
+        json!({
+            "type": "function",
+            "function": {
+                "name": "file_read",
+                "description": "Read a file from the filesystem. Returns the content or an error message.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "The file path to read (relative to current directory)"
+                        }
+                    },
+                    "required": ["path"]
+                }
+            }
+        })
+    }
+    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+        let path = args["path"].as_str()
+            .expect("Path argument not found");
+        
+        match fs::read_to_string(path) {
+            Ok(content) => {
+                let preview = if content.len() > 500 {
+                    format!("{}... {} more characters (I'm not reading the whole encyclopedia to ya! 😘)", 
+                        &content[..500], content.len() - 500)
+                } else {
+                    content.clone()
+                };
+                
+                json!({
+                    "status": "success",
+                    "path": path,
+                    "size": content.len(),
+                    "content": preview,
+                    "full_content": content.len() <= 500
+                })
+            },
+            Err(e) => json!({
+                "status": "error",
+                "message": format!("I couldn't read that file, babe! Error: {}", e)
+            })
+        }
+    }
+}

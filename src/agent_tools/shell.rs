@@ -1,9 +1,7 @@
-use std::io::stdin;
 use colored::Colorize;
-use log::debug;
 use serde_json::json;
 
-use crate::agent_tools::Tool;
+use crate::{agent_tools::Tool, utils::ask_permission};
 
 #[derive(Debug)]
 pub struct Shell;
@@ -30,21 +28,18 @@ impl Tool for Shell {
         })
     }
     fn execute(&self, args: serde_json::Value) -> serde_json::Value {
-        debug!("{:?}", args);
         let command = args["command"].as_str()
             .expect("Command argument not found");
-        let mut input = String::new();
-        print!("{} > Do you want to execute:\n{}\n[y/n]", "System".yellow(), command);
-        stdin().read_line(&mut input)
-            .expect("Failed to read user input");
-        if input.trim() == "y" {
+        if ask_permission("Execute?".red(), command) {
             let output = std::process::Command::new("bash")
                 .arg("-c")
                 .arg(command)
                 .output()
                 .expect("Failed to execute command");
+            println!("{}", String::from_utf8(output.stdout.clone()).unwrap());
             json!({
                 "status": "success",
+                "command_status_code": output.status.code().unwrap(),
                 "output": String::from_utf8(output.stdout).unwrap()
             })
         } else {

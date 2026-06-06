@@ -4,6 +4,7 @@ use serde_json::{self, json};
 
 mod datetime;
 mod shell;
+mod file_read;
 
 /// All tools must have this trait implemented
 /// Individual tools can be defined in agent_tools/
@@ -23,6 +24,7 @@ impl ToolRegistry {
         
         Self::register(&mut registry, datetime::DateTime.name(), datetime::DateTime);
         Self::register(&mut registry, shell::Shell.name(), shell::Shell);
+        Self::register(&mut registry, file_read::FileReader.name(), file_read::FileReader);
 
         TOOL_REGISTRY.set(registry).unwrap();
     }
@@ -44,16 +46,24 @@ impl ToolRegistry {
         json!(schema_list)
     }
 
-    pub fn call(name: &str, args: serde_json::Value) -> serde_json::Value {
-        match Self::global().get(name) {
-            Some(tool) => tool.execute(args),
-            None => {
-                warn!("Unregistered tool requested");
-                json!({
-                    "status": "error",
-                    "message": "Unregistered tool requested"
-                })
+    pub fn call(name: &str, args: String) -> serde_json::Value {
+        if let Ok(args) = serde_json::from_str(&args) {
+            match Self::global().get(name) {
+                Some(tool) => tool.execute(args),
+                None => {
+                    warn!("Unregistered tool requested");
+                    json!({
+                        "status": "error",
+                        "message": "Unregistered tool requested"
+                    })
+                }
             }
+        } else {
+            warn!("Invalid tool arguments");
+            json!({
+                "status": "error",
+                "message": "Invalid tool arguments or malformed json"
+            })
         }
     }
 
