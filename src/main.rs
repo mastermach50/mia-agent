@@ -14,6 +14,7 @@ mod agent_tools;
 use cli::Cli;
 use config::AppConfig;
 use log::{info, trace};
+use agent_tools::ToolRegistry;
 
 #[tokio::main]
 async fn main() -> Result<()>{
@@ -28,6 +29,10 @@ async fn main() -> Result<()>{
     // Load configs from config.toml (to global cache)
     AppConfig::load()?;
 
+    // Load agent tools
+    ToolRegistry::init();
+
+    // Print config
     trace!("Model: {:?}", AppConfig::global().model);
     trace!("Documents: {:?}", AppConfig::global().documents);
     

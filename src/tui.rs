@@ -3,7 +3,7 @@ use std::{fs, io::Write};
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::agent_tools::get_tool_icon;
+use crate::agent_tools::ToolRegistry;
 use crate::utils::generate_think_lines;
 use crate::config::AppConfig;
 use crate::agent_loop;
@@ -56,7 +56,7 @@ pub fn message_printer(message: &Message) {
             println!(
                 "{}  > {} {}: {}",
                 "Mia".red(),
-                get_tool_icon(&tool_call.function.name),
+                ToolRegistry::tool_icon(&tool_call.function.name),
                 tool_call.function.name,
                 serde_json::to_string(&tool_call.function.arguments).unwrap()
             );
