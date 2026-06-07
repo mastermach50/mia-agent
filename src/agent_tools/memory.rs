@@ -11,6 +11,14 @@ pub struct Memory;
 impl Tool for Memory {
     fn name(&self) -> String { "memory".to_string() }
     fn icon(&self) -> String { "🧠".to_string() }
+    fn short(&self, args: serde_json::Value) -> String {
+        let memory_type = args["memory_type"].as_str().unwrap_or_default();
+        let operation = args["operation"].as_str().unwrap_or_default();
+        let content = args["content"].as_str().unwrap_or_default();
+        let operator = if operation == "insert" { "+" } else if operation == "delete" { "-" } else { "?" };
+        format!("{} {}{}", memory_type, operator, content)
+    }
+    fn is_available(&self) -> bool { true }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",

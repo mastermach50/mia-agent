@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use log::info;
 use textwrap;
 use colored::{ColoredString};
@@ -26,7 +27,9 @@ pub fn ask_permission(header: impl Into<ColoredString>, content: &str) -> bool {
     print!("╭{}╮", "─".repeat(maxw + 2));
     println!("\r╭─{}", header);
     for line in wrapped {
-        println!("│ {}{}│", line, " ".repeat(maxw - line.len() + 1));
+        let line_width = textwrap::core::display_width(&line);
+        let padding = maxw.saturating_sub(line_width) + 1;
+        println!("│ {}{}│", line, " ".repeat(padding));
     }
     print!("╰{}╯", "─".repeat(maxw + 2));
     print!("\r╰[y/n]: ");
@@ -55,7 +58,7 @@ mod tests {
     }
 }
 
-pub fn save_history(filename: &str, history: &History) -> Result<()>{
+pub fn save_session(filename: &str, history: &History) -> Result<()>{
     info!("Saving history to file");
     let sessions_dir = home_dir().unwrap().join(".mia/sessions");
     if !sessions_dir.exists() {
@@ -66,7 +69,7 @@ pub fn save_history(filename: &str, history: &History) -> Result<()>{
     Ok(())
 }
 
-pub fn load_history(filename: &str) -> Result<History> {
+pub fn load_session(filename: &str) -> Result<History> {
     info!("Loading history from file");
     let history_file = home_dir().unwrap().join(".mia/sessions").join(filename);
     if history_file.exists() {
@@ -81,8 +84,16 @@ pub fn load_history(filename: &str) -> Result<History> {
 pub fn generate_system_prompt(system_prompt: &mut String) -> Result<&mut String> {
     let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
     system_prompt.push_str(&soul);
-    let user_memory = fs::read_to_string(&AppConfig::global().documents.user_memory)?;
-    let system_memory = fs::read_to_string(&AppConfig::global().documents.system_memory)?;
+    let user_memory = fs::read_to_string(&AppConfig::global().documents.user_memory)?
+        .lines()
+        .filter(|&f| f != "§")
+        .map(|f| String::from("- ") + &f)
+        .join("\n");
+    let system_memory = fs::read_to_string(&AppConfig::global().documents.system_memory)?
+        .lines()
+        .filter(|&f| f != "§")
+        .map(|f| String::from("- ") + &f)
+        .join("\n");
     system_prompt.push_str("\n");
     system_prompt.push_str("# Memory\n");
     system_prompt.push_str("## User Memory\n");

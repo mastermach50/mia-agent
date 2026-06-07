@@ -8,6 +8,17 @@ pub struct Shell;
 impl Tool for Shell {
     fn name(&self) -> String { "shell".to_string() }
     fn icon(&self) -> String { "🐚".to_string() }
+    fn short(&self, args: serde_json::Value) -> String {
+        args["command"].as_str()
+            .unwrap_or_default().to_string()
+    }
+    fn is_available(&self) -> bool {
+        std::process::Command::new("which")
+            .arg("bash")
+            .status()
+            .expect("Failed to execute 'which'")
+            .success()
+    }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",

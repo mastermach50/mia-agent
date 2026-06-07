@@ -36,7 +36,7 @@ pub async fn run_agent(
         // Append the result of the tool calls to the history and continue the loop
         if let Some(tool_calls) = assistant_msg.tool_calls {
             for tool_call in tool_calls {
-                let content = ToolRegistry::call(&tool_call.function.name, tool_call.function.arguments);
+                let content = ToolRegistry::call(&tool_call.function.name, &tool_call.function.arguments);
                 history.add_message(Message::new_tool_call_response(
                     tool_call.id.clone(),
                     content.to_string(),

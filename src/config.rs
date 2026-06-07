@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::{env, fs};
 use std::sync::OnceLock;
 
@@ -15,7 +16,7 @@ pub struct AppConfig {
     pub model: ModelConfig,
     pub documents: DocumentConfig,
     pub agent: AgentConfig,
-    pub cli: CliConfig,
+    pub tui: TuiConfig,
 }
 
 impl Default for AppConfig {
@@ -24,7 +25,7 @@ impl Default for AppConfig {
             model: ModelConfig::default(),
             documents: DocumentConfig::default(),
             agent: AgentConfig::default(),
-            cli: CliConfig::default(),
+            tui: TuiConfig::default(),
         }
     }
 }
@@ -75,14 +76,16 @@ impl Default for AgentConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct CliConfig {
+pub struct TuiConfig {
     pub username: String,
+    pub history_file: String,
 }
 
-impl Default for CliConfig {
+impl Default for TuiConfig {
     fn default() -> Self {
         Self {
             username: "user".to_string(),
+            history_file: ".mia_tui_history".to_string(),
         }
     }
 }
@@ -174,40 +177,38 @@ impl AppConfig {
             anyhow::bail!("OPENROUTER_API_KEY not set in .env");
         };
 
-        // Make soul, user memory and system memory files if they don't exist
+        // In the config expand the paths
         let mia_dir = std::env::home_dir().unwrap().join(".mia");
-        let soul_path = mia_dir.join(config.documents.soul.clone());
-        let user_memory_path = mia_dir.join(config.documents.user_memory.clone());
-        let system_memory_path = mia_dir.join(config.documents.system_memory.clone());
+        config.documents.soul = mia_dir.join(config.documents.soul).to_str().unwrap().to_string();
+        config.documents.user_memory = mia_dir.join(config.documents.user_memory).to_str().unwrap().to_string();
+        config.documents.system_memory = mia_dir.join(config.documents.system_memory).to_str().unwrap().to_string();
+        config.tui.history_file = mia_dir.join(config.tui.history_file).to_str().unwrap().to_string();
 
-        let initial_soul = "You are Mia, a personal assistant. Respond accurately and concisely";
-        if !soul_path.exists() {
-            fs::write(&soul_path, initial_soul)
-                .context("Failed to create soul file")?;
-            info!("Created soul file at {:?}", soul_path);
-        };
-        if !user_memory_path.exists() {
-            if user_memory_path.parent().is_some() {
-                fs::create_dir_all(user_memory_path.parent().unwrap())
-                    .context("Failed to create user memory directory")?;
-            }
-            fs::write(&user_memory_path, "")
-                .context("Failed to create user memory file")?;
-            info!("Created user memory file at {:?}", user_memory_path);
-        };
-        if !system_memory_path.exists() {
-            if system_memory_path.parent().is_some() {
-                fs::create_dir_all(system_memory_path.parent().unwrap())
-                    .context("Failed to create system memory directory")?;
-            }
-            fs::write(&system_memory_path, "")
-                .context("Failed to create system memory file")?;
-            info!("Created system memory file at {:?}", system_memory_path);
-        };
+        // Make all necessary files if they don't exist
+        let paths: Vec<PathBuf> = vec![
+            config.documents.soul.parse()?,
+            config.documents.user_memory.parse()?,
+            config.documents.system_memory.parse()?,
+            config.tui.history_file.parse()?,
+        ];
+        for path in paths {
+            if !path.exists() {
+                // Create parent directories if they don't exist
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent)
+                    .context(format!("Failed to create directory {:?}", parent))?;
+                }
+                // Create file if it doesn't exist
+                fs::File::create(&path)
+                .context(format!("Failed to create file {:?}", path))?;
 
-        config.documents.soul = soul_path.to_str().unwrap().to_string();
-        config.documents.user_memory = user_memory_path.to_str().unwrap().to_string();
-        config.documents.system_memory = system_memory_path.to_str().unwrap().to_string();
+                // Write the initial soul if the file had to be created
+                if path == config.documents.soul {
+                    let initial_soul = "You are Mia, a personal assistant. Respond accurately and concisely";
+                    fs::write(path, initial_soul)?;
+                }
+            }
+        }
 
         Ok(config)
     }

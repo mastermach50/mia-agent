@@ -10,12 +10,23 @@ pub struct Python;
 impl Tool for Python {
     fn name(&self) -> String { "python".to_string() }
     fn icon(&self) -> String { "🐍".to_string() }
+    fn short(&self, args: serde_json::Value) -> String {
+        args["code"].as_str()
+            .unwrap_or_default().to_string()
+    }
+    fn is_available(&self) -> bool {
+        std::process::Command::new("which")
+            .arg("python3")
+            .status()
+            .expect("Failed to execute 'which'")
+            .success()
+    }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",
             "function": {
                 "name": "python",
-                "description": "Execute Python code",
+                "description": "Execute Python 3 code",
                 "parameters": {
                     "type": "object",
                     "properties": {

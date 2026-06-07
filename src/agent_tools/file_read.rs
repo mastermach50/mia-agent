@@ -11,6 +11,11 @@ pub struct FileReader;
 impl Tool for FileReader {
     fn name(&self) -> String { "file_read".to_string() }
     fn icon(&self) -> String { "📖".to_string() }
+    fn short(&self, args: serde_json::Value) -> String {
+        args["path"].as_str()
+            .unwrap_or_default().to_string()
+    }
+    fn is_available(&self) -> bool { true }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",
