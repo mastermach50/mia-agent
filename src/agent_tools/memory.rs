@@ -24,7 +24,7 @@ impl Tool for Memory {
             "type": "function",
             "function": {
                 "name": "memory",
-                "description": "Manage memory files - insert, or delete lines. Use this to remember things about the user or yourself",
+                "description": "Manage memory files - insert, or delete lines. Use this to remember things about the user or yourself.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -64,6 +64,9 @@ impl Tool for Memory {
                 "message": "Invalid memory type. Use 'user' or 'system'"
             });
         };
+
+        // Remove the bullet point from the content if it exists
+        // let content = content.strip_prefix("- ").unwrap_or(content);
         
         match operation {
             "insert" => {

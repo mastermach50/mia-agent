@@ -17,8 +17,9 @@ impl Tool for Python {
     fn is_available(&self) -> bool {
         std::process::Command::new("which")
             .arg("python3")
-            .status()
+            .output()
             .expect("Failed to execute 'which'")
+            .status
             .success()
     }
     fn schema(&self) -> serde_json::Value {

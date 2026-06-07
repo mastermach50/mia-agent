@@ -7,6 +7,8 @@ mod shell;
 mod file_read;
 mod python;
 mod memory;
+mod web_search;
+mod web_extract;
 
 /// All tools must have this trait implemented
 /// Individual tools can be defined in agent_tools/
@@ -37,6 +39,8 @@ impl ToolRegistry {
         Self::register(&mut registry, file_read::FileReader);
         Self::register(&mut registry, python::Python);
         Self::register(&mut registry, memory::Memory);
+        Self::register(&mut registry, web_search::WebSearch);
+        Self::register(&mut registry, web_extract::WebExtract);
 
         TOOL_REGISTRY.set(registry).unwrap();
     }
@@ -62,7 +66,7 @@ impl ToolRegistry {
             .filter(|s| !s.is_null())
             .collect::<Vec<serde_json::Value>>();
         debug!("Tools Schema: {}", json!(&schema_list));
-        json!(schema_list)
+        json!(&schema_list)
     }
 
     pub fn call(name: &str, args: &str) -> serde_json::Value {

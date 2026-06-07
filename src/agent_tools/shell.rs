@@ -15,8 +15,9 @@ impl Tool for Shell {
     fn is_available(&self) -> bool {
         std::process::Command::new("which")
             .arg("bash")
-            .status()
+            .output()
             .expect("Failed to execute 'which'")
+            .status
             .success()
     }
     fn schema(&self) -> serde_json::Value {

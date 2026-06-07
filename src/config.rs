@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
 use config::{Config, Environment, File, FileFormat};
-use log::{debug, error, info, trace};
+use log::{debug, error, warn, info, trace};
 use serde::{Deserialize, Serialize};
 
 /// Cached config that is loaded on load() and accessed on global()
@@ -176,6 +176,11 @@ impl AppConfig {
             error!("OPENROUTER_API_KEY not set in .env");
             anyhow::bail!("OPENROUTER_API_KEY not set in .env");
         };
+
+        // Check for Tavily API key (warning only, tools will just be unavailable)
+        if env::var("TAVILY_API_KEY").is_err() {
+            warn!("TAVILY_API_KEY not set in .env - web_search and web_extract tools will be unavailable");
+        }
 
         // In the config expand the paths
         let mia_dir = std::env::home_dir().unwrap().join(".mia");

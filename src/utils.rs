@@ -87,12 +87,12 @@ pub fn generate_system_prompt(system_prompt: &mut String) -> Result<&mut String>
     let user_memory = fs::read_to_string(&AppConfig::global().documents.user_memory)?
         .lines()
         .filter(|&f| f != "§")
-        .map(|f| String::from("- ") + &f)
+        // .map(|f| String::from("- ") + &f)
         .join("\n");
     let system_memory = fs::read_to_string(&AppConfig::global().documents.system_memory)?
         .lines()
         .filter(|&f| f != "§")
-        .map(|f| String::from("- ") + &f)
+        // .map(|f| String::from("- ") + &f)
         .join("\n");
     system_prompt.push_str("\n");
     system_prompt.push_str("# Memory\n");
