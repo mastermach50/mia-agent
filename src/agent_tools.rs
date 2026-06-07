@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::OnceLock};
 use itertools::Itertools;
-use log::{debug, warn};
+use log::{trace, warn};
 use serde_json::{self, json};
 
 mod datetime;
@@ -73,7 +73,7 @@ impl ToolRegistry {
             .filter(|tool_entry| tool_entry.is_available)
             .map(|tool_entry| tool_entry.tool.schema())
             .collect::<Vec<serde_json::Value>>();
-        debug!("Tools Schema: {}", json!(&schema_list));
+        trace!("Tools Schema: {}", json!(&schema_list));
         json!(&schema_list)
     }
 

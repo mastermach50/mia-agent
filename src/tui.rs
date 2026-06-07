@@ -3,6 +3,7 @@ use std::io::Write;
 use anyhow::Result;
 use colored::Colorize;
 use nu_ansi_term::{Color, Style};
+use reedline::EditCommand;
 use reedline::{ColumnarMenu, DefaultCompleter, Emacs, ExampleHighlighter, FileBackedHistory, KeyCode, KeyModifiers, MenuBuilder, Prompt, PromptHistorySearchStatus, Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings};
 use termimad;
 
@@ -165,14 +166,19 @@ fn get_reedline() -> Result<(Reedline, impl Prompt)> {
             .with_text_style(Style::new().fg(Color::Green))
     );
     let mut keybindings = default_emacs_keybindings();
-        keybindings.add_binding(
-            KeyModifiers::NONE,
-            KeyCode::Tab,
-            ReedlineEvent::UntilFound(vec![
-                ReedlineEvent::Menu("completion_menu".to_string()),
-                ReedlineEvent::MenuNext,
-            ]),
-        );
+    keybindings.add_binding(
+        KeyModifiers::NONE,
+        KeyCode::Tab,
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("completion_menu".to_string()),
+            ReedlineEvent::MenuNext,
+        ]),
+    );
+    keybindings.add_binding(
+    KeyModifiers::SHIFT,
+        KeyCode::Enter,
+        ReedlineEvent::Edit(vec![EditCommand::InsertNewline])
+    );
     let edit_mode = Box::new(Emacs::new(keybindings));
 
     let mut completer = Box::new(

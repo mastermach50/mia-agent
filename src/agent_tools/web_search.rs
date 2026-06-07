@@ -15,7 +15,7 @@ impl Tool for WebSearch {
             .unwrap_or_default()
             .to_string();
         let max_results = args["max_results"].as_u64()
-            .unwrap_or_default();
+            .unwrap_or(10);
         format!("{query} ({max_results})")
     }
     fn is_available(&self) -> bool {
