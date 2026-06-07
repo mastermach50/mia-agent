@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use log::info;
+use log::{debug, info};
 use textwrap;
 use colored::{ColoredString};
 use std::io::{Write, stdout};
@@ -59,7 +59,7 @@ mod tests {
 }
 
 pub fn save_session(filename: &str, history: &History) -> Result<()>{
-    info!("Saving history to file");
+    debug!("Saving history to file");
     let sessions_dir = home_dir().unwrap().join(".mia/sessions");
     if !sessions_dir.exists() {
         fs::create_dir_all(&sessions_dir).unwrap();
@@ -70,7 +70,7 @@ pub fn save_session(filename: &str, history: &History) -> Result<()>{
 }
 
 pub fn load_session(filename: &str) -> Result<History> {
-    info!("Loading history from file");
+    debug!("Loading history from file");
     let history_file = home_dir().unwrap().join(".mia/sessions").join(filename);
     if history_file.exists() {
         let history = fs::read_to_string(history_file)?;
