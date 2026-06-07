@@ -14,4 +14,7 @@ pub enum Commands {
 
     /// Run in interactive mode
     Tui,
+
+    /// List all the tools and their status
+    Tools,
 }

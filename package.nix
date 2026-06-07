@@ -1,10 +1,12 @@
 {
-  craneLib,
-  tree,
-  python3,
+  bash,
   clang,
+  craneLib,
+  lib,
+  makeWrapper,
   mold,
-  bash
+  python3,
+  tree,
 }:
 let
   commonArgs = {
@@ -13,11 +15,7 @@ let
     nativeBuildInputs = [
       clang
       mold
-    ];
-    buildInputs = [
-      tree
-      python3
-      bash
+      makeWrapper
     ];
   };
 
@@ -25,4 +23,13 @@ let
 in
 craneLib.buildPackage ( commonArgs // { 
   inherit cargoArtifacts;
+
+  postInstall = ''
+    wrapProgram $out/bin/mia-agent\
+      --prefix PATH : ${lib.makeBinPath [ 
+        tree
+        python3
+        bash
+      ]}
+  '';
 })

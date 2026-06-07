@@ -1,4 +1,5 @@
 use std::{collections::HashMap, sync::OnceLock};
+use itertools::Itertools;
 use log::{debug, warn};
 use serde_json::{self, json};
 
@@ -9,6 +10,7 @@ mod python;
 mod memory;
 mod web_search;
 mod web_extract;
+
 
 /// All tools must have this trait implemented
 /// Individual tools can be defined in agent_tools/
@@ -27,8 +29,16 @@ trait Tool: Send + Sync + std::fmt::Debug {
     fn execute(&self, args: serde_json::Value) -> serde_json::Value;
 }
 
-static TOOL_REGISTRY: OnceLock<HashMap<String, Box<dyn Tool>>> = OnceLock::new();
 
+#[derive(Debug)]
+pub struct ToolEntry {
+    tool: Box<dyn Tool>,
+    is_available: bool,
+}
+type ToolRegistryType = HashMap<String, ToolEntry>;
+
+// function_name -> { tool, is_available }
+static TOOL_REGISTRY: OnceLock<ToolRegistryType> = OnceLock::new();
 pub struct ToolRegistry;
 impl ToolRegistry {
     pub fn init() {
@@ -42,28 +52,26 @@ impl ToolRegistry {
         Self::register(&mut registry, web_search::WebSearch);
         Self::register(&mut registry, web_extract::WebExtract);
 
-        TOOL_REGISTRY.set(registry).unwrap();
+        TOOL_REGISTRY.set(registry).expect("Failed to set TOOL_REGISTRY");
     }
 
-    fn global() -> &'static HashMap<String, Box<dyn Tool>> {
+    fn global() -> &'static ToolRegistryType {
         TOOL_REGISTRY.get().expect("Tool registry not initialized")
     }
 
-    fn register(registry: &mut HashMap<String, Box<dyn Tool>>, tool: impl Tool + 'static) {
-        if !tool.is_available() {
-            return;
-        }
+    fn register(registry: &mut ToolRegistryType, tool: impl Tool + 'static) {
         let name = tool.name();
         let tool: Box<dyn Tool> = Box::new(tool);
-        registry.insert(name, tool);
+        let is_available = tool.is_available();
+        registry.insert(name, ToolEntry { tool, is_available });
     }
 
     /// Generate the full tools schema that has to be sent to the API
-    /// Tools that are not available will return a null schema
+    /// Only tools that are available are included
     pub fn schema() -> serde_json::Value {
         let schema_list = Self::global().values()
-            .map(|tool| tool.schema())
-            .filter(|s| !s.is_null())
+            .filter(|tool_entry| tool_entry.is_available)
+            .map(|tool_entry| tool_entry.tool.schema())
             .collect::<Vec<serde_json::Value>>();
         debug!("Tools Schema: {}", json!(&schema_list));
         json!(&schema_list)
@@ -72,7 +80,7 @@ impl ToolRegistry {
     pub fn call(name: &str, args: &str) -> serde_json::Value {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
             match Self::global().get(name) {
-                Some(tool) => tool.execute(args),
+                Some(tool_entry) => tool_entry.tool.execute(args),
                 None => {
                     warn!("Unregistered tool requested");
                     json!({
@@ -92,7 +100,7 @@ impl ToolRegistry {
 
     pub fn tool_icon(name: &str) -> String {
         match Self::global().get(name) {
-            Some(tool) => tool.icon(),
+            Some(tool_entry) => tool_entry.tool.icon(),
             None => {
                 warn!("Unregistered tool icon requested");
                 "❓".to_string()
@@ -103,7 +111,7 @@ impl ToolRegistry {
     pub fn tool_short(name: &str, args: &str) -> String {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
         match Self::global().get(name) {
-            Some(tool) => tool.short(args),
+            Some(tool_entry) => tool_entry.tool.short(args),
             None => {
                 warn!("Unregistered tool short requested");
                 "❓".to_string()
@@ -113,6 +121,13 @@ impl ToolRegistry {
             warn!("Invalid tool arguments");
             "❓".to_string()
         }
+    }
+
+    pub fn tools_status() -> Vec<(String, bool)> {
+        Self::global().iter()
+            .map(|(tool_name,tool_entry)| (tool_name.clone(), tool_entry.is_available))
+            .sorted()
+            .collect()
     }
 
     fn deserialize_tool_arguments(args: String) -> anyhow::Result<serde_json::Value> {

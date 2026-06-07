@@ -1,5 +1,6 @@
 use anyhow::{Ok, Result};
 use clap::Parser;
+use colored::Colorize;
 use env_logger::Env;
 use tokio;
 
@@ -44,6 +45,15 @@ async fn main() -> Result<()>{
         Some(cli::Commands::Tui) => {
             info!("Starting TUI...");
             tui::run().await?;
+        },
+        Some(cli::Commands::Tools) => {
+            println!("Available Tools:");
+            for (tool_name, is_available) in ToolRegistry::tools_status() {
+                println!(
+                    "    {} {:15} {}",
+                    ToolRegistry::tool_icon(&tool_name), tool_name, if is_available { "✔".green() } else { "✘".red() }
+                );
+            }
         },
         None => {
             println!("No command provided. Use --help for usage.");
