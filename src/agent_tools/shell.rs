@@ -50,9 +50,10 @@ impl Tool for Shell {
                 .expect("Failed to execute command");
             println!("{}", String::from_utf8(output.stdout.clone()).unwrap());
             json!({
-                "status": "success",
-                "command_status_code": output.status.code().unwrap(),
-                "output": String::from_utf8(output.stdout).unwrap()
+                "status": if output.status.success() { "success" } else { "error" },
+                "exit_code": output.status.code().unwrap(),
+                "stdout": String::from_utf8(output.stdout).unwrap(),
+                "stderr": String::from_utf8(output.stderr).unwrap()
             })
         } else {
             json!({

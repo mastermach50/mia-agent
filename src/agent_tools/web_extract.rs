@@ -6,7 +6,6 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct WebExtract;
-
 impl Tool for WebExtract {
     fn name(&self) -> String { "web_extract".to_string() }
     fn icon(&self) -> String { "🪏".to_string() }

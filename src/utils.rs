@@ -84,6 +84,12 @@ pub fn load_session(filename: &str) -> Result<History> {
 pub fn generate_system_prompt(system_prompt: &mut String) -> Result<&mut String> {
     let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
     system_prompt.push_str(&soul);
+    system_prompt.push_str(&indoc::formatdoc! {"
+        # Extra info about yourself
+        model: {}
+        cwd: {}
+    ", AppConfig::global().model.name, std::env::current_dir().unwrap().display()});
+    system_prompt.push_str("\n");
     let user_memory = fs::read_to_string(&AppConfig::global().documents.user_memory)?
         .lines()
         .filter(|&f| f != "§")

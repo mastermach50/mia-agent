@@ -7,7 +7,6 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct FileReader;
-
 impl Tool for FileReader {
     fn name(&self) -> String { "file_read".to_string() }
     fn icon(&self) -> String { "📖".to_string() }
@@ -21,13 +20,13 @@ impl Tool for FileReader {
             "type": "function",
             "function": {
                 "name": "file_read",
-                "description": "Read a file from the filesystem. Returns the content or an error message.",
+                "description": "Read a file from the filesystem.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "The file path to read (relative to current directory)"
+                            "description": "The file path to read (relative to current working directory)"
                         }
                     },
                     "required": ["path"]
@@ -58,7 +57,7 @@ impl Tool for FileReader {
             },
             Err(e) => json!({
                 "status": "error",
-                "message": format!("I couldn't read that file, babe! Error: {}", e)
+                "message": format!("Failed to read file: {}", e)
             })
         }
     }

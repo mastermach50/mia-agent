@@ -6,7 +6,6 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct WebSearch;
-
 impl Tool for WebSearch {
     fn name(&self) -> String { "web_search".to_string() }
     fn icon(&self) -> String { "🌐".to_string() }

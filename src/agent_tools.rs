@@ -10,6 +10,7 @@ mod python;
 mod memory;
 mod web_search;
 mod web_extract;
+mod file_list;
 
 
 /// All tools must have this trait implemented
@@ -51,6 +52,7 @@ impl ToolRegistry {
         Self::register(&mut registry, memory::Memory);
         Self::register(&mut registry, web_search::WebSearch);
         Self::register(&mut registry, web_extract::WebExtract);
+        Self::register(&mut registry, file_list::FileList);
 
         TOOL_REGISTRY.set(registry).expect("Failed to set TOOL_REGISTRY");
     }
