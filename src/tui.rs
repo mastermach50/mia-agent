@@ -8,7 +8,8 @@ use reedline::{ColumnarMenu, DefaultCompleter, Emacs, ExampleHighlighter, FileBa
 use termimad;
 
 use crate::agent_tools::ToolRegistry;
-use crate::utils::{generate_system_prompt, generate_think_lines, load_session, save_session};
+use crate::utils::{generate_think_lines, load_session, save_session};
+use crate::system_prompt::get_system_prompt;
 use crate::config::AppConfig;
 use crate::agent_loop;
 use crate::api::{History, Message};
@@ -134,8 +135,7 @@ pub fn message_printer(message: &Message) {
 }
 
 fn get_tui_system_prompt() -> Result<String> {
-    let mut system_prompt = String::new();
-    system_prompt = generate_system_prompt(&mut system_prompt)?.to_owned();
+    let mut system_prompt = get_system_prompt()?;
     system_prompt.push_str(&format!(
         "\nYou are talking to {} via a TUI.",
         AppConfig::global().tui.username

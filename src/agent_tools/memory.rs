@@ -2,7 +2,6 @@
 
 use std::{fs, iter};
 use serde_json::json;
-use itertools::Itertools;
 
 use crate::agent_tools::Tool;
 
@@ -71,11 +70,11 @@ impl Tool for Memory {
         match operation {
             "insert" => {
                 let current = fs::read_to_string(&path).unwrap_or_default();
-                #[allow(unstable_name_collisions)]
                 let new = current.lines()
                     .filter(|&l| l != "§")
                     .chain(iter::once(content))
                     .intersperse("§")
+                    .collect::<Vec<&str>>()
                     .join("\n");
                 fs::write(&path, new)
                     .expect("Failed to write to memory file");
@@ -89,11 +88,11 @@ impl Tool for Memory {
             },
             "delete" => {
                 let current = fs::read_to_string(&path).unwrap_or_default();
-                #[allow(unstable_name_collisions)]
                 let new = current.lines()
                     .filter(|&l| l != "§")
                     .filter(|&l| l != content)
                     .intersperse("§")
+                    .collect::<Vec<&str>>()
                     .join("\n");
                 fs::write(&path, new).expect("Failed to write to memory file");
                 json!({

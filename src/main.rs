@@ -1,3 +1,6 @@
+#![feature(iter_intersperse)]
+#![feature(pathbuf_into_string)]
+
 use anyhow::{Ok, Result};
 use clap::Parser;
 use colored::Colorize;
@@ -11,6 +14,7 @@ mod api;
 mod utils;
 mod agent_loop;
 mod agent_tools;
+mod system_prompt;
 
 use cli::Cli;
 use config::AppConfig;

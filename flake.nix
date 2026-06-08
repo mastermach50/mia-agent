@@ -4,36 +4,34 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     crane.url = "github:ipetkov/crane";
+    fenix.url = "github:nix-community/fenix";
   };
 
   outputs =
-    { nixpkgs, crane, ... }:
+    { nixpkgs, crane, fenix, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-      craneLib = crane.mkLib pkgs;
+      fenixComplete = fenix.packages.${system}.complete;
+      craneLib = (crane.mkLib pkgs).overrideToolchain fenixComplete.toolchain;
+
+      mia-agent = pkgs.callPackage ./package.nix { inherit craneLib; };
     in
     {
-      packages.${system}.default = pkgs.callPackage ./package.nix { inherit craneLib; };
+      packages.${system}.default = mia-agent.package;
       devShells.${system}.default = pkgs.mkShell {
-        name = "mia";
+        name = "mia-shell";
 
         MIA_LOG = "trace";
 
         nativeBuildInputs = with pkgs; [
-          cargo
-          rustfmt
-          rustc
-          mold
           clang
-          git
-          python313
-          rust-analyzer
+          mold
+          fenixComplete.toolchain
+          fenixComplete.rust-analyzer
         ];
 
-        buildInputs = with pkgs; [
-          tree
-        ];
+        buildInputs = mia-agent.runtimeDeps;
       };
     };
 }

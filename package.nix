@@ -9,6 +9,13 @@
   tree,
 }:
 let
+
+  runtimeDeps = [
+      tree
+      python3
+      bash
+    ];
+
   commonArgs = {
     src = craneLib.cleanCargoSource ./.;
     strictDeps = true;
@@ -21,15 +28,17 @@ let
 
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 in
-craneLib.buildPackage ( commonArgs // { 
-  inherit cargoArtifacts;
+{
+  package = craneLib.buildPackage ( commonArgs // {
+    inherit cargoArtifacts;
 
-  postInstall = ''
-    wrapProgram $out/bin/mia-agent\
-      --prefix PATH : ${lib.makeBinPath [ 
-        tree
-        python3
-        bash
-      ]}
-  '';
-})
+    postInstall = ''
+      wrapProgram $out/bin/mia-agent\
+        --prefix PATH : ${lib.makeBinPath runtimeDeps}
+    '';
+
+  });
+
+  # to pull in to the flake devshell
+  inherit runtimeDeps;
+}

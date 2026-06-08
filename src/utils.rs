@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use log::{debug, info};
 use textwrap;
 use colored::{ColoredString};
@@ -9,7 +8,6 @@ use std::cmp::{max, min};
 use anyhow::Result;
 
 use crate::api::History;
-use crate::config::AppConfig;
 
 pub fn generate_think_lines(thinking: &str) -> String {
     let width = textwrap::termwidth() - 6;
@@ -79,32 +77,4 @@ pub fn load_session(filename: &str) -> Result<History> {
         info!("History file not found");
         anyhow::bail!("History file not found");
     }
-}
-
-pub fn generate_system_prompt(system_prompt: &mut String) -> Result<&mut String> {
-    let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
-    system_prompt.push_str(&soul);
-    system_prompt.push_str(&indoc::formatdoc! {"
-        # Extra info about yourself
-        model: {}
-        cwd: {}
-    ", AppConfig::global().model.name, std::env::current_dir().unwrap().display()});
-    system_prompt.push_str("\n");
-    let user_memory = fs::read_to_string(&AppConfig::global().documents.user_memory)?
-        .lines()
-        .filter(|&f| f != "§")
-        // .map(|f| String::from("- ") + &f)
-        .join("\n");
-    let system_memory = fs::read_to_string(&AppConfig::global().documents.system_memory)?
-        .lines()
-        .filter(|&f| f != "§")
-        // .map(|f| String::from("- ") + &f)
-        .join("\n");
-    system_prompt.push_str("\n");
-    system_prompt.push_str("# Memory\n");
-    system_prompt.push_str("## User Memory\n");
-    system_prompt.push_str(&format!("These are the contents of the user related memory (USER.md)\n{}\n", user_memory));
-    system_prompt.push_str("## System Memory\n");
-    system_prompt.push_str(&format!("These are the contents of the system related memory (MEMORY.md)\n{}\n", system_memory));
-    return Ok(system_prompt);
 }
