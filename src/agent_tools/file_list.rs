@@ -59,7 +59,9 @@ impl Tool for FileList {
             .expect("Failed to execute ls");
 
         #[cfg(windows)]
-        let output = std::process::Command::new("dir")
+        let output = std::process::Command::new("cmd")
+            .arg("/c")
+            .arg("dir")
             .arg("/a")
             .arg(path)
             .output()
