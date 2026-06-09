@@ -43,7 +43,7 @@ impl Default for ModelConfig {
     fn default() -> Self {
         Self {
             name: "owl-alpha".to_string(),
-            reasoning: "auto".to_string()
+            reasoning: "medium".to_string()
         }
     }
 }
