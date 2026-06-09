@@ -3,11 +3,11 @@ use textwrap;
 use colored::{ColoredString};
 use std::io::{Write, stdout};
 use std::fs;
-use std::env::home_dir;
 use std::cmp::{max, min};
 use anyhow::Result;
 
 use crate::api::History;
+use crate::config::AppConfig;
 
 pub fn generate_think_lines(thinking: &str) -> String {
     let width = textwrap::termwidth() - 6;
@@ -58,18 +58,14 @@ mod tests {
 
 pub fn save_session(filename: &str, history: &History) -> Result<()>{
     debug!("Saving history to file");
-    let sessions_dir = home_dir().unwrap().join(".mia/sessions");
-    if !sessions_dir.exists() {
-        fs::create_dir_all(&sessions_dir).unwrap();
-    }
-    let history_file = sessions_dir.join(filename);
+    let history_file = AppConfig::internal().sessions_dir.join(filename);
     fs::write(history_file, serde_json::to_string_pretty(history).unwrap())?;
     Ok(())
 }
 
 pub fn load_session(filename: &str) -> Result<History> {
     debug!("Loading history from file");
-    let history_file = home_dir().unwrap().join(".mia/sessions").join(filename);
+    let history_file = AppConfig::internal().mia_dir.join("sessions").join(filename);
     if history_file.exists() {
         let history = fs::read_to_string(history_file)?;
         return Ok(serde_json::from_str(&history)?)

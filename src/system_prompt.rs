@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::Local;
-use std::{env::home_dir, fs};
+use std::fs;
 
 use crate::config::AppConfig;
 
@@ -16,7 +16,7 @@ pub fn get_system_prompt() -> Result<String> {
     system_prompt.push_str("\n");
 
     // Context
-    let config_folder = home_dir().unwrap().into_string().unwrap();
+    let config_folder = AppConfig::internal().mia_dir.to_string_lossy();
     let model_name = AppConfig::global().model.name.clone();
     let cwd = std::env::current_dir()?.into_string().unwrap();
     let date_and_hour = Local::now().format("%a, %d %b %Y %I%p %z");

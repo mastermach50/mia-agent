@@ -24,7 +24,7 @@ impl Tool for WebSearch {
         json!({
             "type": "function",
             "function": {
-                "name": "web_search",
+                "name": &self.name(),
                 "description": "Search the web using Tavily API for relevant results",
                 "parameters": {
                     "type": "object",

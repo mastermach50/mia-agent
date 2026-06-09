@@ -21,7 +21,7 @@ impl Tool for WebExtract {
         json!({
             "type": "function",
             "function": {
-                "name": "web_extract",
+                "name": &self.name(),
                 "description": "Extract content from a URL using Tavily API",
                 "parameters": {
                     "type": "object",

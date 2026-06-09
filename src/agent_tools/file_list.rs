@@ -16,7 +16,7 @@ impl Tool for FileList {
         json!({
             "type": "function",
             "function": {
-                "name": "file_list",
+                "name": &self.name(),
                 "description": "List the contents of a folder using 'ls -la'",
                 "parameters": {
                     "type": "object",

@@ -22,7 +22,7 @@ impl Tool for Memory {
         json!({
             "type": "function",
             "function": {
-                "name": "memory",
+                "name": &self.name(),
                 "description": "Manage memory files - insert, or delete lines. Use this to remember things about the user or yourself.",
                 "parameters": {
                     "type": "object",

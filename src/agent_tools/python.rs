@@ -26,7 +26,7 @@ impl Tool for Python {
         json!({
             "type": "function",
             "function": {
-                "name": "python",
+                "name": &self.name(),
                 "description": "Execute Python 3 code",
                 "parameters": {
                     "type": "object",

@@ -15,6 +15,7 @@ mod utils;
 mod agent_loop;
 mod agent_tools;
 mod system_prompt;
+mod gateway;
 
 use cli::Cli;
 use config::AppConfig;
@@ -44,7 +45,7 @@ async fn main() -> Result<()>{
     match cli.command {
         Some(cli::Commands::Gateway) => {
             info!("Starting gateway...");
-            // TODO start gateway server
+            gateway::whatsapp::start().await?;
         },
         Some(cli::Commands::Tui) => {
             info!("Starting TUI...");

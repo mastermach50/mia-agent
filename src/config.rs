@@ -8,7 +8,10 @@ use log::{debug, error, warn, info, trace};
 use serde::{Deserialize, Serialize};
 
 /// Cached config that is loaded on load() and accessed on global()
-static CONFIG_CACHE: OnceLock<AppConfig> = OnceLock::new();
+static APP_CONFIG_CACHE: OnceLock<AppConfig> = OnceLock::new();
+
+/// Cached internal config
+static INTERNAL_CONFIG_CACHE: OnceLock<InternalConfig> = OnceLock::new();
 
 /// Config structure
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -90,10 +93,20 @@ impl Default for TuiConfig {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct InternalConfig {
+    pub home_dir: PathBuf,
+    pub mia_dir: PathBuf,
+    pub config_file: PathBuf,
+    pub env_file: PathBuf,
+    pub sessions_dir: PathBuf,
+    pub gateways_dir: PathBuf,
+}
+
 impl AppConfig {
     /// Fetches cached global config.
     pub fn global() -> &'static AppConfig {
-        let cached_config = CONFIG_CACHE
+        let cached_config = APP_CONFIG_CACHE
             .get()
             .expect("Failed to load cached config");
 
@@ -101,13 +114,37 @@ impl AppConfig {
         cached_config
     }
 
-    /// Loads config to the cache and returns it.
-    /// If the config file doesn't exist, it creates a default one and then loads it.
-    pub fn load() -> Result<Self> {
+    pub fn internal() -> &'static InternalConfig {
+        if let Some(cached) = INTERNAL_CONFIG_CACHE.get() {
+            return cached;
+        }
+
         let home_dir = std::env::home_dir().unwrap();
         let mia_dir = home_dir.join(".mia");
         let env_file = mia_dir.join(".env");
         let config_file = mia_dir.join("config.toml");
+        let sessions_dir = mia_dir.join("sessions");
+        let gateways_dir = mia_dir.join("gateways");
+
+        INTERNAL_CONFIG_CACHE.set(InternalConfig {
+            home_dir,
+            mia_dir,
+            config_file,
+            env_file,
+            sessions_dir,
+            gateways_dir,
+        }).unwrap();
+
+        INTERNAL_CONFIG_CACHE.get().unwrap()
+    }
+
+    /// Loads config to the cache and returns it.
+    /// If the config file doesn't exist, it creates a default one and then loads it.
+    pub fn load() -> Result<Self> {
+        let home_dir = Self::internal().home_dir.clone();
+        let mia_dir = Self::internal().mia_dir.clone();
+        let env_file = Self::internal().env_file.clone();
+        let config_file = Self::internal().config_file.clone();
 
         // Create home dir, mia dir, config.toml and .env if they don't exist
         if !home_dir.exists() {
@@ -162,7 +199,7 @@ impl AppConfig {
         
         let parsed_config = Self::post_config_load(app_config)?;
 
-        let _ = CONFIG_CACHE.set(parsed_config.clone());
+        let _ = APP_CONFIG_CACHE.set(parsed_config.clone());
         debug!("Loaded and cached config");
 
         Ok(parsed_config)
@@ -180,6 +217,20 @@ impl AppConfig {
         // Check for Tavily API key (warning only, tools will just be unavailable)
         if env::var("TAVILY_API_KEY").is_err() {
             warn!("TAVILY_API_KEY not set in .env - web_search and web_extract tools will be unavailable");
+        }
+
+        // Make required folders if they don't exist
+        let sessions_dir = Self::internal().mia_dir.join("sessions");
+        if !sessions_dir.exists() {
+            fs::create_dir(&sessions_dir)
+                .context("Failed to create sessions dir")?;
+            info!("Created sessions directory at {:?}", sessions_dir)
+        }
+        let gateways_dir = Self::internal().mia_dir.join("gateways");
+        if !gateways_dir.exists() {
+            fs::create_dir(&gateways_dir)
+                .context("Failed to create gateways dir")?;
+            info!("Created gateways directory at {:?}", gateways_dir)
         }
 
         // In the config expand the paths

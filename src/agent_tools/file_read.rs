@@ -19,7 +19,7 @@ impl Tool for FileReader {
         json!({
             "type": "function",
             "function": {
-                "name": "file_read",
+                "name": &self.name(),
                 "description": "Read a file from the filesystem.",
                 "parameters": {
                     "type": "object",

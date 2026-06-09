@@ -4,14 +4,14 @@ use log::{trace, warn};
 use serde_json::{self, json};
 
 mod datetime;
-mod shell;
-mod file_read;
-mod python;
-mod memory;
-mod web_search;
-mod web_extract;
 mod file_list;
-
+mod file_read;
+mod file_search;
+mod memory;
+mod python;
+mod shell;
+mod web_extract;
+mod web_search;
 
 /// All tools must have this trait implemented
 /// Individual tools can be defined in agent_tools/
@@ -46,13 +46,14 @@ impl ToolRegistry {
         let mut registry = HashMap::new();
         
         Self::register(&mut registry, datetime::DateTime);
-        Self::register(&mut registry, shell::Shell);
-        Self::register(&mut registry, file_read::FileReader);
-        Self::register(&mut registry, python::Python);
-        Self::register(&mut registry, memory::Memory);
-        Self::register(&mut registry, web_search::WebSearch);
-        Self::register(&mut registry, web_extract::WebExtract);
         Self::register(&mut registry, file_list::FileList);
+        Self::register(&mut registry, file_read::FileReader);
+        Self::register(&mut registry, file_search::FileSearch);
+        Self::register(&mut registry, memory::Memory);
+        Self::register(&mut registry, python::Python);
+        Self::register(&mut registry, shell::Shell);
+        Self::register(&mut registry, web_extract::WebExtract);
+        Self::register(&mut registry, web_search::WebSearch);
 
         TOOL_REGISTRY.set(registry).expect("Failed to set TOOL_REGISTRY");
     }

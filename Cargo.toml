@@ -17,6 +17,7 @@ indoc = "2.0.7"
 itertools = "0.14.0"
 log = "0.4.30"
 nu-ansi-term = "0.50.3"
+qrcode = "0.14.1"
 reedline = "0.48.0"
 reqwest = { version = "0.13.4", features = ["blocking", "json", "query"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -25,3 +26,9 @@ termimad = "0.34.1"
 textwrap = { version = "0.16.2", features = ["terminal_size"] }
 tokio = { version = "1.52.3", features = ["full"] }
 toml = "1.1.2"
+wacore = "0.6.0"
+waproto = "0.6.0"
+whatsapp-rust = "0.6.0"
+whatsapp-rust-sqlite-storage = "0.6.0"
+whatsapp-rust-tokio-transport = "0.6.0"
+whatsapp-rust-ureq-http-client = "0.6.0"

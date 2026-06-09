@@ -24,7 +24,7 @@ impl Tool for Shell {
         json!({
             "type": "function",
             "function": {
-                "name": "shell",
+                "name": &self.name(),
                 "description": "Run commands in bash",
                 "parameters": {
                     "type": "object",

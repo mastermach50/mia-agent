@@ -43,6 +43,8 @@ pub async fn run() -> Result<()> {
         // Update the system prompt every turn in case the user or system memory changed
         history.set_system_prompt(get_tui_system_prompt()?);
 
+        // A 
+        println!("{}", "─".repeat(textwrap::termwidth()));
         match rl.read_line(&prompt) {
             Ok(Signal::Success(line)) => {
                 let line = line.trim().to_string();
@@ -82,6 +84,7 @@ pub async fn run() -> Result<()> {
                 print!("{mia_colored} Thinking...\r");
                 stdout().flush()?;
 
+                // Assistant's response is printed by the printer passed into the agent loop
                 history = agent_loop::run_agent(history, message_printer).await?;
 
                 // Save the session at the end of turn
@@ -131,7 +134,7 @@ pub fn message_printer(message: &Message) {
         }
     }
 
-    termimad::print_inline(&output);
+    termimad::print_text(&output);
 }
 
 fn get_tui_system_prompt() -> Result<String> {
@@ -234,5 +237,26 @@ impl Prompt for CustomPrompt {
             " ({} reverse-search: {}) ",
             prefix, history_search.term
         ).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn print_inline() {
+        let output = "|---|---|
+| Tool | What it would do |
+|------|-----------------|
+| **file_info** | Get file metadata (size, permissions, timestamps, mime type) |
+| **directory_tree** | Recursive tree view of directories with sizes/permissions |
+| **process_list** | List running processes, PIDs, CPU/memory usage |
+| **system_info** | OS, kernel version, uptime, memory/disk stats |
+| **head/tail** | Read first/last N lines of large files efficiently |
+| **wc** | Count lines/words/bytes in files |
+| **git_log** | Commit history, changes, blame info |
+| **diff** | Compare two files or show uncommitted changes |
+|---|---|";
+        let skin = termimad::MadSkin::default_dark();
+        skin.print_text(output);
     }
 }
