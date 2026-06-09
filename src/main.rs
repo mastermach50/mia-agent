@@ -22,6 +22,8 @@ use config::AppConfig;
 use log::{info, trace};
 use agent_tools::ToolRegistry;
 
+use crate::api::History;
+
 #[tokio::main]
 async fn main() -> Result<()>{
 
@@ -41,17 +43,24 @@ async fn main() -> Result<()>{
     // Print config
     trace!("Model: {:?}", AppConfig::global().model);
     trace!("Documents: {:?}", AppConfig::global().documents);
+
+    if let Some(command) = cli.command {
+        let mut history = History::new();
+        history.set_system_prompt(tui::get_tui_system_prompt()?);
+        history.add_message(api::Message::new("user", &command));
+        agent_loop::run_agent(history, tui::message_printer).await?;
+    }
     
-    match cli.command {
+    match cli.sub_command {
         // Some(cli::Commands::Gateway) => {
         //     info!("Starting gateway...");
         //     gateway::whatsapp::start().await?;
         // },
-        Some(cli::Commands::Tui) => {
+        Some(cli::SubCommands::Tui) => {
             info!("Starting TUI...");
             tui::run().await?;
         },
-        Some(cli::Commands::Tools) => {
+        Some(cli::SubCommands::Tools) => {
             println!("Available Tools:");
             for (tool_name, is_available, reason) in ToolRegistry::tools_status() {
                 println!(

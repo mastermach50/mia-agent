@@ -4,17 +4,21 @@ use clap::{Parser, Subcommand};
 #[command(name = "Mia Agent", version, about = "Your personal agent")]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Option<Commands>
+    pub sub_command: Option<SubCommands>,
+
+    /// Run a command/prompt without entering into the tui
+    #[arg(short, long)]
+    pub command: Option<String>,
 }
 
 #[derive(Subcommand)]
-pub enum Commands {
+pub enum SubCommands {
     /// Start the messaging gateway
     // Gateway,
 
     /// Run in interactive mode
     Tui,
 
-    /// List all the tools and their status
+    /// List all agent tools and their status
     Tools,
 }

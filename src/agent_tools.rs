@@ -156,3 +156,15 @@ impl ToolRegistry {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tools_call_schema() {
+        ToolRegistry::init();
+        let schema = ToolRegistry::schema();
+        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+    }
+}

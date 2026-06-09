@@ -137,7 +137,7 @@ pub fn message_printer(message: &Message) {
     termimad::print_text(&output);
 }
 
-fn get_tui_system_prompt() -> Result<String> {
+pub fn get_tui_system_prompt() -> Result<String> {
     let mut system_prompt = get_system_prompt()?;
     system_prompt.push_str(&format!(
         "\nYou are talking to {} via a TUI.",

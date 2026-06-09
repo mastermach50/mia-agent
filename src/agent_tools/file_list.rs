@@ -12,9 +12,15 @@ impl Tool for FileList {
             .unwrap_or(".").to_string()
     }
     fn availability(&self) -> Result<(), String> {
-        which::which("ls")
+        #[cfg(unix)]
+        return which::which("ls")
             .map(|_| ())
-            .map_err(|_| "ls not found".to_string())
+            .map_err(|_| "ls not found".to_string());
+        
+        #[cfg(windows)]
+        return which::which("dir")
+            .map(|_| ())
+            .map_err(|_| "dir not found".to_string());
     }
     fn schema(&self) -> serde_json::Value {
         json!({
