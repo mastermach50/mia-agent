@@ -1,5 +1,5 @@
 # Mia Agent
-Mia is a coding and personal assistant AI agent designed to be unobtrusive, configurable and easy to use.
+Mia is a coding and personal assistant AI agent designed to be unobtrusive, configurable ,easy to use. Mia grows with you.
 
 This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.com/). Although it borrows ideas from it, this is not a direct derivation or modification of the project.
 
@@ -7,9 +7,8 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 - [Principles](#principles)          
 - [Features](#features)  
 - [Installation](#installation)
-    - [Option A: Using cargo (Windows/Linux)](#option-a-using-cargo-windows-linux)
-    - [Option B: Using nix flakes (NixOS/Linux)](#option-b-using-nix-flakes-nixos-linux)
-
+    - [Option A: Using cargo (Windows/Linux)](#option-a-using-cargo-windowslinux)
+    - [Option B: Using nix flakes (NixOS/Linux)](#option-b-using-nix-flakes-nixoslinux)
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Development](#development)
@@ -35,6 +34,20 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 - Agent skills
 - MCP connectivity
 
+## Tools
+Currently Mia has the following tools:
+|| Tool | Description | Permission Required |
+|:-:|:-|:-|:-:|
+| 📅 | datetime    | Get current, accurate date and time          | No  |
+| 📁 | file_list   | List files in a directory                    | No  |
+| 📖 | file_read   | Read files                                   | No  |
+| 🔍 | file_search | Search file contents                         | No  |
+| 🧠 | memory      | Remember things about the user and the agent | No  |
+| 🐍 | python      | Execute python code                          | Yes |
+| 🐚 | shell       | Run shell commands                           | Yes |
+| 🪏 | web_extract | Extract web page contents                    | No  |
+| 🌐 | web_search  | Search the web                               | No  |
+
 ## Installation
 ### Option A: Using cargo (Windows/Linux)
 Cargo can fetch, build and install mia.
@@ -49,8 +62,8 @@ nix run github:mastermach50/mia-agent
 To install it, add to your system packages using the same flake.
 
 ## Configuration
-Mia requires an Openrouter API key (can be obtained for free), currently this is the only way to access LLMs.
->Support for using any OpenAI compatible api is planned for the future (very soon).
+Mia requires an [Openrouter API key](https://openrouter.ai/workspaces/default/keys) (can be obtained for free, [there are also free models](https://openrouter.ai/docs/guides/routing/model-variants/free)), currently this is the only way to access LLMs.
+>Support for using any OpenAI compatible API is planned for the future (very soon).
 
 1. On the first run, the agent will create all required folders and files, but will not start because of no API keys.
 ```
@@ -58,14 +71,17 @@ mia
 ```
 2. Edit `~/.mia/.env` on Linux or `C:\Users\<username>\.mia\.env` on Windows and add
 ```
-OPENROUTER_API_KEY=<your openrouter api key>
+OPENROUTER_API_KEY=<your-openrouter-api-key>
 ```
 
 3. Run `mia tui` to start the agent.
 
-4. (Optional) Add your Tavily API key to `.mia/.env` allow the `web_search` tool.
+4. (Optional) Add your [Tavily API key](https://app.tavily.com/home) (can be obtained for free and has a reasonable number of free searches per month) to `.mia/.env` allow the `web_search` tool.
+```
+TAVILY_API_KEY=<your-tavily-api-key>
+```
 
-5. (Optional) Run `mia tools` to see if all the tools are usable and find which components are missing if any.
+6. (Optional) Run `mia tools` to see if all the tools are usable and find which components are missing if any.
 
 Currently the external tools required by mia are
 - [Python](https://python.org)
