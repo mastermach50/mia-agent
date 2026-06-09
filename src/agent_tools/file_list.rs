@@ -18,16 +18,16 @@ impl Tool for FileList {
             .map_err(|_| "ls not found".to_string());
         
         #[cfg(windows)]
-        return which::which("dir")
+        return which::which("cmd")
             .map(|_| ())
-            .map_err(|_| "dir not found".to_string());
+            .map_err(|_| "cmd not found".to_string());
     }
     fn schema(&self) -> serde_json::Value {
         #[cfg(unix)]
         let description = "List the contents of a folder using 'ls -la'";
 
         #[cfg(windows)]
-        let description = "List the contents of a folder using 'dir'";
+        let description = "List the contents of a folder using 'cmd /c dir /a'";
 
         json!({
             "type": "function",
