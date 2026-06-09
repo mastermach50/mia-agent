@@ -11,7 +11,11 @@ impl Tool for FileList {
         args["path"].as_str()
             .unwrap_or(".").to_string()
     }
-    fn is_available(&self) -> bool { true }
+    fn availability(&self) -> Result<(), String> {
+        which::which("ls")
+            .map(|_| ())
+            .map_err(|_| "ls not found".to_string())
+    }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",

@@ -33,7 +33,7 @@ in
     inherit cargoArtifacts;
 
     postInstall = ''
-      wrapProgram $out/bin/mia-agent\
+      wrapProgram $out/bin/mia\
         --prefix PATH : ${lib.makeBinPath runtimeDeps}
     '';
 

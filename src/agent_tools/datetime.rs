@@ -9,7 +9,7 @@ impl Tool for DateTime {
     fn name(&self) -> String { "datetime".to_string() }
     fn icon(&self) -> String { "📅".to_string() }
     fn short(&self, _args: serde_json::Value) -> String { String::new() }
-    fn is_available(&self) -> bool { true }
+    fn availability(&self) -> Result<(), String> { Ok(()) }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",

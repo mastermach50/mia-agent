@@ -22,8 +22,8 @@ trait Tool: Send + Sync + std::fmt::Debug {
     fn icon(&self) -> String;
     // A short description of what the tool will do, on each tool call
     fn short(&self, args: serde_json::Value) -> String;
-    // Check if the tool is available
-    fn is_available(&self) -> bool;
+    // Check if the tool is available, if not, get a reason
+    fn availability(&self) -> Result<(), String>;
     // OpenAI compatible tool schema
     fn schema(&self) -> serde_json::Value;
     // Execute the tool logic
@@ -40,6 +40,8 @@ type ToolRegistryType = HashMap<String, ToolEntry>;
 
 // function_name -> { tool, is_available }
 static TOOL_REGISTRY: OnceLock<ToolRegistryType> = OnceLock::new();
+
+/// Tool registry management
 pub struct ToolRegistry;
 impl ToolRegistry {
     pub fn init() {
@@ -58,14 +60,16 @@ impl ToolRegistry {
         TOOL_REGISTRY.set(registry).expect("Failed to set TOOL_REGISTRY");
     }
 
+    /// Get the cached tool registry
     fn global() -> &'static ToolRegistryType {
         TOOL_REGISTRY.get().expect("Tool registry not initialized")
     }
 
+    /// Register a tool by making a tool entry for it and caching it
     fn register(registry: &mut ToolRegistryType, tool: impl Tool + 'static) {
         let name = tool.name();
         let tool: Box<dyn Tool> = Box::new(tool);
-        let is_available = tool.is_available();
+        let is_available = tool.availability().is_ok();
         registry.insert(name, ToolEntry { tool, is_available });
     }
 
@@ -80,6 +84,7 @@ impl ToolRegistry {
         json!(&schema_list)
     }
 
+    /// Call a tool by its function name
     pub fn call(name: &str, args: &str) -> serde_json::Value {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
             match Self::global().get(name) {
@@ -101,6 +106,7 @@ impl ToolRegistry {
         }
     }
 
+    /// Get the emoji associated with a tool
     pub fn tool_icon(name: &str) -> String {
         match Self::global().get(name) {
             Some(tool_entry) => tool_entry.tool.icon(),
@@ -111,6 +117,7 @@ impl ToolRegistry {
         }
     }
 
+    /// Get a short info about what arguments went into a tool call
     pub fn tool_short(name: &str, args: &str) -> String {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
         match Self::global().get(name) {
@@ -126,13 +133,20 @@ impl ToolRegistry {
         }
     }
 
-    pub fn tools_status() -> Vec<(String, bool)> {
+    /// Get the status of all the tools (tool_name, is_available, reason)
+    pub fn tools_status() -> Vec<(String, bool, String)> {
         Self::global().iter()
-            .map(|(tool_name,tool_entry)| (tool_name.clone(), tool_entry.is_available))
+            .map(|(tool_name,tool_entry)| {
+                let _tool_name = tool_name.clone();
+                let _available = tool_entry.is_available;
+                let _reason = tool_entry.tool.availability().map(|_| "".to_string()).unwrap_or_else(|e| e);
+                (_tool_name, _available, _reason)
+            })
             .sorted()
             .collect()
     }
 
+    /// The assistant always returns tool arguments as a JSON string
     fn deserialize_tool_arguments(args: String) -> anyhow::Result<serde_json::Value> {
         if let Ok(new_args) = serde_json::from_str(&args) {
             Ok(new_args)

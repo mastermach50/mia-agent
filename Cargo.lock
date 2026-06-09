@@ -1852,7 +1852,7 @@ checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
 
 [[package]]
 name = "mia-agent"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1880,6 +1880,7 @@ dependencies = [
  "whatsapp-rust-sqlite-storage",
  "whatsapp-rust-tokio-transport",
  "whatsapp-rust-ureq-http-client",
+ "which",
 ]
 
 [[package]]
@@ -3962,6 +3963,15 @@ dependencies = [
  "tokio",
  "ureq",
  "wacore",
+]
+
+[[package]]
+name = "which"
+version = "8.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c789537cf2f7f55be8e6192f92e464174ee55f91af622777f7f1ceb0dbccd03e"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

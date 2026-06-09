@@ -10,7 +10,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Start the messaging gateway
-    Gateway,
+    // Gateway,
 
     /// Run in interactive mode
     Tui,

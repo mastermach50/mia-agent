@@ -14,7 +14,11 @@ impl Tool for FileSearch {
             .unwrap_or(".").to_string();
         format!("{} -> {}", pattern, path)
     }
-    fn is_available(&self) -> bool { true }
+    fn availability(&self) -> Result<(), String> { 
+        which::which("rg")
+            .map(|_| ())
+            .map_err(|_| "rg not found".to_string())
+    }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",

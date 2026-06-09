@@ -17,7 +17,7 @@ impl Tool for Memory {
         let operator = if operation == "insert" { "+" } else if operation == "delete" { "-" } else { "?" };
         format!("{} {}{}", memory_type, operator, content)
     }
-    fn is_available(&self) -> bool { true }
+    fn availability(&self) -> Result<(), String> { Ok(()) }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",

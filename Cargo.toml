@@ -2,8 +2,12 @@
 name = "mia-agent"
 description = "Your personal AI assistant"
 # Next major version when gateways are introduced
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
+
+[[bin]]
+name = "mia"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.102"
@@ -32,3 +36,4 @@ whatsapp-rust = "0.6.0"
 whatsapp-rust-sqlite-storage = "0.6.0"
 whatsapp-rust-tokio-transport = "0.6.0"
 whatsapp-rust-ureq-http-client = "0.6.0"
+which = "8.0.3"

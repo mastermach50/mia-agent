@@ -15,7 +15,7 @@ mod utils;
 mod agent_loop;
 mod agent_tools;
 mod system_prompt;
-mod gateway;
+// mod gateway;
 
 use cli::Cli;
 use config::AppConfig;
@@ -43,20 +43,20 @@ async fn main() -> Result<()>{
     trace!("Documents: {:?}", AppConfig::global().documents);
     
     match cli.command {
-        Some(cli::Commands::Gateway) => {
-            info!("Starting gateway...");
-            gateway::whatsapp::start().await?;
-        },
+        // Some(cli::Commands::Gateway) => {
+        //     info!("Starting gateway...");
+        //     gateway::whatsapp::start().await?;
+        // },
         Some(cli::Commands::Tui) => {
             info!("Starting TUI...");
             tui::run().await?;
         },
         Some(cli::Commands::Tools) => {
             println!("Available Tools:");
-            for (tool_name, is_available) in ToolRegistry::tools_status() {
+            for (tool_name, is_available, reason) in ToolRegistry::tools_status() {
                 println!(
-                    "    {} {:15} {}",
-                    ToolRegistry::tool_icon(&tool_name), tool_name, if is_available { "✔".green() } else { "✘".red() }
+                    "    {} {:15} {} {}",
+                    ToolRegistry::tool_icon(&tool_name), tool_name, if is_available { "✔".green() } else { "✘".red() }, reason.red()
                 );
             }
         },

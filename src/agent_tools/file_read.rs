@@ -14,7 +14,7 @@ impl Tool for FileReader {
         args["path"].as_str()
             .unwrap_or_default().to_string()
     }
-    fn is_available(&self) -> bool { true }
+    fn availability(&self) -> Result<(), String> { Ok(()) }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",

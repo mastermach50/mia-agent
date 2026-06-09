@@ -14,8 +14,10 @@ impl Tool for WebExtract {
             .unwrap_or_default()
             .to_string()
     }
-    fn is_available(&self) -> bool {
-        std::env::var("TAVILY_API_KEY").is_ok()
+    fn availability(&self) -> Result<(), String> {
+        std::env::var("TAVILY_API_KEY")
+            .map(|_| ())
+            .map_err(|_| "TAVILY_API_KEY not found".to_string())
     }
     fn schema(&self) -> serde_json::Value {
         json!({

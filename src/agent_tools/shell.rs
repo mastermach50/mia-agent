@@ -12,13 +12,10 @@ impl Tool for Shell {
         args["command"].as_str()
             .unwrap_or_default().to_string()
     }
-    fn is_available(&self) -> bool {
-        std::process::Command::new("which")
-            .arg("bash")
-            .output()
-            .expect("Failed to execute 'which'")
-            .status
-            .success()
+    fn availability(&self) -> Result<(), String> {
+        which::which("bash")
+            .map(|_| ())
+            .map_err(|_| "bash not found".to_string())
     }
     fn schema(&self) -> serde_json::Value {
         json!({
