@@ -13,16 +13,29 @@ impl Tool for Shell {
             .unwrap_or_default().to_string()
     }
     fn availability(&self) -> Result<(), String> {
-        which::which("bash")
+        #[cfg(unix)]
+        return which::which("bash")
             .map(|_| ())
-            .map_err(|_| "bash not found".to_string())
+            .map_err(|_| "bash not found".to_string());
+
+        #[cfg(windows)]
+        return which::which("cmd")
+            .map(|_| ())
+            .map_err(|_| "cmd not found".to_string());
+        
     }
     fn schema(&self) -> serde_json::Value {
+        #[cfg(unix)]
+        let description = "Run commands in bash";
+
+        #[cfg(windows)]
+        let description = "Run commands in cmd";
+
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Run commands in bash",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -40,11 +53,20 @@ impl Tool for Shell {
         let command = args["command"].as_str()
             .expect("Command argument not found");
         if ask_permission("Execute?".red(), command) {
+            #[cfg(unix)]
             let output = std::process::Command::new("bash")
                 .arg("-c")
                 .arg(command)
                 .output()
                 .expect("Failed to execute command");
+
+            #[cfg(windows)]
+            let output = std::process::Command::new("cmd")
+                .arg("/c")
+                .arg(command)
+                .output()
+                .expect("Failed to execute command");
+
             println!("{}", String::from_utf8(output.stdout.clone()).unwrap());
             json!({
                 "status": if output.status.success() { "success" } else { "error" },

@@ -5,6 +5,12 @@ use serde_json::json;
 
 use crate::{agent_tools::Tool, utils::ask_permission};
 
+#[cfg(unix)]
+static PYTHON_CMD: &str = "python3";
+
+#[cfg(windows)]
+static PYTHON_CMD: &str = "python";
+
 #[derive(Debug)]
 pub struct Python;
 impl Tool for Python {
@@ -15,7 +21,7 @@ impl Tool for Python {
             .unwrap_or_default().to_string()
     }
     fn availability(&self) -> Result<(), String> {
-        which::which("python3")
+        which::which(PYTHON_CMD)
             .map(|_| ())
             .map_err(|_| "python3 not found".to_string())
     }
@@ -42,7 +48,7 @@ impl Tool for Python {
         let code = args["code"].as_str()
             .expect("Code argument not found");
         if ask_permission("Execute Python?".red(), code) {
-            let output = std::process::Command::new("python3")
+            let output = std::process::Command::new(PYTHON_CMD)
                 .arg("-c")
                 .arg(code)
                 .output()

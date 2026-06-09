@@ -23,11 +23,17 @@ impl Tool for FileList {
             .map_err(|_| "dir not found".to_string());
     }
     fn schema(&self) -> serde_json::Value {
+        #[cfg(unix)]
+        let description = "List the contents of a folder using 'ls -la'";
+
+        #[cfg(windows)]
+        let description = "List the contents of a folder using 'dir'";
+
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "List the contents of a folder using 'ls -la'",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -45,11 +51,19 @@ impl Tool for FileList {
         let path = args["path"].as_str()
             .unwrap_or(".");
         
+        #[cfg(unix)]
         let output = std::process::Command::new("ls")
             .arg("-la")
             .arg(path)
             .output()
             .expect("Failed to execute ls");
+
+        #[cfg(windows)]
+        let output = std::process::Command::new("dir")
+            .arg("/a")
+            .arg(path)
+            .output()
+            .expect("Failed to execute dir");
         
         json!({
             "status": if output.status.success() { "success" } else { "error" },
