@@ -85,17 +85,20 @@ impl History {
 pub async fn completion(history: &History, cancel: &CancellationToken) -> Result<Message> {
     let mut headers = HeaderMap::new();
     headers.insert(
-        AUTHORIZATION,
-        format!("Bearer {}", std::env::var("OPENROUTER_API_KEY").unwrap()).parse().unwrap()
-    );
-    headers.insert(
         REFERER,
         "https://mathewma3.in".parse().unwrap()
     );
-    headers.insert(
-        "X-OpenRouter-Title",
-        "Mia Agent".parse().unwrap()
-    );
+
+    if AppConfig::global().model.base_url.contains("openrouter.ai") {
+        headers.insert(
+            AUTHORIZATION,
+            format!("Bearer {}", std::env::var("OPENROUTER_API_KEY").unwrap()).parse().unwrap()
+        );
+        headers.insert(
+            "X-OpenRouter-Title",
+            "Mia Agent".parse().unwrap()
+        );
+    }
 
     let client = Client::builder()
         .default_headers(headers)
@@ -110,7 +113,7 @@ pub async fn completion(history: &History, cancel: &CancellationToken) -> Result
         "tools": ToolRegistry::schema()
     });
 
-    let request = client.post("https://openrouter.ai/api/v1/chat/completions")
+    let request = client.post(AppConfig::global().model.base_url.clone() + "/chat/completions")
         .json(&payload)
         .send();
 

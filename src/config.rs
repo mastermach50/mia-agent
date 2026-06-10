@@ -35,6 +35,7 @@ impl Default for AppConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModelConfig {
+    pub base_url: String,
     pub name: String,
     pub reasoning: String 
 }
@@ -42,6 +43,7 @@ pub struct ModelConfig {
 impl Default for ModelConfig {
     fn default() -> Self {
         Self {
+            base_url: "https://openrouter.ai/api/v1".to_string(),
             name: "openrouter/owl-alpha".to_string(),
             reasoning: "medium".to_string()
         }
@@ -212,7 +214,7 @@ impl AppConfig {
     fn post_config_load(mut config: AppConfig) -> Result<AppConfig> {
 
         // Check if required api keys are present in env
-        if env::var("OPENROUTER_API_KEY").is_err() {
+        if config.model.base_url.contains("openrouter.ai") && env::var("OPENROUTER_API_KEY").is_err() {
             warn!("OPENROUTER_API_KEY not set in .env");
         };
 
@@ -266,6 +268,11 @@ impl AppConfig {
                     fs::write(path, initial_soul)?;
                 }
             }
+        }
+
+        // Make sure there is no / at the end of the base url
+        if config.model.base_url.ends_with('/') {
+            config.model.base_url.pop();
         }
 
         Ok(config)
