@@ -17,7 +17,12 @@ pub enum SubCommands {
     // Gateway,
 
     /// Run in interactive mode
-    Tui,
+    Tui {
+
+        /// Start a new session
+        #[arg(short, long)]
+        new: bool,
+    },
 
     /// List all agent tools and their status
     Tools,

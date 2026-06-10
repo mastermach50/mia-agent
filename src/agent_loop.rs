@@ -8,7 +8,8 @@ use crate::config::AppConfig;
 /// a new history that includes the assistant's response and any tools calls processed
 pub async fn run_agent(
     history: History,
-    on_message: impl Fn(&Message)
+    on_message: impl Fn(&Message),
+    on_thinking: impl Fn(),
 ) -> Result<History> {
     let mut history = history;
 
@@ -28,6 +29,7 @@ pub async fn run_agent(
 
 
         // Get the next message from the assistant and append it to the history
+        on_thinking();
         let assistant_msg = completion(&history).await?;
         on_message(&assistant_msg);
         history.add_message(assistant_msg.clone());

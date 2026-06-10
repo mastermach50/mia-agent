@@ -48,7 +48,7 @@ async fn main() -> Result<()>{
         let mut history = History::new();
         history.set_system_prompt(tui::get_tui_system_prompt()?);
         history.add_message(api::Message::new("user", &command));
-        agent_loop::run_agent(history, tui::message_printer).await?;
+        agent_loop::run_agent(history, tui::message_printer, tui::thinking_printer).await?;
     }
     
     match cli.sub_command {
@@ -56,9 +56,9 @@ async fn main() -> Result<()>{
         //     info!("Starting gateway...");
         //     gateway::whatsapp::start().await?;
         // },
-        Some(cli::SubCommands::Tui) => {
+        Some(cli::SubCommands::Tui { new }) => {
             info!("Starting TUI...");
-            tui::run().await?;
+            tui::run(new).await?;
         },
         Some(cli::SubCommands::Tools) => {
             println!("Available Tools:");

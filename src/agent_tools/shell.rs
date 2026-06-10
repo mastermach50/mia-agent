@@ -1,5 +1,8 @@
 use colored::Colorize;
 use serde_json::json;
+use std::process::Command;
+use std::io::Read;
+use std::process::Stdio;
 
 use crate::{agent_tools::Tool, utils::ask_permission};
 
@@ -49,36 +52,71 @@ impl Tool for Shell {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
-        let command = args["command"].as_str()
-            .expect("Command argument not found");
-        if ask_permission("Execute?".red(), command) {
-            #[cfg(unix)]
-            let output = std::process::Command::new("bash")
-                .arg("-c")
-                .arg(command)
-                .output()
-                .expect("Failed to execute command");
+fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    let command = args["command"].as_str()
+        .expect("Command argument not found");
 
-            #[cfg(windows)]
-            let output = std::process::Command::new("powershell")
-                .arg("-command")
-                .arg(command)
-                .output()
-                .expect("Failed to execute command");
+    if ask_permission("Execute?".red(), command) {
+        #[cfg(unix)]
+        let mut child_process = Command::new("bash");
+        #[cfg(unix)]
+        child_process.arg("-c").arg(command);
 
-            println!("{}", String::from_utf8(output.stdout.clone()).unwrap());
-            json!({
-                "status": if output.status.success() { "success" } else { "error" },
-                "exit_code": output.status.code().unwrap(),
-                "stdout": String::from_utf8(output.stdout).unwrap(),
-                "stderr": String::from_utf8(output.stderr).unwrap()
-            })
-        } else {
-            json!({
-                "status": "error",
-                "message": "User declined to execute command"
-            })
+        #[cfg(windows)]
+        let mut child_process = Command::new("powershell");
+        #[cfg(windows)]
+        child_process.arg("-command").arg(command);
+
+        // Configure the process to inherit the current terminal's stdout/stderr
+        // AND pipe them if you still need to capture the text for the JSON return.
+        let mut child = child_process
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to start command");
+
+        // We capture the output into strings while printing them in real-time
+        let mut stdout_captured = String::new();
+        let mut stderr_captured = String::new();
+
+        if let Some(mut stdout) = child.stdout.take() {
+            let mut buffer = [0; u8::MAX as usize];
+            while let Ok(bytes_read) = stdout.read(&mut buffer) {
+                if bytes_read == 0 { break; }
+                if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
+                    print!("{}", text);
+                    std::io::Write::flush(&mut std::io::stdout()).unwrap(); // Force instant print
+                    stdout_captured.push_str(text);
+                }
+            }
         }
+
+        if let Some(mut stderr) = child.stderr.take() {
+            let mut buffer = [0; u8::MAX as usize];
+            while let Ok(bytes_read) = stderr.read(&mut buffer) {
+                if bytes_read == 0 { break; }
+                if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
+                    eprint!("{}", text);
+                    std::io::Write::flush(&mut std::io::stderr()).unwrap();
+                    stderr_captured.push_str(text);
+                }
+            }
+        }
+
+        // Wait for the process to fully exit
+        let status = child.wait().expect("Failed to wait on child process");
+
+        json!({
+            "status": if status.success() { "success" } else { "error" },
+            "exit_code": status.code().unwrap_or(-1), // handle potential None if signaled on Unix
+            "stdout": stdout_captured,
+            "stderr": stderr_captured
+        })
+    } else {
+        json!({
+            "status": "error",
+            "message": "User declined to execute command"
+        })
     }
+}
 }

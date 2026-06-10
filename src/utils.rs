@@ -36,8 +36,9 @@ pub fn ask_permission(header: impl Into<ColoredString>, content: &str) -> bool {
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
+    input = input.trim().to_string().to_lowercase();
 
-    if input.trim().to_lowercase() == "y" {
+    if input == "y" || input == "yes" {
         true
     } else {
         false

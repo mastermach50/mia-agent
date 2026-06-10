@@ -14,9 +14,8 @@ use crate::config::AppConfig;
 use crate::agent_loop;
 use crate::api::{History, Message};
 
-pub async fn run() -> Result<()> {
+pub async fn run(new_session: bool) -> Result<()> {
     let system_colored = format!("{} {}", "System".yellow(), ">".cyan());
-    let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
 
     let help_message = indoc::indoc! {"
     /help         Show this help message
@@ -25,20 +24,26 @@ pub async fn run() -> Result<()> {
     /clear /cls   Clear screen
     "};
 
-    // Try to load the history from file
-    // If it doesn't exist, create a new one
+    println!(
+        "{} Use {} to exit the chat, {} to show all commands.",
+        system_colored, "/exit".yellow(), "/help".yellow()
+    );
+
+    // Unless a new session was requested load the previous history
     let mut history = History::new();
-    if let Ok(loaded_history) = load_session("tui-agent-history.json") {
-        history = loaded_history;
+    if !new_session {
+        // Try to load the history from file
+        if let Ok(loaded_history) = load_session("tui-agent-history.json") {
+            history = loaded_history;
+            println!("{} Loaded previous session history.", system_colored);
+        }
+    } else {
+        println!("{} Started new session.", system_colored);
     }
 
     // For full featured input powered by reedline
     let (mut rl, prompt) = get_reedline()?;
     
-    println!(
-        "{} Use {} to exit the chat, {} to start a new session.",
-        system_colored, "/exit".yellow(), "/new".yellow()
-    );
     loop {
         // Update the system prompt every turn in case the user or system memory changed
         history.set_system_prompt(get_tui_system_prompt()?);
@@ -81,11 +86,12 @@ pub async fn run() -> Result<()> {
 
                 history.add_message(Message::new("user", &line));
 
-                print!("{mia_colored} Thinking...\r");
-                stdout().flush()?;
-
                 // Assistant's response is printed by the printer passed into the agent loop
-                history = agent_loop::run_agent(history, message_printer).await?;
+                history = agent_loop::run_agent(
+                    history,
+                    message_printer,
+                    thinking_printer
+                ).await?;
 
                 // Save the session at the end of turn
                 save_session("tui-agent-history.json", &history)?;
@@ -135,6 +141,12 @@ pub fn message_printer(message: &Message) {
     }
 
     termimad::print_text(&output);
+}
+
+pub fn thinking_printer() {
+    let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
+    print!("{} Thinking...\r", mia_colored);
+    stdout().flush().unwrap();
 }
 
 pub fn get_tui_system_prompt() -> Result<String> {

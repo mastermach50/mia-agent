@@ -210,8 +210,7 @@ impl AppConfig {
 
         // Check if required api keys are present in env
         if env::var("OPENROUTER_API_KEY").is_err() {
-            error!("OPENROUTER_API_KEY not set in .env");
-            anyhow::bail!("OPENROUTER_API_KEY not set in .env");
+            warn!("OPENROUTER_API_KEY not set in .env");
         };
 
         // Check for Tavily API key (warning only, tools will just be unavailable)
