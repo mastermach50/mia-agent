@@ -19,9 +19,9 @@ impl Tool for Shell {
             .map_err(|_| "bash not found".to_string());
 
         #[cfg(windows)]
-        return which::which("cmd")
+        return which::which("powershell")
             .map(|_| ())
-            .map_err(|_| "cmd not found".to_string());
+            .map_err(|_| "powershell not found".to_string());
         
     }
     fn schema(&self) -> serde_json::Value {
@@ -29,7 +29,7 @@ impl Tool for Shell {
         let description = "Run commands in bash";
 
         #[cfg(windows)]
-        let description = "Run commands in cmd";
+        let description = "Run commands in powershell";
 
         json!({
             "type": "function",
@@ -61,8 +61,8 @@ impl Tool for Shell {
                 .expect("Failed to execute command");
 
             #[cfg(windows)]
-            let output = std::process::Command::new("cmd")
-                .arg("/c")
+            let output = std::process::Command::new("powershell")
+                .arg("-command")
                 .arg(command)
                 .output()
                 .expect("Failed to execute command");

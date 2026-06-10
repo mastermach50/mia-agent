@@ -27,7 +27,7 @@ impl Tool for FileList {
         let description = "List the contents of a folder using 'ls -la'";
 
         #[cfg(windows)]
-        let description = "List the contents of a folder using 'cmd /c dir /a'";
+        let description = "List the contents of a folder using 'dir /a'";
 
         json!({
             "type": "function",
