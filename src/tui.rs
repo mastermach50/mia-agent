@@ -13,19 +13,23 @@ use crate::agent_loop;
 use crate::api::{History, Message};
 
 pub async fn run(new_session: bool) -> Result<()> {
-    let system_colored = format!("{} {}", "System".yellow(), ">".cyan());
 
     let help_message = indoc::indoc! {"
-    /help         Show this help message
-    /exit /bye    Exit the tui
-    /new          Create a new session
-    /clear /cls   Clear screen
+    Commands:
+        /help         Show this help message
+        /exit /bye    Exit the tui
+        /new          Create a new session
+        /clear /cls   Clear screen
+    
+    Keybinds:
+        <Ctrl-C>      Cancel assistant/user message
+        <Ctrl-D>      Exit
     "};
 
-    println!(
-        "{} Use {} to exit the chat, {} to show all commands.",
-        system_colored, "/exit".yellow(), "/help".yellow()
-    );
+    on_system_message(&format!(
+        "Use {} to exit the chat, {} to show all commands.",
+        "/exit".yellow(), "/help".yellow()
+    ));
 
     // Unless a new session was requested load the previous history
     let mut history = History::new();
@@ -33,10 +37,10 @@ pub async fn run(new_session: bool) -> Result<()> {
         // Try to load the history from file
         if let Ok(loaded_history) = load_session("tui-agent-history.json") {
             history = loaded_history;
-            println!("{} Loaded previous session history.", system_colored);
+            on_system_message("Loaded previous session history.");
         }
     } else {
-        println!("{} Started new session.", system_colored);
+        on_system_message("Started new session.");
     }
 
     // For full featured input powered by reedline
@@ -63,7 +67,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                     }
                     "/new" => {
                         history = History::new();
-                        println!("{system_colored} New session started, history cleared.");
+                        on_system_message("New session started, history cleared.");
                         continue;
                     }
                     "/clear" | "/cls" => {
@@ -76,7 +80,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                     }
                     _ => {
                         if line.starts_with('/') {
-                            println!("{system_colored} Invalid command, use /help for a list of commands.");
+                            on_system_message("Invalid command, use /help for a list of commands.");
                             continue;
                         }
                     }
@@ -87,19 +91,20 @@ pub async fn run(new_session: bool) -> Result<()> {
                 // Assistant's response is printed by the printer passed into the agent loop
                 history = agent_loop::run_agent(
                     history,
-                    message_printer,
-                    thinking_printer
+                    on_assistant_message,
+                    on_assistant_thinking,
+                    on_system_message
                 ).await?;
 
                 // Save the session at the end of turn
                 save_session("tui-agent-history.json", &history)?;
             }
             Ok(Signal::CtrlC) => {
-                println!("<CTRL-C>");
+                println!("^C");
                 continue;
             },
             Ok(Signal::CtrlD) => {
-                println!("<CTRL-D>");
+                println!("^D");
                 save_session("tui-agent-history.json", &history)?;
                 println!("Exiting...");
                 break;
@@ -114,7 +119,7 @@ pub async fn run(new_session: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn message_printer(message: &Message) {
+pub fn on_assistant_message(message: &Message) {
     let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
 
     let mut output = String::new();
@@ -141,10 +146,15 @@ pub fn message_printer(message: &Message) {
     termimad::print_text(&output);
 }
 
-pub fn thinking_printer() {
+pub fn on_assistant_thinking() {
     let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
     print!("{} Thinking...\r", mia_colored);
     stdout().flush().unwrap();
+}
+
+pub fn on_system_message(message: &str) {
+    let system_colored = format!("{} {}", "System".yellow(), ">".cyan());
+    println!("{} {}", system_colored, message);
 }
 
 pub fn get_tui_system_prompt() -> Result<String> {

@@ -32,6 +32,7 @@ syntect = "5.3.0"
 termimad = "0.34.1"
 textwrap = { version = "0.16.2", features = ["terminal_size"] }
 tokio = { version = "1.52.3", features = ["full"] }
+tokio-util = { version = "0.7.18", features = ["rt"] }
 toml = "1.1.2"
 # wacore = "0.6.0"
 # waproto = "0.6.0"

@@ -48,7 +48,12 @@ async fn main() -> Result<()>{
         let mut history = History::new();
         history.set_system_prompt(tui::get_tui_system_prompt()?);
         history.add_message(api::Message::new("user", &command));
-        agent_loop::run_agent(history, tui::message_printer, tui::thinking_printer).await?;
+        agent_loop::run_agent(
+            history,
+            tui::on_assistant_message,
+            tui::on_assistant_thinking,
+            tui::on_system_message
+        ).await?;
     }
     
     match cli.sub_command {

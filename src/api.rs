@@ -3,6 +3,7 @@ use reqwest::{Client, header::{AUTHORIZATION, REFERER, HeaderMap}};
 use anyhow::{Context, Ok, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tokio_util::sync::CancellationToken;
 
 use crate::config::AppConfig;
 use crate::agent_tools::ToolRegistry;
@@ -81,7 +82,7 @@ impl History {
 }
 
 /// Simply calls the chat/completion endpoint with a given history and returns the response
-pub async fn completion(history: &History) -> Result<Message> {
+pub async fn completion(history: &History, cancel: &CancellationToken) -> Result<Message> {
     let mut headers = HeaderMap::new();
     headers.insert(
         AUTHORIZATION,
@@ -109,11 +110,15 @@ pub async fn completion(history: &History) -> Result<Message> {
         "tools": ToolRegistry::schema()
     });
 
-    let response = client.post("https://openrouter.ai/api/v1/chat/completions")
+    let request = client.post("https://openrouter.ai/api/v1/chat/completions")
         .json(&payload)
-        .send()
-        .await
-        .context("Failed to parse API response")?;
+        .send();
+
+    let response = tokio::select! {
+        res = request => res.context("Failed to send chat completion request")?,
+        _ = cancel.cancelled() => anyhow::bail!("Request cancelled")
+    };
+
     debug!("Response Status: {}", response.status());
 
     if !response.status().is_success() {
