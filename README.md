@@ -42,6 +42,7 @@ Currently Mia has the following tools:
 | 📁 | file_list   | List files in a directory                    | No  |
 | 📖 | file_read   | Read files                                   | No  |
 | 🔍 | file_search | Search file contents                         | No  |
+| ✍️ | file_write  | Write to a file                              | Yes |
 | 🧠 | memory      | Remember things about the user and the agent | No  |
 | 🐍 | python      | Execute python code                          | Yes |
 | 🐚 | shell       | Run shell commands                           | Yes |
@@ -50,6 +51,11 @@ Currently Mia has the following tools:
 
 ## Installation
 ### Option A: Using cargo (Windows/Linux)
+Mia requires rust nightly
+```
+rustup toolchain install nightly
+rustup default nightly
+```
 Cargo can fetch, build and install mia.
 ```
 cargo install --git https://github.com/mastermach50/mia-agent

@@ -1,10 +1,9 @@
 use log::{debug, info};
+use termimad::crossterm::style::ResetColor;
 use textwrap;
-use colored::{ColoredString};
-use std::io::{Write, stdout};
-use std::fs;
-use std::cmp::{max, min};
+use std::{cmp::{max, min}, fs, io::{Write, stdout}, path::PathBuf};
 use anyhow::Result;
+use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, highlighting::Style ,util::{LinesWithEndings, as_24_bit_terminal_escaped}};
 
 use crate::api::History;
 use crate::config::AppConfig;
@@ -14,8 +13,8 @@ pub fn generate_think_lines(thinking: &str) -> String {
     "    ╎ ".to_string() + &textwrap::wrap(thinking, width).join("\n    ╎ ")
 }
 
-pub fn ask_permission(header: impl Into<ColoredString>, content: &str) -> bool {
-    let header = header.into();
+pub fn ask_permission(header: impl ToString, content: &str) -> bool {
+    let header = header.to_string();
     let width = textwrap::termwidth() - 4;
     let wrapped = textwrap::wrap(&content, width);
 
@@ -45,11 +44,47 @@ pub fn ask_permission(header: impl Into<ColoredString>, content: &str) -> bool {
     }
 }
 
+/// Returns colored text based on the file extension from the path
+pub fn hilight_text(filename: &str, text: &str) -> String {
+    let ps = SyntaxSet::load_defaults_newlines();
+    let ts = ThemeSet::load_defaults();
+
+    // Get syntax reference based on file extension
+    let pathbuf = PathBuf::from(filename);
+    let extension = pathbuf.extension().map(|s|s.to_str().unwrap()).unwrap_or("txt");
+    let syntax = ps.find_syntax_by_extension(extension).unwrap_or(ps.find_syntax_plain_text());
+
+    // Highlight the content (copied straight from docs example)
+    let mut h = HighlightLines::new(syntax, &ts.themes["base16-eighties.dark"]);
+    let mut colored_text = String::new();
+    for line in LinesWithEndings::from(text) {
+        let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
+        let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
+        colored_text.push_str(&escaped);
+    }
+    colored_text.push_str(&ResetColor.to_string());
+
+    return colored_text;
+}
+
 #[cfg(test)]
 mod tests {
-    use colored::Colorize;
-
     use super::*;
+
+    use termimad::crossterm::style::Stylize;
+
+    #[test]
+    fn test_hilight_text() {
+        let text = "
+import os
+print('hello world')
+        ";
+
+        ask_permission(
+            "Execute?".red(),
+            &hilight_text("some/python.py", text)
+        );   
+    }
 
     #[test]
     fn test_permission_prompt() {

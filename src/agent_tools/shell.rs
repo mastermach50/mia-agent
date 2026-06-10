@@ -1,7 +1,7 @@
-use colored::Colorize;
 use serde_json::json;
 use std::process::Command;
 use std::io::Read;
+use termimad::crossterm::style::Stylize;
 use std::process::Stdio;
 
 use crate::{agent_tools::Tool, utils::ask_permission};

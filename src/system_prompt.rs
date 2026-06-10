@@ -1,6 +1,7 @@
 use anyhow::Result;
 use chrono::Local;
 use std::fs;
+use os_info;
 
 use crate::config::AppConfig;
 
@@ -16,17 +17,26 @@ pub fn get_system_prompt() -> Result<String> {
     system_prompt.push_str("\n");
 
     // Context
+    let executable = std::env::current_exe()?.into_string().unwrap();
     let config_folder = AppConfig::internal().mia_dir.to_string_lossy();
     let model_name = AppConfig::global().model.name.clone();
-    let cwd = std::env::current_dir()?.into_string().unwrap();
-    let date_and_hour = Local::now().format("%a, %d %b %Y %I%p %z");
     system_prompt.push_str(&indoc::formatdoc! {"
         You are an AI agent running on a custom harness called mia-agent.
         When the user asks you to configure something about yourself this is what they are referring to.
+        Always use the tools you have if they even slightly seem be useful for the task.
+        Don't assume things, always verify, use your tools to do this if needed.
+        
+        your_executable: {executable}
         your_config_folder: {config_folder}
         the_model_you_are_running: {model_name}
-
-        # Context
+    "});
+    system_prompt.push_str("\n");
+    let os_name =  os_info::get().to_string();
+    let cwd = std::env::current_dir()?.into_string().unwrap();
+    let date_and_hour = Local::now().format("%a, %d %b %Y %I%p %z");
+    system_prompt.push_str(&indoc::formatdoc! {"
+        # Environment Context
+        operating_system: {os_name} 
         current_directory: {cwd}
         date_and_hour (use your datetime tool to get precise time): {date_and_hour}
     "});

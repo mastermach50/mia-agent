@@ -7,6 +7,7 @@ mod datetime;
 mod file_list;
 mod file_read;
 mod file_search;
+mod file_write;
 mod memory;
 mod python;
 mod shell;
@@ -51,6 +52,7 @@ impl ToolRegistry {
         Self::register(&mut registry, file_list::FileList);
         Self::register(&mut registry, file_read::FileReader);
         Self::register(&mut registry, file_search::FileSearch);
+        Self::register(&mut registry, file_write::FileWriter);
         Self::register(&mut registry, memory::Memory);
         Self::register(&mut registry, python::Python);
         Self::register(&mut registry, shell::Shell);

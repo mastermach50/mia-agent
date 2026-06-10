@@ -1,11 +1,9 @@
-use std::io::stdout;
-use std::io::Write;
+use std::io::{Write, stdout};
 use anyhow::Result;
-use colored::Colorize;
 use nu_ansi_term::{Color, Style};
-use reedline::EditCommand;
-use reedline::{ColumnarMenu, DefaultCompleter, Emacs, ExampleHighlighter, FileBackedHistory, KeyCode, KeyModifiers, MenuBuilder, Prompt, PromptHistorySearchStatus, Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings};
-use termimad;
+use reedline::{ColumnarMenu, DefaultCompleter, EditCommand, Emacs, ExampleHighlighter, FileBackedHistory, KeyCode, KeyModifiers, MenuBuilder, Prompt, PromptHistorySearchStatus, Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings};
+use termimad::{self, crossterm::style::Stylize};
+use textwrap;
 
 use crate::agent_tools::ToolRegistry;
 use crate::utils::{generate_think_lines, load_session, save_session};

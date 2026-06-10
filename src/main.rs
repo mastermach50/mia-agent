@@ -3,7 +3,7 @@
 
 use anyhow::{Ok, Result};
 use clap::Parser;
-use colored::Colorize;
+use termimad::crossterm::style::Stylize;
 use env_logger::Env;
 use tokio;
 

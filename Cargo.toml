@@ -2,7 +2,7 @@
 name = "mia-agent"
 description = "Your personal AI assistant"
 # Next major version when gateways are introduced
-version = "1.0.2"
+version = "1.0.3"
 edition = "2024"
 
 [[bin]]
@@ -13,7 +13,7 @@ path = "src/main.rs"
 anyhow = "1.0.102"
 chrono = "0.4.45"
 clap = { version = "4.6.1", features = ["derive"] }
-colored = "3.1.1"
+# colored = "3.1.1"
 config = { version = "0.15.23", features = ["toml"] }
 dotenvy = "0.15.7"
 env_logger = "0.11.10"
@@ -21,11 +21,13 @@ indoc = "2.0.7"
 itertools = "0.14.0"
 log = "0.4.30"
 nu-ansi-term = "0.50.3"
+os_info = "3.15.0"
 qrcode = "0.14.1"
 reedline = "0.48.0"
 reqwest = { version = "0.13.4", features = ["blocking", "json", "query"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
+syntect = "5.3.0"
 termimad = "0.34.1"
 textwrap = { version = "0.16.2", features = ["terminal_size"] }
 tokio = { version = "1.52.3", features = ["full"] }

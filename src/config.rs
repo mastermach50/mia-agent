@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
 use config::{Config, Environment, File, FileFormat};
-use log::{debug, error, warn, info, trace};
+use log::{debug, warn, info, trace};
 use serde::{Deserialize, Serialize};
 
 /// Cached config that is loaded on load() and accessed on global()
@@ -42,7 +42,7 @@ pub struct ModelConfig {
 impl Default for ModelConfig {
     fn default() -> Self {
         Self {
-            name: "owl-alpha".to_string(),
+            name: "openrouter/owl-alpha".to_string(),
             reasoning: "medium".to_string()
         }
     }
@@ -73,7 +73,7 @@ pub struct AgentConfig {
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            max_iterations: 10,
+            max_iterations: 20,
         }
     }
 }
