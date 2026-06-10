@@ -21,8 +21,8 @@ pub async fn run_agent(
     let cancel_watcher = cancel.clone();
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl-C");
-        // Extra spaces to wipe out any thinking message
-        println!("^C                       ");
+        // // Extra spaces to wipe out any thinking message
+        // println!("^C                       ");
         cancel_watcher.cancel();
     });
 

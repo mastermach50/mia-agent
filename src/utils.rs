@@ -1,12 +1,8 @@
-use log::{debug, info};
 use termimad::crossterm::style::ResetColor;
 use textwrap;
-use std::{cmp::{max, min}, fs, io::{Write, stdout}, path::PathBuf};
-use anyhow::Result;
+use std::{cmp::{max, min}, io::{Read, Write, stdout}, path::PathBuf, process::Child};
 use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, highlighting::Style ,util::{LinesWithEndings, as_24_bit_terminal_escaped}};
 
-use crate::api::History;
-use crate::config::AppConfig;
 
 pub fn generate_think_lines(thinking: &str) -> String {
     let width = textwrap::termwidth() - 6;
@@ -45,7 +41,7 @@ pub fn ask_permission(header: impl ToString, content: &str) -> bool {
 }
 
 /// Returns colored text based on the file extension from the path
-pub fn hilight_text(filename: &str, text: &str) -> String {
+pub fn highlight_text(filename: &str, text: &str) -> String {
     let ps = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
 
@@ -82,7 +78,7 @@ print('hello world')
 
         ask_permission(
             "Execute?".red(),
-            &hilight_text("some/python.py", text)
+            &highlight_text("some/python.py", text)
         );   
     }
 
@@ -92,21 +88,33 @@ print('hello world')
     }
 }
 
-pub fn save_session(filename: &str, history: &History) -> Result<()>{
-    debug!("Saving history to file");
-    let history_file = AppConfig::internal().sessions_dir.join(filename);
-    fs::write(history_file, serde_json::to_string_pretty(history).unwrap())?;
-    Ok(())
-}
+pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
+    let mut stdout_captured = String::new();
+    let mut stderr_captured = String::new();
 
-pub fn load_session(filename: &str) -> Result<History> {
-    debug!("Loading history from file");
-    let history_file = AppConfig::internal().mia_dir.join("sessions").join(filename);
-    if history_file.exists() {
-        let history = fs::read_to_string(history_file)?;
-        return Ok(serde_json::from_str(&history)?)
-    } else {
-        info!("History file not found");
-        anyhow::bail!("History file not found");
+    if let Some(mut stdout) = child.stdout.take() {
+        let mut buffer = [0; u8::MAX as usize];
+        while let Ok(bytes_read) = stdout.read(&mut buffer) {
+            if bytes_read == 0 { break; }
+            if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
+                print!("{}", text);
+                std::io::Write::flush(&mut std::io::stdout()).unwrap(); // Force instant print
+                stdout_captured.push_str(text);
+            }
+        }
     }
+
+    if let Some(mut stderr) = child.stderr.take() {
+        let mut buffer = [0; u8::MAX as usize];
+        while let Ok(bytes_read) = stderr.read(&mut buffer) {
+            if bytes_read == 0 { break; }
+            if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
+                eprint!("{}", text);
+                std::io::Write::flush(&mut std::io::stderr()).unwrap();
+                stderr_captured.push_str(text);
+            }
+        }
+    }
+
+    (stdout_captured, stderr_captured)
 }

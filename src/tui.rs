@@ -6,7 +6,8 @@ use termimad::{self, crossterm::style::Stylize};
 use textwrap;
 
 use crate::agent_tools::ToolRegistry;
-use crate::utils::{generate_think_lines, load_session, save_session};
+use crate::utils::generate_think_lines;
+use crate::sessions::{load_session, save_session};
 use crate::system_prompt::get_system_prompt;
 use crate::config::AppConfig;
 use crate::agent_loop;
@@ -124,8 +125,10 @@ pub fn on_assistant_message(message: &Message) {
 
     let mut output = String::new();
     if let Some(reasoning) = message.reasoning.clone() {
-        output += &format!("{mia_colored} 💭             \n");
-        output += &format!("{}\n", generate_think_lines(reasoning.trim()));
+        if AppConfig::global().tui.show_reasoning {
+            output += &format!("{mia_colored} 💭             \n");
+            output += &format!("{}\n", generate_think_lines(reasoning.trim()));
+        }
     }
     if let Some(content) = message.content.clone() {
         if content.trim() != "" {

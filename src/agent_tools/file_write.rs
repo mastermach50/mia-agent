@@ -43,7 +43,7 @@ impl Tool for FileWriter {
         let content = args["content"].as_str()
             .expect("Content argument not found");
 
-        let colored_content = utils::hilight_text(path, content);
+        let colored_content = utils::highlight_text(path, content);
 
         let header = format!("{} {}", "Write to".red(), path.yellow());
         if ask_permission(header, &colored_content) {        

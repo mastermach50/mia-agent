@@ -1,10 +1,9 @@
 use serde_json::json;
 use std::process::Command;
-use std::io::Read;
 use termimad::crossterm::style::Stylize;
 use std::process::Stdio;
 
-use crate::{agent_tools::Tool, utils::ask_permission};
+use crate::{agent_tools::Tool, utils::{ask_permission, stdio_capture_and_print}};
 
 #[derive(Debug)]
 pub struct Shell;
@@ -74,36 +73,9 @@ fn execute(&self, args: serde_json::Value) -> serde_json::Value {
             .stderr(Stdio::piped())
             .spawn()
             .expect("Failed to start command");
+        
+        let (stdout_captured, stderr_captured) = stdio_capture_and_print(&mut child);
 
-        // We capture the output into strings while printing them in real-time
-        let mut stdout_captured = String::new();
-        let mut stderr_captured = String::new();
-
-        if let Some(mut stdout) = child.stdout.take() {
-            let mut buffer = [0; u8::MAX as usize];
-            while let Ok(bytes_read) = stdout.read(&mut buffer) {
-                if bytes_read == 0 { break; }
-                if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                    print!("{}", text);
-                    std::io::Write::flush(&mut std::io::stdout()).unwrap(); // Force instant print
-                    stdout_captured.push_str(text);
-                }
-            }
-        }
-
-        if let Some(mut stderr) = child.stderr.take() {
-            let mut buffer = [0; u8::MAX as usize];
-            while let Ok(bytes_read) = stderr.read(&mut buffer) {
-                if bytes_read == 0 { break; }
-                if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                    eprint!("{}", text);
-                    std::io::Write::flush(&mut std::io::stderr()).unwrap();
-                    stderr_captured.push_str(text);
-                }
-            }
-        }
-
-        // Wait for the process to fully exit
         let status = child.wait().expect("Failed to wait on child process");
 
         json!({

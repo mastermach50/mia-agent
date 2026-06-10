@@ -40,7 +40,7 @@
           default = pkgs.mkShell {
             name = "mia-shell";
 
-            MIA_LOG = "mia-agent=TRACE";
+            MIA_LOG = "mia=DEBUG";
 
             nativeBuildInputs = with pkgs; [
               clang

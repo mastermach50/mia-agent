@@ -2,11 +2,10 @@
 
 use termimad::crossterm::style::Stylize;
 use std::process::Command;
-use std::io::Read;
 use std::process::Stdio;
 use serde_json::json;
 
-use crate::{agent_tools::Tool, utils::{ask_permission, hilight_text}};
+use crate::{agent_tools::Tool, utils::{ask_permission, highlight_text, stdio_capture_and_print}};
 
 #[cfg(unix)]
 static PYTHON_CMD: &str = "python3";
@@ -52,7 +51,7 @@ impl Tool for Python {
         let code = args["code"].as_str()
             .expect("Code argument not found");
 
-        let colored_code = hilight_text("something.py", code);
+        let colored_code = highlight_text("something.py", code);
 
         if ask_permission("Execute Python?".red(), &colored_code) {
             let mut child_process = Command::new(PYTHON_CMD);
@@ -64,32 +63,7 @@ impl Tool for Python {
                 .spawn()
                 .expect("Failed to start command");
 
-            let mut stdout_captured = String::new();
-            let mut stderr_captured = String::new();
-
-            if let Some(mut stdout) = child.stdout.take() {
-                let mut buffer = [0; u8::MAX as usize];
-                while let Ok(bytes_read) = stdout.read(&mut buffer) {
-                    if bytes_read == 0 { break; }
-                    if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                        print!("{}", text);
-                        std::io::Write::flush(&mut std::io::stdout()).unwrap(); // Force instant print
-                        stdout_captured.push_str(text);
-                    }
-                }
-            }
-
-            if let Some(mut stderr) = child.stderr.take() {
-                let mut buffer = [0; u8::MAX as usize];
-                while let Ok(bytes_read) = stderr.read(&mut buffer) {
-                    if bytes_read == 0 { break; }
-                    if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                        eprint!("{}", text);
-                        std::io::Write::flush(&mut std::io::stderr()).unwrap();
-                        stderr_captured.push_str(text);
-                    }
-                }
-            }
+            let (stdout_captured, stderr_captured) = stdio_capture_and_print(&mut child);
 
             let status = child.wait().expect("Failed to wait on child process");
 

@@ -7,15 +7,16 @@ use termimad::crossterm::style::Stylize;
 use env_logger::Env;
 use tokio;
 
-mod config;
-mod tui;
-mod cli;
-mod api;
-mod utils;
 mod agent_loop;
 mod agent_tools;
-mod system_prompt;
+mod api;
+mod cli;
+mod config;
 // mod gateway;
+mod sessions;
+mod system_prompt;
+mod tui;
+mod utils;
 
 use cli::Cli;
 use config::AppConfig;

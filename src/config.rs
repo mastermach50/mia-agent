@@ -82,6 +82,7 @@ impl Default for AgentConfig {
 pub struct TuiConfig {
     pub username: String,
     pub history_file: String,
+    pub show_reasoning: bool,
 }
 
 impl Default for TuiConfig {
@@ -89,6 +90,7 @@ impl Default for TuiConfig {
         Self {
             username: "user".to_string(),
             history_file: ".mia_tui_history".to_string(),
+            show_reasoning: true,
         }
     }
 }
@@ -100,6 +102,7 @@ pub struct InternalConfig {
     pub config_file: PathBuf,
     pub env_file: PathBuf,
     pub sessions_dir: PathBuf,
+    #[allow(dead_code)] // TODO remove when gateways implemented
     pub gateways_dir: PathBuf,
 }
 
