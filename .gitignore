@@ -3,6 +3,7 @@
 
 # Nix
 /result
+/all_builds
 
 # Devenv
 .devenv*

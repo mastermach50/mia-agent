@@ -14,27 +14,80 @@
 
   outputs = { nixpkgs, crane, fenix, ... }:
     let
-      systems = [ "x86_64-linux" "aarch64-linux" ];
+      # Systems we can build FROM (host systems)
+      buildSystems = [ "x86_64-linux" "aarch64-linux" ];
+
+      # All cross targets we want to produce
+      # Maps: output package attr name -> { rustTarget, crossSystem or null }
+      crossTargets = {
+        "x86_64-linux"   = { rustTarget = "x86_64-unknown-linux-gnu";    crossSystem = null; };
+        "aarch64-linux"  = { rustTarget = "aarch64-unknown-linux-gnu";   crossSystem = "aarch64-multiplatform"; };
+        "x86_64-windows" = { rustTarget = "x86_64-pc-windows-gnu";       crossSystem = "x86_64-w64-mingw32"; };
+        "aarch64-windows"= { rustTarget = "aarch64-pc-windows-gnullvm";  crossSystem = "aarch64-w64-mingw32"; };
+      };
+
+      # Build a package for a given (buildSystem, targetName) pair
+      makePackage = buildSystem: targetName:
+        let
+          target = crossTargets.${targetName};
+          isWindows = nixpkgs.lib.hasSuffix "windows" targetName;
+          isCross = targetName != buildSystem;
+
+          buildPkgs = import nixpkgs { system = buildSystem; };
+
+          # For cross targets, use pkgsCross; for native, use buildPkgs directly
+          crossPkgs =
+            if !isCross then buildPkgs
+            else if target.crossSystem == null then buildPkgs
+            else import nixpkgs {
+              system = buildSystem;
+              crossSystem = nixpkgs.lib.systems.examples.${target.crossSystem};
+            };
+
+          # Build a fenix toolchain that includes the cross Rust target
+          fenixPkgs = fenix.packages.${buildSystem};
+          toolchain = fenixPkgs.combine [
+            fenixPkgs.complete.toolchain
+            fenixPkgs.targets.${target.rustTarget}.latest.rust-std
+          ];
+
+          craneLib = (crane.mkLib buildPkgs).overrideToolchain toolchain;
+
+          mia-agent = crossPkgs.callPackage ./package.nix {
+            inherit craneLib isWindows;
+            # On cross builds the CC/linker come from the crossPkgs stdenv
+          };
+        in
+          mia-agent.package;
+
     in
     {
-      packages = nixpkgs.lib.genAttrs systems (system:
-        let
-          pkgs = import nixpkgs { inherit system; };
-          fenixComplete = fenix.packages.${system}.complete;
-          craneLib = (crane.mkLib pkgs).overrideToolchain fenixComplete.toolchain;
-          mia-agent = pkgs.callPackage ./package.nix { inherit craneLib; };
-        in
-        {
-          default = mia-agent.package;
-          mia-agent = mia-agent.package;
-        });
+      packages = nixpkgs.lib.genAttrs buildSystems (buildSystem:
+        nixpkgs.lib.mapAttrs
+          (targetName: _: makePackage buildSystem targetName)
+          crossTargets
+        // {
+          # Convenience: `default` is the native build
+          default = makePackage buildSystem buildSystem;
+        }
+      );
 
-      devShells = nixpkgs.lib.genAttrs systems (system:
+      devShells = nixpkgs.lib.genAttrs buildSystems (system:
         let
           pkgs = import nixpkgs { inherit system; };
-          fenixComplete = fenix.packages.${system}.complete;
-          craneLib = (crane.mkLib pkgs).overrideToolchain fenixComplete.toolchain;
-          mia-agent = pkgs.callPackage ./package.nix { inherit craneLib; };
+          fenixPkgs = fenix.packages.${system};
+          # Include all cross targets' rust-std in the dev shell
+          toolchain = fenixPkgs.combine ([
+            fenixPkgs.complete.toolchain
+            fenixPkgs.complete.rust-analyzer
+          ] ++ (nixpkgs.lib.mapAttrsToList
+            (_: t: fenixPkgs.targets.${t.rustTarget}.latest.rust-std)
+            crossTargets));
+          craneLib = (crane.mkLib pkgs).overrideToolchain toolchain;
+          mia-agent = pkgs.callPackage ./package.nix {
+            inherit craneLib;
+            isWindows = false;
+          };
         in
         {
           default = pkgs.mkShell {
@@ -45,8 +98,10 @@
             nativeBuildInputs = with pkgs; [
               clang
               mold
-              fenixComplete.toolchain
-              fenixComplete.rust-analyzer
+              toolchain
+              # Cross-compilation linkers
+              pkgsCross.mingwW64.buildPackages.gcc         # x86_64 Windows
+              pkgsCross.aarch64-multiplatform.buildPackages.gcc # aarch64 Linux
             ];
 
             buildInputs = mia-agent.runtimeDeps;
