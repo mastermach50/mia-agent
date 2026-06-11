@@ -82,9 +82,9 @@ pub async fn run(new_session: bool) -> Result<()> {
                     }
                     "/model" => {
                         let mut line = String::new();
-                        line.push_str(&format!("Base URL  {}", AppConfig::global().model.base_url));
-                        line.push_str(&format!("Name      {}", AppConfig::global().model.name));
-                        line.push_str(&format!("Reasoning {}", AppConfig::global().model.reasoning));
+                        line.push_str(&format!("\nBase URL  {}", AppConfig::global().model.base_url));
+                        line.push_str(&format!("\nName      {}", AppConfig::global().model.name));
+                        line.push_str(&format!("\nReasoning {}", AppConfig::global().model.reasoning));
                         on_system_message(&line);
                         continue;
                     }
