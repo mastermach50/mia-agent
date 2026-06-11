@@ -21,6 +21,7 @@ pub async fn run(new_session: bool) -> Result<()> {
         /exit /bye    Exit the tui
         /new          Create a new session
         /clear /cls   Clear screen
+        /model        Show model information
     
     Keybinds:
         <Ctrl-C>      Cancel assistant/user message
@@ -77,6 +78,14 @@ pub async fn run(new_session: bool) -> Result<()> {
                     }
                     "/" | "/help" => {
                         println!("{}", help_message);
+                        continue;
+                    }
+                    "/model" => {
+                        let mut line = String::new();
+                        line.push_str(&format!("Base URL  {}", AppConfig::global().model.base_url));
+                        line.push_str(&format!("Name      {}", AppConfig::global().model.name));
+                        line.push_str(&format!("Reasoning {}", AppConfig::global().model.reasoning));
+                        on_system_message(&line);
                         continue;
                     }
                     _ => {
