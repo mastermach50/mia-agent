@@ -1,14 +1,15 @@
 {
   bash,
   craneLib,
+  fd,
   lib,
   makeWrapper,
   python3,
-  tree,
   ripgrep,
+  tree,
 }:
 let
-  runtimeDeps = [ tree python3 bash ripgrep ];
+  runtimeDeps = [ tree python3 bash ripgrep fd ];
 
   commonArgs = {
     src = craneLib.cleanCargoSource ./.;
