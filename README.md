@@ -1,4 +1,6 @@
 # Mia Agent
+
+
 Mia is a coding and personal assistant AI agent designed to be unobtrusive, configurable ,easy to use. Mia grows with you.
 
 This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.com/). Although it borrows ideas from it, this is not a direct derivation or modification of the project.
@@ -20,17 +22,16 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 - The agent should act as an additional tool to the user not as a replacement for everything they already use.
 
 ## Features
-- Minimal terminal like ui
+- Minimal terminal UI
 - Multi turn agent loop
 - Agent memory
 - Session and prompt history
 - Full markdown rendering in terminal (thanks to [termimad](https://github.com/Canop/termimad))
-- Openrouter API access
+- OpenAI Compatible API access
 - Web search and extract using [Tavily](https://tavily.com)
 
 ## Upcoming Features
 - Whatsapp and Discord gateways
-- Any OpenAI compatible API connectivity
 - Agent skills
 - MCP connectivity
 
