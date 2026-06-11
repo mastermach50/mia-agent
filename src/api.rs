@@ -83,25 +83,8 @@ impl History {
 
 /// Simply calls the chat/completion endpoint with a given history and returns the response
 pub async fn completion(history: &History, cancel: &CancellationToken) -> Result<Message> {
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        REFERER,
-        "https://mathewma3.in".parse().unwrap()
-    );
-
-    if AppConfig::global().model.base_url.contains("openrouter.ai") {
-        headers.insert(
-            AUTHORIZATION,
-            format!("Bearer {}", std::env::var("OPENROUTER_API_KEY").unwrap()).parse().unwrap()
-        );
-        headers.insert(
-            "X-OpenRouter-Title",
-            "Mia Agent".parse().unwrap()
-        );
-    }
-
     let client = Client::builder()
-        .default_headers(headers)
+        .default_headers(get_default_headers())
         .build()?;
 
     let payload = json!({
@@ -141,3 +124,82 @@ pub async fn completion(history: &History, cancel: &CancellationToken) -> Result
     Ok(message)
 }
 
+
+#[derive(Serialize, Deserialize)]
+pub struct Model {
+    pub id: String,
+    pub name: Option<String>,
+    pub context_length: Option<i64>,
+    pub architecture: Option<ModelArch>,
+    pub pricing: Option<ModelPricing>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ModelArch {
+    pub input_modalities: Vec<String>,
+    pub modality: Option<String>,
+    pub output_modalities: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ModelPricing {
+    pub completion: String,
+    pub prompt: String,
+}
+
+/// Get list of available models from the API
+pub async fn models() -> Result<Vec<Model>> {
+    let client = Client::builder()
+        .default_headers(get_default_headers())
+        .build()?;
+
+    let params = [
+        ("output_modalities", "text"),
+        ("sort", "pricing-low-to-high"),
+    ];
+
+    let response = client.get(AppConfig::global().model.base_url.clone() + "/models")
+        .query(&params)
+        .send()
+        .await?;
+
+    debug!("Response Status: {}", response.status());
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let json = response.json::<serde_json::Value>().await?;
+        error!("API request failed with status {}", status);
+        error!("Response: {:?}", json);
+        anyhow::bail!("API request failed with status {}", status);
+    }
+
+    let content = response.json::<serde_json::Value>().await?;
+    trace!("Response Content: {:?}", content);
+
+    let models: Vec<Model> = serde_json::from_value(content["data"].clone())
+        .context("Failed to decode assistant message")?;
+
+    Ok(models)
+}
+
+/// Get the default headers used by every request
+fn get_default_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        REFERER,
+        "https://mathewma3.in".parse().unwrap()
+    );
+
+    if AppConfig::global().model.base_url.contains("openrouter.ai") {
+        headers.insert(
+            AUTHORIZATION,
+            format!("Bearer {}", std::env::var("OPENROUTER_API_KEY").unwrap()).parse().unwrap()
+        );
+        headers.insert(
+            "X-OpenRouter-Title",
+            "Mia Agent".parse().unwrap()
+        );
+    }
+
+    headers
+}

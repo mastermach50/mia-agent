@@ -26,9 +26,11 @@ os_info = "3.15.0"
 qrcode = "0.14.1"
 reedline = "0.48.0"
 reqwest = { version = "0.13.4", features = ["blocking", "json", "query"] }
+rust_decimal = "1.42.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 syntect = "5.3.0"
+tabled = "0.21.0"
 termimad = "0.34.1"
 textwrap = { version = "0.16.2", features = ["terminal_size"] }
 tokio = { version = "1.52.3", features = ["full"] }
