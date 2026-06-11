@@ -1,7 +1,9 @@
 use anyhow::Context;
+use itertools::Itertools;
 use termimad::crossterm::style::{ResetColor, Stylize};
 use textwrap;
 use tokio::task::JoinHandle;
+use tokio_util::context;
 use std::{cmp::{max, min}, io::{Read, Write, stdout}, path::PathBuf, process::Child, sync::Mutex, time::Duration};
 use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, highlighting::Style ,util::{LinesWithEndings, as_24_bit_terminal_escaped}};
 
@@ -12,31 +14,34 @@ pub fn generate_think_lines(thinking: &str) -> String {
     left_gap.to_string() + &textwrap::wrap(thinking, width).join(&("\n".to_owned() + left_gap))
 }
 
-pub fn ask_permission(header: impl ToString, content: &str) -> bool {
-    let header = header.to_string();
-    let width = textwrap::termwidth() - 4;
-    let wrapped = textwrap::wrap(&content, width);
+pub fn ask_permission(prompt: impl ToString, content: &str) -> bool {
+    let term_width = textwrap::termwidth();
+    let max_content_width = term_width - 4;
 
-    let max_content = min( width, textwrap::core::display_width(content));
-    let maxw = max(header.len(), max_content);
+    let wrapped = textwrap::wrap(&content, max_content_width);
+    let prompt_width = textwrap::core::display_width(&prompt.to_string());
+    let wrapped_string: String = wrapped.iter().map(|l| l.to_string()).join("\n");
+    let content_width = textwrap::core::display_width(&wrapped_string);
 
-    print!("╭{}╮", "─".repeat(maxw + 2));
-    println!("\r╭─{}", header);
+    // The larger of prompt_width or content_width will be the inner width of the box (excluding padding)
+    let inner_width = max(prompt_width+1, content_width);
+
+    print!("╭{}╮", "─".repeat(inner_width + 2));
+    println!("\r╭─{}", &prompt.to_string());
     for line in wrapped {
         let line_width = textwrap::core::display_width(&line);
-        let padding = maxw.saturating_sub(line_width) + 1;
-        println!("│ {}{}│", line, " ".repeat(padding));
+        println!("│ {}{} │", line, " ".repeat(inner_width - line_width));
     }
-    print!("╰{}╯", "─".repeat(maxw + 2));
-    print!("\r╰[y/n]: ");
-
+    print!("├{}╯", "─".repeat(inner_width + 2));
+    println!("\r├─{}", &prompt.to_string());
+    print!("╰─[y/n]: ");
     stdout().flush().unwrap();
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
     input = input.trim().to_string().to_lowercase();
 
-    if input == "y" || input == "yes" {
+    if input == "y" || input == "yes" || input.chars().all(|c| c == 'y') {
         true
     } else {
         false
@@ -72,22 +77,30 @@ mod tests {
 
     use termimad::crossterm::style::Stylize;
 
-    #[test]
-    fn test_hilight_text() {
-        let text = "
+    static CODE: &str = "
 import os
 print('hello world')
-        ";
+    ";
+
+    #[test]
+    fn test_hilight_text() {
 
         ask_permission(
             "Execute?".red(),
-            &highlight_text("some/python.py", text)
-        );   
-    }
+            &highlight_text("some/python.py", CODE)
+        );
 
+    }
+    
     #[test]
     fn test_permission_prompt() {
-        let _ = ask_permission("Execute?".red(), "Hi");
+        ask_permission("Execute?".red(), "Hi");
+        ask_permission(
+            format!("{} {}?", "Write file:".red(), "somelongpaththatnobodycaresaboutsoitcanbewritterntowithoutanyproblems.png".yellow()),
+            &highlight_text("some/python.py", CODE)
+        );
+        ask_permission("Execute?".red(), "Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        ask_permission("Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".red(), "Hi");
     }
 }
 
