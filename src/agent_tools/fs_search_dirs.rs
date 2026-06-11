@@ -16,7 +16,7 @@ impl Tool for FSSearchDirs {
             .unwrap_or(5).to_string();
         format!("{} -> {} ({})", pattern, path, max_depth)
     }
-    fn availability(&self) -> Result<(), String> { 
+    fn availability(&self) -> Result<(), String> {
         which::which("fd")
             .map(|_| ())
             .map_err(|_| "fd not found".to_string())
@@ -55,12 +55,12 @@ impl Tool for FSSearchDirs {
             .unwrap_or(5).to_string();
         if let Some(pattern) = args["pattern"].as_str() {
             let output = std::process::Command::new("fd")
-                .args(["--color", "never", "--hyperlink", "never", "--max-depth", &max_depth])
+                .args(["--color=never", "--hyperlink=never", &format!("--max-depth={max_depth}")])
                 .arg(pattern)
                 .arg(path)
                 .output()
                 .expect("Failed to execute fd");
-            
+
             return json!({
                 "status": if output.status.success() { "success" } else { "error" },
                 "exit_code": output.status.code().unwrap(),
@@ -73,7 +73,7 @@ impl Tool for FSSearchDirs {
                 "message": "pattern argument not found"
             });
         }
-        
-        
+
+
     }
 }

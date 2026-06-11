@@ -53,7 +53,7 @@ impl Tool for FSGrepFiles {
             .unwrap_or(5).to_string();
         if let Some(pattern) = args["pattern"].as_str() {
             let output = std::process::Command::new("rg")
-                .args(["--color", "never", "--max-depth", &max_depth, "--smart-case"])
+                .args(["--color=never", &format!("--max-depth={max_depth}"), "--smart-case"])
                 .arg(pattern)
                 .arg(path)
                 .output()

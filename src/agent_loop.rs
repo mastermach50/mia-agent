@@ -13,13 +13,10 @@ pub async fn run_agent(
     on_assistant_status_update: impl Fn(&str),
     on_system_message: impl Fn(&str),
 ) -> Result<History> {
-
-    // Initially mark the assistant as waiting
-    on_assistant_status_update("Waiting");
-
+    
     // Make history mutable
     let mut history = history;
-
+    
     // Setup a Ctrl-C listener to cancel the request
     // When a Ctrl-C is received the cancellation token is set to "cancelled"
     let cancel = CancellationToken::new();
@@ -28,9 +25,12 @@ pub async fn run_agent(
         tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl-C");
         cancel_watcher.cancel();
     });
-
+    
     // Max number of iterations is configurable
     for iterations in 1..=AppConfig::global().agent.max_iterations {
+        // Initially mark the assistant as waiting
+        on_assistant_status_update("Waiting");
+
 
         // Check if the request is cancelled
         if cancel.is_cancelled() {
