@@ -22,13 +22,13 @@ impl Tool for WebExtract {
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Extract content from a URL using Tavily API",
+                "description": "Extract content from a URL using Tavily API.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "url": {
                             "type": "string",
-                            "description": "The URL to extract content from"
+                            "description": "The URL to extract content from."
                         }
                     },
                     "required": ["url"]

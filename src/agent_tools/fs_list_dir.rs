@@ -3,9 +3,9 @@ use serde_json::json;
 use crate::agent_tools::Tool;
 
 #[derive(Debug)]
-pub struct FileList;
-impl Tool for FileList {
-    fn name(&self) -> String { "file_list".to_string() }
+pub struct FSListDir;
+impl Tool for FSListDir {
+    fn name(&self) -> String { "fs_list_dir".to_string() }
     fn icon(&self) -> String { "📁".to_string() }
     fn short(&self, args: serde_json::Value) -> String {
         args["path"].as_str()
@@ -24,10 +24,10 @@ impl Tool for FileList {
     }
     fn schema(&self) -> serde_json::Value {
         #[cfg(unix)]
-        let description = "List the contents of a folder using 'ls -la'";
+        let description = "List the contents of a folder. Uses 'ls -la' under the hood.";
 
         #[cfg(windows)]
-        let description = "List the contents of a folder using 'dir /a'";
+        let description = "List the contents of a folder. Uses 'dir /a' under the hood.";
 
         json!({
             "type": "function",
@@ -39,7 +39,7 @@ impl Tool for FileList {
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "The folder path to list (relative to current directory, defaults to current directory)"
+                            "description": "The folder path to list (relative to current directory, defaults to . )"
                         },
                     },
                     "required": ["path"]

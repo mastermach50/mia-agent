@@ -4,13 +4,14 @@ use log::{trace, warn};
 use serde_json::{self, json};
 
 mod datetime;
-mod file_list;
-mod file_read;
-mod file_search;
-mod file_write;
+mod exec_python;
+mod exec_shell;
+mod fs_grep_files;
+mod fs_list_dir;
+mod fs_read_file;
+mod fs_search_dirs;
+mod fs_write_file;
 mod memory;
-mod python;
-mod shell;
 mod web_extract;
 mod web_search;
 
@@ -49,13 +50,14 @@ impl ToolRegistry {
         let mut registry = HashMap::new();
         
         Self::register(&mut registry, datetime::DateTime);
-        Self::register(&mut registry, file_list::FileList);
-        Self::register(&mut registry, file_read::FileReader);
-        Self::register(&mut registry, file_search::FileSearch);
-        Self::register(&mut registry, file_write::FileWriter);
+        Self::register(&mut registry, exec_python::ExecPython);
+        Self::register(&mut registry, exec_shell::ExecShell);
+        Self::register(&mut registry, fs_grep_files::FSGrepFiles);
+        Self::register(&mut registry, fs_list_dir::FSListDir);
+        Self::register(&mut registry, fs_read_file::FSReadFile);
+        Self::register(&mut registry, fs_search_dirs::FSSearchDirs);
+        Self::register(&mut registry, fs_write_file::FSWriteFile);
         Self::register(&mut registry, memory::Memory);
-        Self::register(&mut registry, python::Python);
-        Self::register(&mut registry, shell::Shell);
         Self::register(&mut registry, web_extract::WebExtract);
         Self::register(&mut registry, web_search::WebSearch);
 

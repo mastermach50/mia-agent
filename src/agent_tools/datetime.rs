@@ -15,7 +15,7 @@ impl Tool for DateTime {
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Get the current date and time in RFC2822 format",
+                "description": "Get the current date and time in RFC2822 format.",
                 "parameters": {
                     "type": "object",
                     "properties": {}

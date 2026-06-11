@@ -6,9 +6,9 @@ use std::process::Stdio;
 use crate::{agent_tools::Tool, utils::{ask_permission, stdio_capture_and_print}};
 
 #[derive(Debug)]
-pub struct Shell;
-impl Tool for Shell {
-    fn name(&self) -> String { "shell".to_string() }
+pub struct ExecShell;
+impl Tool for ExecShell {
+    fn name(&self) -> String { "exec_shell".to_string() }
     fn icon(&self) -> String { "🐚".to_string() }
     fn short(&self, args: serde_json::Value) -> String {
         args["command"].as_str()
@@ -28,10 +28,10 @@ impl Tool for Shell {
     }
     fn schema(&self) -> serde_json::Value {
         #[cfg(unix)]
-        let description = "Run commands in bash";
+        let description = "Run commands in bash.";
 
         #[cfg(windows)]
-        let description = "Run commands in powershell";
+        let description = "Run commands in powershell.";
 
         json!({
             "type": "function",
@@ -43,7 +43,7 @@ impl Tool for Shell {
                     "properties": {
                         "command": {
                             "type": "string",
-                            "description": "The command to run"
+                            "description": "The command to run."
                         }
                     },
                     "required": [ "command" ]

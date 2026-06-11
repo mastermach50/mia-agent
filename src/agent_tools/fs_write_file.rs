@@ -5,9 +5,9 @@ use termimad::crossterm::style::Stylize;
 use crate::{agent_tools::Tool, utils::{self, ask_permission}};
 
 #[derive(Debug)]
-pub struct FileWriter;
-impl Tool for FileWriter {
-    fn name(&self) -> String { "file_write".to_string() }
+pub struct FSWriteFile;
+impl Tool for FSWriteFile {
+    fn name(&self) -> String { "fs_write_file".to_string() }
     fn icon(&self) -> String { "✍️".to_string() }
     fn short(&self, args: serde_json::Value) -> String {
         args["path"].as_str()
@@ -25,11 +25,11 @@ impl Tool for FileWriter {
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "The file path to write to (can be relative to the currend directory)"
+                            "description": "The file path to write to (can be relative to the current directory)"
                         },
                         "content": {
                             "type": "string",
-                            "description": "The content to write to the file"
+                            "description": "The content to write to the file."
                         }
                     },
                     "required": ["path", "content"]

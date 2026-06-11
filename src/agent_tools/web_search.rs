@@ -25,13 +25,13 @@ impl Tool for WebSearch {
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Search the web using Tavily API for relevant results",
+                "description": "Search the web using Tavily API for relevant results.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The search query to execute"
+                            "description": "The search query to execute."
                         },
                         "max_results": {
                             "type": "integer",

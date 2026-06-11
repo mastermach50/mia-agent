@@ -4,9 +4,9 @@ use serde_json::json;
 use crate::agent_tools::Tool;
 
 #[derive(Debug)]
-pub struct FileReader;
-impl Tool for FileReader {
-    fn name(&self) -> String { "file_read".to_string() }
+pub struct FSReadFile;
+impl Tool for FSReadFile {
+    fn name(&self) -> String { "fs_read_file".to_string() }
     fn icon(&self) -> String { "📖".to_string() }
     fn short(&self, args: serde_json::Value) -> String {
         args["path"].as_str()
@@ -24,7 +24,7 @@ impl Tool for FileReader {
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "The file path to read (relative to current working directory)"
+                            "description": "The file path to read (relative to current directory)"
                         }
                     },
                     "required": ["path"]

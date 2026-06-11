@@ -1,4 +1,3 @@
-- Make ctrl-c acceptance wider
-- Rename tools to better reflect what they do
 - Make sessions not overwrite each other
 - Make session tools
+- Graceful error handling in API calls

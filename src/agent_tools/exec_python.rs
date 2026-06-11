@@ -12,9 +12,9 @@ static PYTHON_CMD: &str = "python3";
 static PYTHON_CMD: &str = "python";
 
 #[derive(Debug)]
-pub struct Python;
-impl Tool for Python {
-    fn name(&self) -> String { "python".to_string() }
+pub struct ExecPython;
+impl Tool for ExecPython {
+    fn name(&self) -> String { "exec_python".to_string() }
     fn icon(&self) -> String { "🐍".to_string() }
     fn short(&self, args: serde_json::Value) -> String {
         args["code"].as_str()
@@ -30,13 +30,13 @@ impl Tool for Python {
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Execute Python 3 code",
+                "description": "Execute Python 3 code.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "code": {
                             "type": "string",
-                            "description": "The Python code to execute"
+                            "description": "The Python code to execute."
                         }
                     },
                     "required": [ "code" ]

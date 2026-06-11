@@ -27,15 +27,15 @@ impl Tool for Memory {
                     "properties": {
                         "memory_type": {
                             "type": "string",
-                            "description": "Type of memory: 'user' or 'system'"
+                            "description": "Type of memory: 'user' or 'system'."
                         },
                         "operation": {
                             "type": "string",
-                            "description": "Operation to perform: 'insert' or 'delete'"
+                            "description": "Operation to perform: 'insert' or 'delete'."
                         },
                         "content": {
                             "type": "string",
-                            "description": "The full line to insert or delete"
+                            "description": "The full line to insert or delete."
                         }
                     },
                     "required": ["memory_type", "operation", "content"]
