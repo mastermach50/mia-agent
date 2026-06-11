@@ -14,7 +14,7 @@ impl Tool for FSSearchDirs {
             .unwrap_or(".").to_string();
         let max_depth = args["max_depth"].as_u64()
             .unwrap_or(5).to_string();
-        format!("{} -> {} ({})", pattern, path, max_depth)
+        format!("{} -> {} (depth: {})", pattern, path, max_depth)
     }
     fn availability(&self) -> Result<(), String> {
         which::which("fd")

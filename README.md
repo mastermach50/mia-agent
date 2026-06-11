@@ -36,18 +36,20 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 
 ## Tools
 Currently Mia has the following tools:
+
 || Tool | Description | Permission Required |
 |:-:|:-|:-|:-:|
-| 📅 | datetime    | Get current, accurate date and time          | No  |
-| 📁 | file_list   | List files in a directory                    | No  |
-| 📖 | file_read   | Read files                                   | No  |
-| 🔍 | file_search | Search file contents                         | No  |
-| ✍️ | file_write  | Write to a file                              | Yes |
-| 🧠 | memory      | Remember things about the user and the agent | No  |
-| 🐍 | python      | Execute python code                          | Yes |
-| 🐚 | shell       | Run shell commands                           | Yes |
-| 🪏 | web_extract | Extract web page contents                    | No  |
-| 🌐 | web_search  | Search the web                               | No  |
+| 📅 | `datetime`       | Get the current date and time              | No  |
+| 📁 | `fs_list_dir`    | List files in a directory                  | No  |
+| 📖 | `fs_read_file`   | Read a file from the filesystem            | No  |
+| 🔍 | `fs_grep_files`  | Search file contents                       | No  |
+| 🧭 | `fs_search_dirs` | Search for files in a directory            | No  |
+| ✍️ | `fs_write_file`  | Write content to a file                    | Yes |
+| 🧠 | `memory`         | Manage memory about the user and the agent | No  |
+| 🐍 | `exec_python`    | Execute Python 3 code                      | Yes |
+| 🐚 | `exec_shell`     | Run shell commands                         | Yes |
+| 🪏 | `web_extract`    | Extract content from a URL                 | No  |
+| 🌐 | `web_search`     | Search the web                             | No  |
 
 ## Installation
 ### Option A: Using cargo (Windows/Linux)
@@ -92,6 +94,7 @@ TAVILY_API_KEY=<your-tavily-api-key>
 Currently the external tools required by mia are
 - [Python](https://python.org)
 - [Ripgrep](https://github.com/BurntSushi/ripgrep)
+- [fd](https://github.com/sharkdp/fd)
 
 ## Usage
 ### Cli
