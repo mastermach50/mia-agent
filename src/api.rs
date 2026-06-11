@@ -100,6 +100,7 @@ pub async fn completion(history: &History, cancel: &CancellationToken) -> Result
         .json(&payload)
         .send();
 
+    // Ctrl-C is acceptable while waiting for a response headers
     let response = tokio::select! {
         res = request => res.context("Failed to send chat completion request")?,
         _ = cancel.cancelled() => anyhow::bail!("Request cancelled")
@@ -115,7 +116,11 @@ pub async fn completion(history: &History, cancel: &CancellationToken) -> Result
         anyhow::bail!("API request failed with status {}", status);
     }
 
-    let content = response.json::<serde_json::Value>().await?;
+    // Ctrl-C is acceptable while waiting for a response body
+    let content = tokio::select! {
+        res = response.json::<serde_json::Value>() => res.context("Failed to read response body")?,
+        _ = cancel.cancelled() => anyhow::bail!("Request cancelled")
+    };
     trace!("Response Content: {:?}", content);
 
     let message: Message = serde_json::from_value(content["choices"][0]["message"].clone())

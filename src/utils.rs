@@ -1,39 +1,49 @@
 use anyhow::Context;
-use itertools::Itertools;
 use termimad::crossterm::style::{ResetColor, Stylize};
-use textwrap;
+use textwrap::{self, core::display_width, termwidth, wrap};
 use tokio::task::JoinHandle;
-use tokio_util::context;
-use std::{cmp::{max, min}, io::{Read, Write, stdout}, path::PathBuf, process::Child, sync::Mutex, time::Duration};
+use std::{cmp::max, io::{Read, Write, stdout}, path::PathBuf, process::Child, sync::Mutex, time::Duration};
 use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, highlighting::Style ,util::{LinesWithEndings, as_24_bit_terminal_escaped}};
 
 
 pub fn generate_think_lines(thinking: &str) -> String {
     let left_gap = "    ╎ ";
-    let width = textwrap::termwidth() - 6;
-    left_gap.to_string() + &textwrap::wrap(thinking, width).join(&("\n".to_owned() + left_gap))
+    let width = termwidth() - 6;
+    left_gap.to_string() + &wrap(thinking, width).join(&("\n".to_owned() + left_gap))
 }
 
 pub fn ask_permission(prompt: impl ToString, content: &str) -> bool {
-    let term_width = textwrap::termwidth();
+    let term_width = termwidth();
     let max_content_width = term_width - 4;
 
-    let wrapped = textwrap::wrap(&content, max_content_width);
-    let prompt_width = textwrap::core::display_width(&prompt.to_string());
-    let wrapped_string: String = wrapped.iter().map(|l| l.to_string()).join("\n");
-    let content_width = textwrap::core::display_width(&wrapped_string);
+    let wrapped = wrap(&content, max_content_width);
+
+    // Prompt's width after wrapping
+    let prompt_width = if display_width(&prompt.to_string()) > max_content_width {
+        max_content_width
+    } else {
+        display_width(&prompt.to_string())
+    };
+
+    // Content's width after wrapping
+    let content_width = wrapped.iter()
+        .map(|l| display_width(l))
+        .max()
+        .unwrap_or(max_content_width);
 
     // The larger of prompt_width or content_width will be the inner width of the box (excluding padding)
-    let inner_width = max(prompt_width+1, content_width);
+    let inner_width = max(prompt_width, content_width);
 
-    print!("╭{}╮", "─".repeat(inner_width + 2));
-    println!("\r╭─{}", &prompt.to_string());
+    for line in wrap(&prompt.to_string(), max_content_width) {
+        println!("╭─{}{}─╮", line, "─".repeat(inner_width-display_width(&line)));
+    }
     for line in wrapped {
-        let line_width = textwrap::core::display_width(&line);
+        let line_width = display_width(&line);
         println!("│ {}{} │", line, " ".repeat(inner_width - line_width));
     }
-    print!("├{}╯", "─".repeat(inner_width + 2));
-    println!("\r├─{}", &prompt.to_string());
+    for line in wrap(&prompt.to_string(), max_content_width) {
+        println!("├─{}{}─╯", line, "─".repeat(inner_width-display_width(&line)));
+    }
     print!("╰─[y/n]: ");
     stdout().flush().unwrap();
 
@@ -41,11 +51,7 @@ pub fn ask_permission(prompt: impl ToString, content: &str) -> bool {
     std::io::stdin().read_line(&mut input).unwrap();
     input = input.trim().to_string().to_lowercase();
 
-    if input == "y" || input == "yes" || input.chars().all(|c| c == 'y') {
-        true
-    } else {
-        false
-    }
+    input == "y" || input == "yes" || input.chars().all(|c| c == 'y')
 }
 
 /// Returns colored text based on the file extension from the path

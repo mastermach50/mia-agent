@@ -2,4 +2,3 @@
 - Rename tools to better reflect what they do
 - Make sessions not overwrite each other
 - Make session tools
-- Fix text overflow in permission prompt
