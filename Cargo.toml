@@ -5,6 +5,7 @@ description = "Your personal AI assistant"
 version = "0.1.0"
 license = "MIT"
 edition = "2024"
+# build = "build.rs"
 
 [[bin]]
 name = "mia"
@@ -14,6 +15,7 @@ path = "src/main.rs"
 anyhow = "1.0.102"
 chrono = "0.4.45"
 clap = { version = "4.6.1", features = ["derive"] }
+clap_complete = "4.6.5"
 # colored = "3.1.1"
 config = { version = "0.15.23", features = ["toml"] }
 dotenvy = "0.15.7"
@@ -43,3 +45,7 @@ toml = "1.1.2"
 # whatsapp-rust-tokio-transport = "0.6.0"
 # whatsapp-rust-ureq-http-client = "0.6.0"
 which = "8.0.3"
+
+[build-dependencies]
+clap = "4.6.1"
+clap_complete = "4.6.5"
