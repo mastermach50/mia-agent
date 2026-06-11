@@ -82,7 +82,8 @@ impl History {
 }
 
 /// Simply calls the chat/completion endpoint with a given history and returns the response
-pub async fn completion(history: &History, cancel: &CancellationToken) -> Result<Message> {
+pub async fn completion(history: &History, cancel: &CancellationToken, on_status_update: impl Fn(&str)) -> Result<Message> {
+    
     let client = Client::builder()
         .default_headers(get_default_headers())
         .build()?;
@@ -107,6 +108,9 @@ pub async fn completion(history: &History, cancel: &CancellationToken) -> Result
     };
 
     debug!("Response Status: {}", response.status());
+
+    // Mark assistant as thinking once the response headers are received
+    on_status_update("Thinking");
 
     if !response.status().is_success() {
         let status = response.status();

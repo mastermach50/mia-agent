@@ -10,9 +10,14 @@ use crate::config::AppConfig;
 pub async fn run_agent(
     history: History,
     on_assistant_message: impl Fn(&Message),
-    on_assistant_thinking: impl Fn(),
+    on_assistant_status_update: impl Fn(&str),
     on_system_message: impl Fn(&str),
 ) -> Result<History> {
+
+    // Initially mark the assistant as waiting
+    on_assistant_status_update("Waiting");
+
+    // Make history mutable
     let mut history = history;
 
     // Setup a Ctrl-C listener to cancel the request
@@ -21,11 +26,10 @@ pub async fn run_agent(
     let cancel_watcher = cancel.clone();
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl-C");
-        // // Extra spaces to wipe out any thinking message
-        // println!("^C                       ");
         cancel_watcher.cancel();
     });
 
+    // Max number of iterations is configurable
     for iterations in 1..=AppConfig::global().agent.max_iterations {
 
         // Check if the request is cancelled
@@ -46,11 +50,10 @@ pub async fn run_agent(
             ));
         }
 
-        // Notify the user that the agent is (about to start) thinking
-        on_assistant_thinking();
 
         // Get the next message from the assistant and append it to the history
-        let assistant_msg = match completion(&history, &cancel).await {
+        // Pass over the cancellation token and thinking notifier too
+        let assistant_msg = match completion(&history, &cancel, &on_assistant_status_update).await {
             // Success
             Ok(message) => { message }
 

@@ -172,14 +172,21 @@ pub fn parse_human_number(s: &str) -> anyhow::Result<i64> {
 static SPINNER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
 /// Start showing a thinking spinner
-pub fn start_spinner() {
+pub fn start_spinner(kind: &str) {
+
+    // Stop any previous spinner
+    if let Some(handle) = SPINNER.lock().unwrap().take() {
+        handle.abort();
+    }
+
     let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
     let frames = ["⠇", "⠋", "⠙", "⠸", "⠼", "⠴", "⠦"];
-    
+    let kind = kind.to_string();
+
     let handle = tokio::spawn(async move {
         let mut i = 0;
         loop {
-            print!("\r{} {} Thinking...", mia_colored, frames[i]);
+            print!("\r{} {} {}...", mia_colored, frames[i], kind);
             stdout().flush().unwrap();
             tokio::time::sleep(Duration::from_millis(80)).await;
             i = (i + 1) % frames.len();

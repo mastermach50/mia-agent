@@ -102,7 +102,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                 history = agent_loop::run_agent(
                     history,
                     on_assistant_message,
-                    on_assistant_thinking,
+                    on_assistant_status_update,
                     on_system_message
                 ).await?;
 
@@ -159,12 +159,12 @@ pub fn on_assistant_message(message: &Message) {
     termimad::print_text(&output);
 }
 
-pub fn on_assistant_thinking() {
+pub fn on_assistant_status_update(kind: &str) {
     if AppConfig::global().tui.show_spinner {
-        start_spinner();
+        start_spinner(kind);
     } else {
         let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
-        print!("{} Thinking...", mia_colored);
+        print!("{} {}...", mia_colored, kind);
         stdout().flush().unwrap();
     }
 }

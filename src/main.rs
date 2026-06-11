@@ -54,7 +54,7 @@ async fn main() -> Result<()>{
         agent_loop::run_agent(
             history,
             tui::on_assistant_message,
-            tui::on_assistant_thinking,
+            tui::on_assistant_status_update,
             tui::on_system_message
         ).await?;
     }
