@@ -6,7 +6,7 @@ use termimad::{self, crossterm::style::Stylize};
 use textwrap;
 
 use crate::agent_tools::ToolRegistry;
-use crate::utils::generate_think_lines;
+use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
 use crate::sessions::{load_session, save_session};
 use crate::system_prompt::get_system_prompt;
 use crate::config::AppConfig;
@@ -121,7 +121,8 @@ pub async fn run(new_session: bool) -> Result<()> {
 }
 
 pub fn on_assistant_message(message: &Message) {
-    let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
+    stop_spinner();
+    let mia_colored = format!("\r{}  {}", "Mia".red(), ">".cyan());
 
     let mut output = String::new();
     if let Some(reasoning) = message.reasoning.clone() {
@@ -150,13 +151,18 @@ pub fn on_assistant_message(message: &Message) {
 }
 
 pub fn on_assistant_thinking() {
-    let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
-    print!("{} Thinking...\r", mia_colored);
-    stdout().flush().unwrap();
+    if AppConfig::global().tui.show_spinner {
+        start_spinner();
+    } else {
+        let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
+        print!("{} Thinking...", mia_colored);
+        stdout().flush().unwrap();
+    }
 }
 
 pub fn on_system_message(message: &str) {
-    let system_colored = format!("{} {}", "System".yellow(), ">".cyan());
+    stop_spinner();
+    let system_colored = format!("\r{} {}", "System".yellow(), ">".cyan());
     println!("{} {}", system_colored, message);
 }
 

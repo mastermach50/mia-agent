@@ -85,6 +85,7 @@ pub struct TuiConfig {
     pub username: String,
     pub history_file: String,
     pub show_reasoning: bool,
+    pub show_spinner: bool,
 }
 
 impl Default for TuiConfig {
@@ -93,6 +94,7 @@ impl Default for TuiConfig {
             username: "user".to_string(),
             history_file: ".mia_tui_history".to_string(),
             show_reasoning: true,
+            show_spinner: true,
         }
     }
 }

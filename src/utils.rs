@@ -1,13 +1,15 @@
 use anyhow::Context;
-use termimad::crossterm::style::ResetColor;
+use termimad::crossterm::style::{ResetColor, Stylize};
 use textwrap;
-use std::{cmp::{max, min}, io::{Read, Write, stdout}, path::PathBuf, process::Child};
+use tokio::task::JoinHandle;
+use std::{cmp::{max, min}, io::{Read, Write, stdout}, path::PathBuf, process::Child, sync::Mutex, time::Duration};
 use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, highlighting::Style ,util::{LinesWithEndings, as_24_bit_terminal_escaped}};
 
 
 pub fn generate_think_lines(thinking: &str) -> String {
+    let left_gap = "    ╎ ";
     let width = textwrap::termwidth() - 6;
-    "    ╎ ".to_string() + &textwrap::wrap(thinking, width).join("\n    ╎ ")
+    left_gap.to_string() + &textwrap::wrap(thinking, width).join(&("\n".to_owned() + left_gap))
 }
 
 pub fn ask_permission(header: impl ToString, content: &str) -> bool {
@@ -145,4 +147,33 @@ pub fn parse_human_number(s: &str) -> anyhow::Result<i64> {
         .context(format!("Invalid number: '{s}'"))?;
 
     Ok((value * multiplier as f64).round() as i64)
+}
+
+/// Join handle to the tokio task showing the spinner
+static SPINNER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+
+/// Start showing a thinking spinner
+pub fn start_spinner() {
+    let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
+    let frames = ["⠇", "⠋", "⠙", "⠸", "⠼", "⠴", "⠦"];
+    
+    let handle = tokio::spawn(async move {
+        let mut i = 0;
+        loop {
+            print!("\r{} {} Thinking...", mia_colored, frames[i]);
+            stdout().flush().unwrap();
+            tokio::time::sleep(Duration::from_millis(80)).await;
+            i = (i + 1) % frames.len();
+        }
+    });
+    *SPINNER.lock().unwrap() = Some(handle);
+}
+
+/// Stop showing the thinking spinner
+pub fn stop_spinner() {
+    if let Some(handle) = SPINNER.lock().unwrap().take() {
+        handle.abort();
+        print!("\r{}\r", " ".repeat(20));
+        stdout().flush().unwrap();
+    }
 }
