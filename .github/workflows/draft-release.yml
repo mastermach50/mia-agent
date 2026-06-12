@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           mkdir staging
-          cp target/${{ matrix.target }}/release/my-app.exe staging/
+          cp target/${{ matrix.target }}/release/mia.exe staging/
           cp README.md LICENSE staging/
           cd staging
           7z a ../${{ matrix.artifact_name }}${{ matrix.asset_extension }} *
