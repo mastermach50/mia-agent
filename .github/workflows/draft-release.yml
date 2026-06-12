@@ -24,7 +24,7 @@ jobs:
           # Windows x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: my-app-windows-x86_64
+            artifact_name: mia-agent-windows-x86_64
             asset_extension: .zip
 
     runs-on: ${{ matrix.os }}
@@ -68,5 +68,5 @@ jobs:
         with:
           draft: true
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'draft-latest' }}
-          name: ${{ github.ref_type == 'tag' && github.ref_name || 'Manual Nightly Draft' }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || 'Manual Draft Release' }}
           files: ${{ matrix.artifact_name }}${{ matrix.asset_extension }}
