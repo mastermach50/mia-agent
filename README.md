@@ -1,4 +1,5 @@
 # Mia Agent
+![Build Status](https://github.com/mastermach50/mia-agent/actions/workflows/draft-release.yml/badge.svg)
 
 Mia is a coding and personal assistant AI agent designed to be unobtrusive, configurable ,easy to use. Mia grows with you.
 
