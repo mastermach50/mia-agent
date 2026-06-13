@@ -1,11 +1,9 @@
 [package]
 name = "mia-agent"
 description = "Your personal AI assistant"
-# Next major version when gateways are introduced
 version = "0.1.0"
 license = "MIT"
 edition = "2024"
-# build = "build.rs"
 
 [[bin]]
 name = "mia"

@@ -86,6 +86,10 @@ pub async fn run_agent(
                     tool_call.id.clone(),
                     content.to_string(),
                 ));
+                if cancel.is_cancelled() {
+                    on_system_message("Assistant turn cancelled.");
+                    break;
+                }
             }
             continue;
         }

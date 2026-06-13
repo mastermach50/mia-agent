@@ -13,7 +13,7 @@ impl Tool for WebSearch {
             .to_string();
         let max_results = args["max_results"].as_u64()
             .unwrap_or(10);
-        format!("{query} ({max_results})")
+        format!("{query} (top: {max_results})")
     }
     fn availability(&self) -> Result<(), String> {
         std::env::var("TAVILY_API_KEY")

@@ -17,8 +17,9 @@ impl Tool for ExecPython {
     fn name(&self) -> String { "exec_python".to_string() }
     fn icon(&self) -> String { "🐍".to_string() }
     fn short(&self, args: serde_json::Value) -> String {
-        args["code"].as_str()
-            .unwrap_or_default().to_string()
+        let lines = args["code"].as_str()
+            .unwrap_or_default().lines().count();
+        format!("{lines} lines")
     }
     fn availability(&self) -> Result<(), String> {
         which::which(PYTHON_CMD)
