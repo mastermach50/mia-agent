@@ -14,23 +14,12 @@ static APP_CONFIG_CACHE: OnceLock<AppConfig> = OnceLock::new();
 static INTERNAL_CONFIG_CACHE: OnceLock<InternalConfig> = OnceLock::new();
 
 /// Config structure
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct AppConfig {
     pub model: ModelConfig,
     pub documents: DocumentConfig,
     pub agent: AgentConfig,
     pub tui: TuiConfig,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            model: ModelConfig::default(),
-            documents: DocumentConfig::default(),
-            agent: AgentConfig::default(),
-            tui: TuiConfig::default(),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

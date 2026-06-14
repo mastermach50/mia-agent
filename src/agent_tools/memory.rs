@@ -59,7 +59,7 @@ impl Tool for Memory {
             return json!({
                 "status": "error",
                 "message": "Invalid memory type. Use 'user' or 'system'"
-            });
+            })
         };
 
         // Remove the bullet point from the content if it exists
@@ -98,7 +98,7 @@ impl Tool for Memory {
                     "operation": "delete",
                     "memory_type": memory_type,
                     "path": path,
-                    "message": format!("Line deleted successfully")
+                    "message": "Line deleted successfully"
                 })
                 
             },

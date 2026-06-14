@@ -16,7 +16,7 @@ pub fn ask_permission(prompt: impl ToString, content: &str) -> bool {
     let term_width = termwidth();
     let max_content_width = term_width - 4;
 
-    let wrapped = wrap(&content, max_content_width);
+    let wrapped = wrap(content, max_content_width);
 
     // Prompt's width after wrapping
     let prompt_width = if display_width(&prompt.to_string()) > max_content_width {
@@ -74,40 +74,7 @@ pub fn highlight_text(filename: &str, text: &str) -> String {
     }
     colored_text.push_str(&ResetColor.to_string());
 
-    return colored_text;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use termimad::crossterm::style::Stylize;
-
-    static CODE: &str = "
-import os
-print('hello world')
-    ";
-
-    #[test]
-    fn test_hilight_text() {
-
-        ask_permission(
-            "Execute?".red(),
-            &highlight_text("some/python.py", CODE)
-        );
-
-    }
-    
-    #[test]
-    fn test_permission_prompt() {
-        ask_permission("Execute?".red(), "Hi");
-        ask_permission(
-            format!("{} {}?", "Write file:".red(), "somelongpaththatnobodycaresaboutsoitcanbewritterntowithoutanyproblems.png".yellow()),
-            &highlight_text("some/python.py", CODE)
-        );
-        ask_permission("Execute?".red(), "Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-        ask_permission("Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".red(), "Hi");
-    }
+    colored_text
 }
 
 pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
@@ -203,3 +170,39 @@ pub fn stop_spinner() {
         stdout().flush().unwrap();
     }
 }
+
+// This test requires user input to pass
+// #[cfg(test)]
+// mod tests {
+//     use std::process::Stdio;
+
+// use super::*;
+
+//     use termimad::crossterm::style::Stylize;
+
+//     static CODE: &str = "
+// import os
+// print('hello world')
+//     ";
+
+//     #[test]
+//     fn test_hilight_text() {
+
+//         ask_permission(
+//             "Execute?".red(),
+//             &highlight_text("some/python.py", CODE)
+//         );
+
+//     }
+    
+//     #[test]
+//     fn test_permission_prompt() {
+//         ask_permission("Execute?".red(), "Hi");
+//         ask_permission(
+//             format!("{} {}?", "Write file:".red(), "somelongpaththatnobodycaresaboutsoitcanbewritterntowithoutanyproblems.png".yellow()),
+//             &highlight_text("some/python.py", CODE)
+//         );
+//         ask_permission("Execute?".red(), "Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+//         ask_permission("Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".red(), "Hi");
+//     }
+// }

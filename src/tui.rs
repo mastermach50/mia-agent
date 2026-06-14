@@ -3,7 +3,6 @@ use anyhow::Result;
 use nu_ansi_term::{Color, Style};
 use reedline::{ColumnarMenu, DefaultCompleter, EditCommand, Emacs, ExampleHighlighter, FileBackedHistory, KeyCode, KeyModifiers, MenuBuilder, Prompt, PromptHistorySearchStatus, Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings};
 use termimad::{self, crossterm::style::Stylize};
-use textwrap;
 
 use crate::agent_tools::ToolRegistry;
 use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
@@ -134,16 +133,14 @@ pub fn on_assistant_message(message: &Message) {
     let mia_colored = format!("\r{}  {}", "Mia".red(), ">".cyan());
 
     let mut output = String::new();
-    if let Some(reasoning) = message.reasoning.clone() {
-        if AppConfig::global().tui.show_reasoning {
-            output += &format!("{mia_colored} 💭             \n");
-            output += &format!("{}\n", generate_think_lines(reasoning.trim()));
-        }
+    if let Some(reasoning) = message.reasoning.clone()
+    && AppConfig::global().tui.show_reasoning {
+        output += &format!("{mia_colored} 💭             \n");
+        output += &format!("{}\n", generate_think_lines(reasoning.trim()));
     }
-    if let Some(content) = message.content.clone() {
-        if content.trim() != "" {
-            output += &format!("{mia_colored} {}\n", content.trim());
-        }
+    if let Some(content) = message.content.clone()
+    && content.trim() != "" {
+        output += &format!("{mia_colored} {}\n", content.trim());
     }
     if let Some(tool_calls) = message.tool_calls.clone() {
         for tool_call in tool_calls {

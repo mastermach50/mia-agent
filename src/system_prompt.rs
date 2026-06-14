@@ -1,7 +1,6 @@
 use anyhow::Result;
 use chrono::Local;
 use std::fs;
-use os_info;
 
 use crate::config::AppConfig;
 
@@ -14,7 +13,7 @@ pub fn get_system_prompt() -> Result<String> {
     // Soul
     let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
     system_prompt.push_str(&soul);
-    system_prompt.push_str("\n");
+    system_prompt.push('\n');
 
     // Context
     let executable = std::env::current_exe()?.into_string().unwrap();
@@ -30,7 +29,7 @@ pub fn get_system_prompt() -> Result<String> {
         your_config_folder: {config_folder}
         the_model_you_are_running: {model_name}
     "});
-    system_prompt.push_str("\n");
+    system_prompt.push('\n');
     let os_name =  os_info::get().to_string();
     let cwd = std::env::current_dir()?.into_string().unwrap();
     let date_and_hour = Local::now().format("%a, %d %b %Y %I%p %z");
@@ -40,7 +39,7 @@ pub fn get_system_prompt() -> Result<String> {
         current_directory: {cwd}
         date_and_hour (use your datetime tool to get precise time): {date_and_hour}
     "});
-    system_prompt.push_str("\n");
+    system_prompt.push('\n');
 
     // Memory
     let user_memory_file = AppConfig::global().documents.user_memory.clone();

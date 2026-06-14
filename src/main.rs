@@ -7,7 +7,6 @@ use rust_decimal::Decimal;
 use tabled::{builder::Builder, settings::Style};
 use termimad::crossterm::style::Stylize;
 use env_logger::Env;
-use tokio;
 
 mod agent_loop;
 mod agent_tools;
@@ -127,12 +126,10 @@ async fn list_models(max_price: Option<f64>, min_context: Option<String>) -> Res
 
         if has_context {
             // Skip items that have low context length
-            if let Some(min_context) = &min_context {
-                if let Some(context_length) = model.context_length {
-                    if context_length < parse_human_number(min_context)? {
-                        continue;
-                    }
-                }
+            if let Some(min_context) = &min_context
+            && let Some(context_length) = model.context_length 
+            && context_length < parse_human_number(min_context)? {
+                continue;
             }
 
             record.push(match model.context_length {
@@ -143,12 +140,10 @@ async fn list_models(max_price: Option<f64>, min_context: Option<String>) -> Res
 
         if has_pricing {
             // Skip items that have high pricing
-            if let Some(max_price) = &max_price {
-                if let Some(pricing) = &model.pricing {
-                    if pricing.completion > max_price.to_string() {
-                        continue;
-                    }
-                }
+            if let Some(max_price) = &max_price
+            && let Some(pricing) = &model.pricing
+            && pricing.completion > max_price.to_string() {
+                continue;
             }
 
             record.push(

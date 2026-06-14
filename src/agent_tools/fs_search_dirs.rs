@@ -61,19 +61,17 @@ impl Tool for FSSearchDirs {
                 .output()
                 .expect("Failed to execute fd");
 
-            return json!({
+            json!({
                 "status": if output.status.success() { "success" } else { "error" },
                 "exit_code": output.status.code().unwrap(),
                 "stdout": String::from_utf8(output.stdout).unwrap(),
                 "stderr": String::from_utf8(output.stderr).unwrap()
             })
         } else {
-            return json!({
+            json!({
                 "status": "error",
                 "message": "pattern argument not found"
-            });
+            })
         }
-
-
     }
 }

@@ -17,7 +17,7 @@ pub fn load_session(filename: &str) -> Result<History> {
     let history_file = AppConfig::internal().mia_dir.join("sessions").join(filename);
     if history_file.exists() {
         let history = fs::read_to_string(history_file)?;
-        return Ok(serde_json::from_str(&history)?)
+        Ok(serde_json::from_str(&history)?)
     } else {
         info!("History file not found");
         anyhow::bail!("History file not found");

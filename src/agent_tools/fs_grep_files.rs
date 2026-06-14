@@ -68,10 +68,10 @@ impl Tool for FSGrepFiles {
                 "stderr": String::from_utf8(output.stderr).unwrap()
             })
         } else {
-            return json!({
+            json!({
                 "status": "error",
                 "message": "pattern argument not found"
-            });
+            })
         }
         
         
