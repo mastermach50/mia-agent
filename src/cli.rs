@@ -13,10 +13,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum MainSubCommands {
-    /// Start the messaging gateway
-    // Gateway,
-
     /// Model commands
+    #[command(alias = "models")]
     Model {
         /// List all available models
         #[command(subcommand)]
