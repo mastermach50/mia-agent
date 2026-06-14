@@ -11,8 +11,9 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 - [Principles](#principles)          
 - [Features](#features)  
 - [Installation](#installation)
-    - [Option A: Using cargo (Windows/Linux)](#option-a-using-cargo-windowslinux)
-    - [Option B: Using nix flakes (NixOS/Linux)](#option-b-using-nix-flakes-nixoslinux)
+    - [Option A: Package Manager](#option-a-package-manager)
+    - [Option B: Using cargo (Windows/Linux)](#option-b-using-cargo-windowslinux)
+    - [Option C: Using nix flakes (NixOS/Linux)](#option-c-using-nix-flakes-nixoslinux)
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Development](#development)
@@ -55,7 +56,12 @@ Currently Mia has the following tools:
 | 🌐 | `web_search`     | Search the web                             | No  |
 
 ## Installation
-### Option A: Using cargo (Windows/Linux)
+### Option A: Package Manager
+#### winget (Windows)
+```
+winget install Mach50.MiaAgent
+```
+### Option B: Using cargo (Windows/Linux)
 Mia requires rust nightly
 ```
 rustup toolchain install nightly
@@ -65,7 +71,7 @@ Cargo can fetch, build and install mia.
 ```
 cargo install --git https://github.com/mastermach50/mia-agent
 ```
-### Option B: Using nix flakes (NixOS/Linux)
+### Option C: Using nix flakes (NixOS/Linux)
 Run the given command to test out mia on your system.
 ```
 nix run github:mastermach50/mia-agent
@@ -92,7 +98,7 @@ OPENROUTER_API_KEY=<your-openrouter-api-key>
 TAVILY_API_KEY=<your-tavily-api-key>
 ```
 
-6. (Optional) Run `mia tools` to see if all the tools are usable and find which components are missing if any.
+5. (Optional) Run `mia tools` to see if all the tools are usable and find which components are missing if any.
 
 Currently the external tools required by mia are
 - [Python](https://python.org)
