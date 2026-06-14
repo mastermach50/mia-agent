@@ -1,12 +1,9 @@
 use anyhow::Result;
-use nu_ansi_term::{Color, Style};
-use reedline::{
-    ColumnarMenu, DefaultCompleter, EditCommand, Emacs, ExampleHighlighter, FileBackedHistory,
-    KeyCode, KeyModifiers, MenuBuilder, Prompt, PromptHistorySearchStatus, Reedline, ReedlineEvent,
-    ReedlineMenu, Signal, default_emacs_keybindings,
-};
+use reedline::Signal;
 use std::io::{Write, stdout};
 use termimad::{self, crossterm::style::Stylize};
+
+mod custom_reedline;
 
 use crate::agent_loop;
 use crate::agent_tools::ToolRegistry;
@@ -15,6 +12,7 @@ use crate::config::AppConfig;
 use crate::sessions::{load_session, save_session};
 use crate::system_prompt::get_system_prompt;
 use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
+use custom_reedline::get_reedline;
 
 pub async fn run(new_session: bool) -> Result<()> {
     let help_message = indoc::indoc! {"
@@ -49,13 +47,14 @@ pub async fn run(new_session: bool) -> Result<()> {
     }
 
     // For full featured input powered by reedline
-    let (mut rl, prompt) = get_reedline()?;
+    // The _terminal_lifecycle is needed to support kitty protocol stuff
+    let (mut rl, prompt, kitty_protocol) = get_reedline()?;
 
     loop {
         // Update the system prompt every turn in case the user or system memory changed
         history.set_system_prompt(get_tui_system_prompt()?);
 
-        // A
+        // Handle inputs using reedline
         println!("{}", "─".repeat(textwrap::termwidth()));
         match rl.read_line(&prompt) {
             Ok(Signal::Success(line)) => {
@@ -98,7 +97,8 @@ pub async fn run(new_session: bool) -> Result<()> {
                         continue;
                     }
                     _ => {
-                        if line.starts_with('/') {
+                        // Show invalid command message but respect C style comments
+                        if line.starts_with('/') && !line.starts_with("//") {
                             on_system_message("Invalid command, use /help for a list of commands.");
                             continue;
                         }
@@ -106,6 +106,10 @@ pub async fn run(new_session: bool) -> Result<()> {
                 }
 
                 history.add_message(Message::new("user", &line));
+
+                // Suspend the kitty protocol input handling before agent_loop::run_agent
+                // for the Ctrl-C handlers in it to work properly
+                kitty_protocol.suspend();
 
                 // Assistant's response is printed by the printer passed into the agent loop
                 history = agent_loop::run_agent(
@@ -115,6 +119,9 @@ pub async fn run(new_session: bool) -> Result<()> {
                     on_system_message,
                 )
                 .await?;
+
+                // Resume the kitty protocol input handling
+                kitty_protocol.resume();
 
                 // Save the session at the end of turn
                 save_session("tui-agent-history.json", &history)?;
@@ -192,95 +199,6 @@ pub fn get_tui_system_prompt() -> Result<String> {
         AppConfig::global().tui.username
     ));
     Ok(system_prompt)
-}
-
-fn get_reedline() -> Result<(Reedline, impl Prompt)> {
-    let history = Box::new(
-        FileBackedHistory::with_file(1000, AppConfig::global().tui.history_file.clone().into())
-            .unwrap_or_else(|_| FileBackedHistory::new(1000).unwrap()),
-    );
-
-    let commands = vec![
-        "/exit".into(),
-        "/bye".into(),
-        "/new".into(),
-        "/clear".into(),
-        "/cls".into(),
-    ];
-
-    let completion_menu = Box::new(
-        ColumnarMenu::default()
-            .with_name("completion_menu")
-            .with_text_style(Style::new().fg(Color::Green)),
-    );
-    let mut keybindings = default_emacs_keybindings();
-    keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::Tab,
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
-        ]),
-    );
-    keybindings.add_binding(
-        KeyModifiers::SHIFT,
-        KeyCode::Enter,
-        ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
-    );
-    let edit_mode = Box::new(Emacs::new(keybindings));
-
-    let mut completer = Box::new(DefaultCompleter::with_inclusions(&['/', '-', '_']));
-    completer.insert(commands.clone());
-
-    let mut hilighter = Box::new(ExampleHighlighter::new(commands.clone()));
-    hilighter.change_colors(
-        nu_ansi_term::Color::Green,
-        nu_ansi_term::Color::Default,
-        nu_ansi_term::Color::Default,
-    );
-
-    let prompt = CustomPrompt;
-
-    let rl = Reedline::create()
-        .with_history(history)
-        .with_highlighter(hilighter)
-        .with_history_exclusion_prefix(Some(" ".into()))
-        .with_completer(completer)
-        .with_partial_completions(true)
-        .with_quick_completions(true)
-        .with_menu(ReedlineMenu::EngineCompleter(completion_menu))
-        .with_edit_mode(edit_mode);
-    Ok((rl, prompt))
-}
-
-struct CustomPrompt;
-impl Prompt for CustomPrompt {
-    fn render_prompt_left(&self) -> std::borrow::Cow<'_, str> {
-        "User ".blue().to_string().into()
-    }
-    fn render_prompt_right(&self) -> std::borrow::Cow<'_, str> {
-        "".into()
-    }
-    fn render_prompt_indicator(
-        &self,
-        _prompt_mode: reedline::PromptEditMode,
-    ) -> std::borrow::Cow<'_, str> {
-        "> ".into()
-    }
-    fn render_prompt_multiline_indicator(&self) -> std::borrow::Cow<'_, str> {
-        "::: ".into()
-    }
-    fn render_prompt_history_search_indicator(
-        &self,
-        history_search: reedline::PromptHistorySearch,
-    ) -> std::borrow::Cow<'_, str> {
-        let prefix = match history_search.status {
-            PromptHistorySearchStatus::Passing => "",
-            PromptHistorySearchStatus::Failing => "failing ",
-        };
-
-        format!(" ({} reverse-search: {}) ", prefix, history_search.term).into()
-    }
 }
 
 #[cfg(test)]

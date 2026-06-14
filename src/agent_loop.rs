@@ -53,8 +53,8 @@ pub async fn run_agent(
             res = completion(&history, &cancel, &on_assistant_status_update) => {
                 match res {
                     Ok(message) => message,
-                    Err(_) => {
-                        on_system_message("Assistant returned error:\n\t{err}");
+                    Err(err) => {
+                        on_system_message(&format!("Assistant returned error:\n\t{err}"));
                         break;
                     }
                 }
