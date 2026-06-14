@@ -4,6 +4,7 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct FSSearchDirs;
+#[async_trait::async_trait]
 impl Tool for FSSearchDirs {
     fn name(&self) -> String {
         "fs_search_dirs".to_string()
@@ -52,7 +53,7 @@ impl Tool for FSSearchDirs {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().unwrap_or(".");
         let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
         if let Some(pattern) = args["pattern"].as_str() {

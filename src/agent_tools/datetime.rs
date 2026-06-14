@@ -5,6 +5,7 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct DateTime;
+#[async_trait::async_trait]
 impl Tool for DateTime {
     fn name(&self) -> String {
         "datetime".to_string()
@@ -31,7 +32,7 @@ impl Tool for DateTime {
             }
         })
     }
-    fn execute(&self, _args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _args: serde_json::Value) -> serde_json::Value {
         let current = Local::now().to_rfc2822();
         json!({
             "status": "success",

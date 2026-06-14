@@ -4,6 +4,7 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct WebExtract;
+#[async_trait::async_trait]
 impl Tool for WebExtract {
     fn name(&self) -> String {
         "web_extract".to_string()
@@ -38,7 +39,7 @@ impl Tool for WebExtract {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let url = args["url"].as_str().expect("URL argument not found");
 
         let api_key = match std::env::var("TAVILY_API_KEY") {

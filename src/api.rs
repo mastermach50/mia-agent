@@ -106,15 +106,16 @@ pub async fn completion(
         "tools": ToolRegistry::schema()
     });
 
-    let request = client
-        .post(AppConfig::global().model.base_url.clone() + "/chat/completions")
-        .json(&payload)
-        .send();
+    let request_url = AppConfig::global().model.base_url.clone() + "/chat/completions";
 
-    // Ctrl-C is acceptable while waiting for a response headers
+    // Ctrl-C is acceptable while waiting for response headers
     let response = tokio::select! {
-        res = request => res.context("Failed to send chat completion request")?,
-        _ = cancel.cancelled() => anyhow::bail!("Request cancelled")
+        res = client.post(request_url).json(&payload).send() => {
+            res.context("Failed to send chat completion request")?
+        },
+        _ = cancel.cancelled() => {
+            anyhow::bail!("Request cancelled")
+        }
     };
 
     debug!("Response Status: {}", response.status());
@@ -132,9 +133,14 @@ pub async fn completion(
 
     // Ctrl-C is acceptable while waiting for a response body
     let content = tokio::select! {
-        res = response.json::<serde_json::Value>() => res.context("Failed to read response body")?,
-        _ = cancel.cancelled() => anyhow::bail!("Request cancelled")
+        res = response.json::<serde_json::Value>() => {
+            res.context("Failed to read response body")?
+        },
+        _ = cancel.cancelled() => {
+            anyhow::bail!("Request cancelled")
+        }
     };
+
     trace!("Response Content: {:?}", content);
 
     let message: Message = serde_json::from_value(content["choices"][0]["message"].clone())

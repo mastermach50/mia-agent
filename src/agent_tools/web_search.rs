@@ -4,6 +4,7 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct WebSearch;
+#[async_trait::async_trait]
 impl Tool for WebSearch {
     fn name(&self) -> String {
         "web_search".to_string()
@@ -45,7 +46,7 @@ impl Tool for WebSearch {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let query = args["query"].as_str().expect("Query argument not found");
         let max_results = args["max_results"].as_u64().unwrap_or(5) as i32;
 

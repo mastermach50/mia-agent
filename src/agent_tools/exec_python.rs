@@ -16,6 +16,7 @@ static PYTHON_CMD: &str = "python";
 
 #[derive(Debug)]
 pub struct ExecPython;
+#[async_trait::async_trait]
 impl Tool for ExecPython {
     fn name(&self) -> String {
         "exec_python".to_string()
@@ -52,7 +53,7 @@ impl Tool for ExecPython {
         })
     }
     // TODO refactor this and the shell code
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let code = args["code"].as_str().expect("Code argument not found");
 
         let colored_code = highlight_text("something.py", code);

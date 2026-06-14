@@ -5,6 +5,7 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct Memory;
+#[async_trait::async_trait]
 impl Tool for Memory {
     fn name(&self) -> String {
         "memory".to_string()
@@ -55,7 +56,7 @@ impl Tool for Memory {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let memory_type = args["memory_type"]
             .as_str()
             .expect("Memory type argument not found");

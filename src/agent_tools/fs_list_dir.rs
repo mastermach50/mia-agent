@@ -4,6 +4,7 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct FSListDir;
+#[async_trait::async_trait]
 impl Tool for FSListDir {
     fn name(&self) -> String {
         "fs_list_dir".to_string()
@@ -50,7 +51,7 @@ impl Tool for FSListDir {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().unwrap_or(".");
 
         #[cfg(unix)]

@@ -19,13 +19,6 @@ pub async fn run_agent(
     // Setup a Ctrl-C listener to cancel the request
     // When a Ctrl-C is received the cancellation token is set to "cancelled"
     let cancel = CancellationToken::new();
-    let cancel_watcher = cancel.clone();
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("Failed to listen for Ctrl-C");
-        cancel_watcher.cancel();
-    });
 
     // Max number of iterations is configurable
     for iterations in 1..=AppConfig::global().agent.max_iterations {
@@ -55,19 +48,20 @@ pub async fn run_agent(
 
         // Get the next message from the assistant and append it to the history
         // Pass over the cancellation token and thinking notifier too
-        let assistant_msg = match completion(&history, &cancel, &on_assistant_status_update).await {
-            // Success
-            Ok(message) => message,
-
-            // Cancelled
-            Err(_) if cancel.is_cancelled() => {
+        // Also accept Ctrl-C signal and break out of loop if it arises
+        let assistant_msg = tokio::select! {
+            res = completion(&history, &cancel, &on_assistant_status_update) => {
+                match res {
+                    Ok(message) => message,
+                    Err(_) => {
+                        on_system_message("Assistant returned error:\n\t{err}");
+                        break;
+                    }
+                }
+            },
+            _ = tokio::signal::ctrl_c() => {
                 on_system_message("Assistant turn cancelled.");
-                break;
-            }
-
-            // Errored
-            Err(err) => {
-                on_system_message(&format!("Assistant returned error:\n\t{err}"));
+                cancel.cancel();
                 break;
             }
         };
@@ -82,16 +76,22 @@ pub async fn run_agent(
         // Append the result of the tool calls to the history and continue the loop
         if let Some(tool_calls) = assistant_msg.tool_calls {
             for tool_call in tool_calls {
-                let content =
-                    ToolRegistry::call(&tool_call.function.name, &tool_call.function.arguments);
+                let tool_name = tool_call.function.name.clone();
+                let tool_args = tool_call.function.arguments.clone();
+                let content = tokio::select! {
+                    content = ToolRegistry::call(&tool_name, &tool_args) => {
+                        content
+                    },
+                    _ = tokio::signal::ctrl_c() => {
+                        on_system_message("Assistant turn cancelled during tool call.");
+                        cancel.cancel();
+                        break;
+                    }
+                };
                 history.add_message(Message::new_tool_call_response(
                     tool_call.id.clone(),
                     content.to_string(),
                 ));
-                if cancel.is_cancelled() {
-                    on_system_message("Assistant turn cancelled.");
-                    break;
-                }
             }
             continue;
         }

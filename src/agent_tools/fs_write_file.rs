@@ -9,6 +9,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct FSWriteFile;
+#[async_trait::async_trait]
 impl Tool for FSWriteFile {
     fn name(&self) -> String {
         "fs_write_file".to_string()
@@ -45,7 +46,7 @@ impl Tool for FSWriteFile {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().expect("Path argument not found");
         let content = args["content"]
             .as_str()

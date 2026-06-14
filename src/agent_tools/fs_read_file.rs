@@ -5,6 +5,7 @@ use crate::agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct FSReadFile;
+#[async_trait::async_trait]
 impl Tool for FSReadFile {
     fn name(&self) -> String {
         "fs_read_file".to_string()
@@ -37,7 +38,7 @@ impl Tool for FSReadFile {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().expect("Path argument not found");
 
         match fs::read_to_string(path) {

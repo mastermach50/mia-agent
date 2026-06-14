@@ -16,7 +16,8 @@ mod web_extract;
 mod web_search;
 
 /// All tools must have this trait implemented
-/// Individual tools can be defined in agent_tools/
+/// Individual tools can be defined in agent_tools
+#[async_trait::async_trait]
 trait Tool: Send + Sync + std::fmt::Debug {
     // Name of the tool
     fn name(&self) -> String;
@@ -29,7 +30,7 @@ trait Tool: Send + Sync + std::fmt::Debug {
     // OpenAI compatible tool schema
     fn schema(&self) -> serde_json::Value;
     // Execute the tool logic
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value;
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value;
 }
 
 #[derive(Debug)]
@@ -91,10 +92,10 @@ impl ToolRegistry {
     }
 
     /// Call a tool by its function name
-    pub fn call(name: &str, args: &str) -> serde_json::Value {
+    pub async fn call(name: &str, args: &str) -> serde_json::Value {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
             match Self::global().get(name) {
-                Some(tool_entry) => tool_entry.tool.execute(args),
+                Some(tool_entry) => tool_entry.tool.execute(args).await,
                 None => {
                     warn!("Unregistered tool requested");
                     json!({

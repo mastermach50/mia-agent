@@ -10,6 +10,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct ExecShell;
+#[async_trait::async_trait]
 impl Tool for ExecShell {
     fn name(&self) -> String {
         "exec_shell".to_string()
@@ -56,7 +57,7 @@ impl Tool for ExecShell {
             }
         })
     }
-    fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let command = args["command"]
             .as_str()
             .expect("Command argument not found");
