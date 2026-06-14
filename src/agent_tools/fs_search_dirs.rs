@@ -5,15 +5,19 @@ use crate::agent_tools::Tool;
 #[derive(Debug)]
 pub struct FSSearchDirs;
 impl Tool for FSSearchDirs {
-    fn name(&self) -> String { "fs_search_dirs".to_string() }
-    fn icon(&self) -> String { "🧭".to_string() }
+    fn name(&self) -> String {
+        "fs_search_dirs".to_string()
+    }
+    fn icon(&self) -> String {
+        "🧭".to_string()
+    }
     fn short(&self, args: serde_json::Value) -> String {
-        let pattern = args["pattern"].as_str()
-            .unwrap_or("(no pattern provided)").to_string();
-        let path = args["path"].as_str()
-            .unwrap_or(".").to_string();
-        let max_depth = args["max_depth"].as_u64()
-            .unwrap_or(5).to_string();
+        let pattern = args["pattern"]
+            .as_str()
+            .unwrap_or("(no pattern provided)")
+            .to_string();
+        let path = args["path"].as_str().unwrap_or(".").to_string();
+        let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
         format!("{} -> {} (depth: {})", pattern, path, max_depth)
     }
     fn availability(&self) -> Result<(), String> {
@@ -49,13 +53,15 @@ impl Tool for FSSearchDirs {
         })
     }
     fn execute(&self, args: serde_json::Value) -> serde_json::Value {
-        let path = args["path"].as_str()
-            .unwrap_or(".");
-        let max_depth = args["max_depth"].as_u64()
-            .unwrap_or(5).to_string();
+        let path = args["path"].as_str().unwrap_or(".");
+        let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
         if let Some(pattern) = args["pattern"].as_str() {
             let output = std::process::Command::new("fd")
-                .args(["--color=never", "--hyperlink=never", &format!("--max-depth={max_depth}")])
+                .args([
+                    "--color=never",
+                    "--hyperlink=never",
+                    &format!("--max-depth={max_depth}"),
+                ])
                 .arg(pattern)
                 .arg(path)
                 .output()

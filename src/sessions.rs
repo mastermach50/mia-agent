@@ -5,7 +5,7 @@ use std::fs;
 use crate::api::History;
 use crate::config::AppConfig;
 
-pub fn save_session(filename: &str, history: &History) -> Result<()>{
+pub fn save_session(filename: &str, history: &History) -> Result<()> {
     debug!("Saving history to file");
     let history_file = AppConfig::internal().sessions_dir.join(filename);
     fs::write(history_file, serde_json::to_string_pretty(history).unwrap())?;
@@ -14,7 +14,10 @@ pub fn save_session(filename: &str, history: &History) -> Result<()>{
 
 pub fn load_session(filename: &str) -> Result<History> {
     debug!("Loading history from file");
-    let history_file = AppConfig::internal().mia_dir.join("sessions").join(filename);
+    let history_file = AppConfig::internal()
+        .mia_dir
+        .join("sessions")
+        .join(filename);
     if history_file.exists() {
         let history = fs::read_to_string(history_file)?;
         Ok(serde_json::from_str(&history)?)

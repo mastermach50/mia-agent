@@ -1,10 +1,10 @@
 use std::path::PathBuf;
-use std::{env, fs};
 use std::sync::OnceLock;
+use std::{env, fs};
 
 use anyhow::{Context, Result};
 use config::{Config, Environment, File, FileFormat};
-use log::{debug, warn, info, trace};
+use log::{debug, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
 /// Cached config that is loaded on load() and accessed on global()
@@ -26,7 +26,7 @@ pub struct AppConfig {
 pub struct ModelConfig {
     pub base_url: String,
     pub name: String,
-    pub reasoning: String 
+    pub reasoning: String,
 }
 
 impl Default for ModelConfig {
@@ -34,7 +34,7 @@ impl Default for ModelConfig {
         Self {
             base_url: "https://openrouter.ai/api/v1".to_string(),
             name: "openrouter/owl-alpha".to_string(),
-            reasoning: "medium".to_string()
+            reasoning: "medium".to_string(),
         }
     }
 }
@@ -63,9 +63,7 @@ pub struct AgentConfig {
 
 impl Default for AgentConfig {
     fn default() -> Self {
-        Self {
-            max_iterations: 20,
-        }
+        Self { max_iterations: 20 }
     }
 }
 
@@ -122,14 +120,16 @@ impl AppConfig {
         let sessions_dir = mia_dir.join("sessions");
         let gateways_dir = mia_dir.join("gateways");
 
-        INTERNAL_CONFIG_CACHE.set(InternalConfig {
-            home_dir,
-            mia_dir,
-            config_file,
-            env_file,
-            sessions_dir,
-            gateways_dir,
-        }).unwrap();
+        INTERNAL_CONFIG_CACHE
+            .set(InternalConfig {
+                home_dir,
+                mia_dir,
+                config_file,
+                env_file,
+                sessions_dir,
+                gateways_dir,
+            })
+            .unwrap();
 
         INTERNAL_CONFIG_CACHE.get().unwrap()
     }
@@ -144,13 +144,11 @@ impl AppConfig {
 
         // Create home dir, mia dir, config.toml and .env if they don't exist
         if !home_dir.exists() {
-            fs::create_dir_all(&home_dir)
-                .context("Failed to create home dir")?;
+            fs::create_dir_all(&home_dir).context("Failed to create home dir")?;
             info!("Created home directory at {:?}", home_dir);
         }
         if !mia_dir.exists() {
-            fs::create_dir_all(&mia_dir)
-                .context("Failed to create agent home dir")?;
+            fs::create_dir_all(&mia_dir).context("Failed to create agent home dir")?;
             info!("Created agent home directory at {:?}", mia_dir);
         }
         if !env_file.exists() {
@@ -164,8 +162,7 @@ impl AppConfig {
         }
 
         // Load .env to environment variables
-        dotenvy::from_path(&env_file)
-            .context("Failed to load .env file")?;
+        dotenvy::from_path(&env_file).context("Failed to load .env file")?;
         debug!("Loaded .env file from {:?}", env_file);
 
         // Build config with priority
@@ -173,26 +170,18 @@ impl AppConfig {
         let config_builder = Config::builder()
             // Hardcoded default config
             .add_source(
-                File::from_str(&toml::to_string(&AppConfig::default())?, FileFormat::Toml).required(true)
+                File::from_str(&toml::to_string(&AppConfig::default())?, FileFormat::Toml)
+                    .required(true),
             )
-
             // Config file
-            .add_source(
-                File::with_name(config_file.to_str().unwrap())
-            )
-
+            .add_source(File::with_name(config_file.to_str().unwrap()))
             // Environment variables
-            .add_source(
-                Environment::with_prefix("MIA")
-                    .separator("__")
-            )
-
+            .add_source(Environment::with_prefix("MIA").separator("__"))
             .build()
             .context("Failed to assemble configuration sources");
 
-        let app_config: AppConfig = config_builder?
-            .try_deserialize()?;
-        
+        let app_config: AppConfig = config_builder?.try_deserialize()?;
+
         let parsed_config = Self::post_config_load(app_config)?;
 
         let _ = APP_CONFIG_CACHE.set(parsed_config.clone());
@@ -203,37 +192,54 @@ impl AppConfig {
 
     /// Executes checks and actions to be done right after config load
     fn post_config_load(mut config: AppConfig) -> Result<AppConfig> {
-
         // Check if required api keys are present in env
-        if config.model.base_url.contains("openrouter.ai") && env::var("OPENROUTER_API_KEY").is_err() {
+        if config.model.base_url.contains("openrouter.ai")
+            && env::var("OPENROUTER_API_KEY").is_err()
+        {
             warn!("OPENROUTER_API_KEY not set in .env");
         };
 
         // Check for Tavily API key (warning only, tools will just be unavailable)
         if env::var("TAVILY_API_KEY").is_err() {
-            warn!("TAVILY_API_KEY not set in .env - web_search and web_extract tools will be unavailable");
+            warn!(
+                "TAVILY_API_KEY not set in .env - web_search and web_extract tools will be unavailable"
+            );
         }
 
         // Make required folders if they don't exist
         let sessions_dir = Self::internal().mia_dir.join("sessions");
         if !sessions_dir.exists() {
-            fs::create_dir(&sessions_dir)
-                .context("Failed to create sessions dir")?;
+            fs::create_dir(&sessions_dir).context("Failed to create sessions dir")?;
             info!("Created sessions directory at {:?}", sessions_dir)
         }
         let gateways_dir = Self::internal().mia_dir.join("gateways");
         if !gateways_dir.exists() {
-            fs::create_dir(&gateways_dir)
-                .context("Failed to create gateways dir")?;
+            fs::create_dir(&gateways_dir).context("Failed to create gateways dir")?;
             info!("Created gateways directory at {:?}", gateways_dir)
         }
 
         // In the config expand the paths
         let mia_dir = std::env::home_dir().unwrap().join(".mia");
-        config.documents.soul = mia_dir.join(config.documents.soul).to_str().unwrap().to_string();
-        config.documents.user_memory = mia_dir.join(config.documents.user_memory).to_str().unwrap().to_string();
-        config.documents.system_memory = mia_dir.join(config.documents.system_memory).to_str().unwrap().to_string();
-        config.tui.history_file = mia_dir.join(config.tui.history_file).to_str().unwrap().to_string();
+        config.documents.soul = mia_dir
+            .join(config.documents.soul)
+            .to_str()
+            .unwrap()
+            .to_string();
+        config.documents.user_memory = mia_dir
+            .join(config.documents.user_memory)
+            .to_str()
+            .unwrap()
+            .to_string();
+        config.documents.system_memory = mia_dir
+            .join(config.documents.system_memory)
+            .to_str()
+            .unwrap()
+            .to_string();
+        config.tui.history_file = mia_dir
+            .join(config.tui.history_file)
+            .to_str()
+            .unwrap()
+            .to_string();
 
         // Make all necessary files if they don't exist
         let paths: Vec<PathBuf> = vec![
@@ -247,15 +253,15 @@ impl AppConfig {
                 // Create parent directories if they don't exist
                 if let Some(parent) = path.parent() {
                     fs::create_dir_all(parent)
-                    .context(format!("Failed to create directory {:?}", parent))?;
+                        .context(format!("Failed to create directory {:?}", parent))?;
                 }
                 // Create file if it doesn't exist
-                fs::File::create(&path)
-                .context(format!("Failed to create file {:?}", path))?;
+                fs::File::create(&path).context(format!("Failed to create file {:?}", path))?;
 
                 // Write the initial soul if the file had to be created
                 if path == config.documents.soul {
-                    let initial_soul = "You are Mia, a personal assistant. Respond accurately and concisely";
+                    let initial_soul =
+                        "You are Mia, a personal assistant. Respond accurately and concisely";
                     fs::write(path, initial_soul)?;
                 }
             }

@@ -1,9 +1,12 @@
-use termimad::crossterm::style::Stylize;
+use serde_json::json;
 use std::process::Command;
 use std::process::Stdio;
-use serde_json::json;
+use termimad::crossterm::style::Stylize;
 
-use crate::{agent_tools::Tool, utils::{ask_permission, highlight_text, stdio_capture_and_print}};
+use crate::{
+    agent_tools::Tool,
+    utils::{ask_permission, highlight_text, stdio_capture_and_print},
+};
 
 #[cfg(unix)]
 static PYTHON_CMD: &str = "python3";
@@ -14,11 +17,14 @@ static PYTHON_CMD: &str = "python";
 #[derive(Debug)]
 pub struct ExecPython;
 impl Tool for ExecPython {
-    fn name(&self) -> String { "exec_python".to_string() }
-    fn icon(&self) -> String { "🐍".to_string() }
+    fn name(&self) -> String {
+        "exec_python".to_string()
+    }
+    fn icon(&self) -> String {
+        "🐍".to_string()
+    }
     fn short(&self, args: serde_json::Value) -> String {
-        let lines = args["code"].as_str()
-            .unwrap_or_default().lines().count();
+        let lines = args["code"].as_str().unwrap_or_default().lines().count();
         format!("{lines} lines")
     }
     fn availability(&self) -> Result<(), String> {
@@ -47,8 +53,7 @@ impl Tool for ExecPython {
     }
     // TODO refactor this and the shell code
     fn execute(&self, args: serde_json::Value) -> serde_json::Value {
-        let code = args["code"].as_str()
-            .expect("Code argument not found");
+        let code = args["code"].as_str().expect("Code argument not found");
 
         let colored_code = highlight_text("something.py", code);
 

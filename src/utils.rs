@@ -1,10 +1,22 @@
 use anyhow::Context;
+use std::{
+    cmp::max,
+    io::{Read, Write, stdout},
+    path::PathBuf,
+    process::Child,
+    sync::Mutex,
+    time::Duration,
+};
+use syntect::{
+    easy::HighlightLines,
+    highlighting::Style,
+    highlighting::ThemeSet,
+    parsing::SyntaxSet,
+    util::{LinesWithEndings, as_24_bit_terminal_escaped},
+};
 use termimad::crossterm::style::{ResetColor, Stylize};
 use textwrap::{self, core::display_width, termwidth, wrap};
 use tokio::task::JoinHandle;
-use std::{cmp::max, io::{Read, Write, stdout}, path::PathBuf, process::Child, sync::Mutex, time::Duration};
-use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, highlighting::Style ,util::{LinesWithEndings, as_24_bit_terminal_escaped}};
-
 
 pub fn generate_think_lines(thinking: &str) -> String {
     let left_gap = "    ╎ ";
@@ -26,7 +38,8 @@ pub fn ask_permission(prompt: impl ToString, content: &str) -> bool {
     };
 
     // Content's width after wrapping
-    let content_width = wrapped.iter()
+    let content_width = wrapped
+        .iter()
         .map(|l| display_width(l))
         .max()
         .unwrap_or(max_content_width);
@@ -35,14 +48,22 @@ pub fn ask_permission(prompt: impl ToString, content: &str) -> bool {
     let inner_width = max(prompt_width, content_width);
 
     for line in wrap(&prompt.to_string(), max_content_width) {
-        println!("╭─{}{}─╮", line, "─".repeat(inner_width-display_width(&line)));
+        println!(
+            "╭─{}{}─╮",
+            line,
+            "─".repeat(inner_width - display_width(&line))
+        );
     }
     for line in wrapped {
         let line_width = display_width(&line);
         println!("│ {}{} │", line, " ".repeat(inner_width - line_width));
     }
     for line in wrap(&prompt.to_string(), max_content_width) {
-        println!("├─{}{}─╯", line, "─".repeat(inner_width-display_width(&line)));
+        println!(
+            "├─{}{}─╯",
+            line,
+            "─".repeat(inner_width - display_width(&line))
+        );
     }
     print!("╰─[y/n]: ");
     stdout().flush().unwrap();
@@ -61,8 +82,13 @@ pub fn highlight_text(filename: &str, text: &str) -> String {
 
     // Get syntax reference based on file extension
     let pathbuf = PathBuf::from(filename);
-    let extension = pathbuf.extension().map(|s|s.to_str().unwrap()).unwrap_or("txt");
-    let syntax = ps.find_syntax_by_extension(extension).unwrap_or(ps.find_syntax_plain_text());
+    let extension = pathbuf
+        .extension()
+        .map(|s| s.to_str().unwrap())
+        .unwrap_or("txt");
+    let syntax = ps
+        .find_syntax_by_extension(extension)
+        .unwrap_or(ps.find_syntax_plain_text());
 
     // Highlight the content (copied straight from docs example)
     let mut h = HighlightLines::new(syntax, &ts.themes["base16-eighties.dark"]);
@@ -84,7 +110,9 @@ pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
     if let Some(mut stdout) = child.stdout.take() {
         let mut buffer = [0; u8::MAX as usize];
         while let Ok(bytes_read) = stdout.read(&mut buffer) {
-            if bytes_read == 0 { break; }
+            if bytes_read == 0 {
+                break;
+            }
             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
                 print!("{}", text);
                 std::io::Write::flush(&mut std::io::stdout()).unwrap(); // Force instant print
@@ -96,7 +124,9 @@ pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
     if let Some(mut stderr) = child.stderr.take() {
         let mut buffer = [0; u8::MAX as usize];
         while let Ok(bytes_read) = stderr.read(&mut buffer) {
-            if bytes_read == 0 { break; }
+            if bytes_read == 0 {
+                break;
+            }
             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
                 eprint!("{}", text);
                 std::io::Write::flush(&mut std::io::stderr()).unwrap();
@@ -123,14 +153,13 @@ pub fn format_number(n: i64) -> String {
 pub fn parse_human_number(s: &str) -> anyhow::Result<i64> {
     let s = s.trim();
     let (num_str, multiplier) = match s.chars().last() {
-        Some('k') | Some('K') => (&s[..s.len()-1], 1_000),
-        Some('m') | Some('M') => (&s[..s.len()-1], 1_000_000),
-        Some('b') | Some('B') => (&s[..s.len()-1], 1_000_000_000),
+        Some('k') | Some('K') => (&s[..s.len() - 1], 1_000),
+        Some('m') | Some('M') => (&s[..s.len() - 1], 1_000_000),
+        Some('b') | Some('B') => (&s[..s.len() - 1], 1_000_000_000),
         _ => (s, 1),
     };
 
-    let value: f64 = num_str.parse()
-        .context(format!("Invalid number: '{s}'"))?;
+    let value: f64 = num_str.parse().context(format!("Invalid number: '{s}'"))?;
 
     Ok((value * multiplier as f64).round() as i64)
 }
@@ -140,7 +169,6 @@ static SPINNER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
 /// Start showing a thinking spinner
 pub fn start_spinner(kind: &str) {
-
     // Stop any previous spinner
     if let Some(handle) = SPINNER.lock().unwrap().take() {
         handle.abort();
@@ -194,7 +222,7 @@ pub fn stop_spinner() {
 //         );
 
 //     }
-    
+
 //     #[test]
 //     fn test_permission_prompt() {
 //         ask_permission("Execute?".red(), "Hi");

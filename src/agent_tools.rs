@@ -1,7 +1,7 @@
-use std::{collections::HashMap, sync::OnceLock};
 use itertools::Itertools;
 use log::{trace, warn};
 use serde_json::{self, json};
+use std::{collections::HashMap, sync::OnceLock};
 
 mod datetime;
 mod exec_python;
@@ -32,7 +32,6 @@ trait Tool: Send + Sync + std::fmt::Debug {
     fn execute(&self, args: serde_json::Value) -> serde_json::Value;
 }
 
-
 #[derive(Debug)]
 pub struct ToolEntry {
     tool: Box<dyn Tool>,
@@ -48,7 +47,7 @@ pub struct ToolRegistry;
 impl ToolRegistry {
     pub fn init() {
         let mut registry = HashMap::new();
-        
+
         Self::register(&mut registry, datetime::DateTime);
         Self::register(&mut registry, exec_python::ExecPython);
         Self::register(&mut registry, exec_shell::ExecShell);
@@ -61,7 +60,9 @@ impl ToolRegistry {
         Self::register(&mut registry, web_extract::WebExtract);
         Self::register(&mut registry, web_search::WebSearch);
 
-        TOOL_REGISTRY.set(registry).expect("Failed to set TOOL_REGISTRY");
+        TOOL_REGISTRY
+            .set(registry)
+            .expect("Failed to set TOOL_REGISTRY");
     }
 
     /// Get the cached tool registry
@@ -80,7 +81,8 @@ impl ToolRegistry {
     /// Generate the full tools schema that has to be sent to the API
     /// Only tools that are available are included
     pub fn schema() -> serde_json::Value {
-        let schema_list = Self::global().values()
+        let schema_list = Self::global()
+            .values()
             .filter(|tool_entry| tool_entry.is_available)
             .map(|tool_entry| tool_entry.tool.schema())
             .collect::<Vec<serde_json::Value>>();
@@ -117,20 +119,20 @@ impl ToolRegistry {
             None => {
                 warn!("Unregistered tool icon requested");
                 "❓".to_string()
-            },
+            }
         }
     }
 
     /// Get a short info about what arguments went into a tool call
     pub fn tool_short(name: &str, args: &str) -> String {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
-        match Self::global().get(name) {
-            Some(tool_entry) => tool_entry.tool.short(args),
-            None => {
-                warn!("Unregistered tool short requested");
-                "❓".to_string()
-            },
-        }
+            match Self::global().get(name) {
+                Some(tool_entry) => tool_entry.tool.short(args),
+                None => {
+                    warn!("Unregistered tool short requested");
+                    "❓".to_string()
+                }
+            }
         } else {
             warn!("Invalid tool arguments");
             "❓".to_string()
@@ -139,11 +141,16 @@ impl ToolRegistry {
 
     /// Get the status of all the tools (tool_name, is_available, reason)
     pub fn tools_status() -> Vec<(String, bool, String)> {
-        Self::global().iter()
-            .map(|(tool_name,tool_entry)| {
+        Self::global()
+            .iter()
+            .map(|(tool_name, tool_entry)| {
                 let _tool_name = tool_name.clone();
                 let _available = tool_entry.is_available;
-                let _reason = tool_entry.tool.availability().map(|_| "".to_string()).unwrap_or_else(|e| e);
+                let _reason = tool_entry
+                    .tool
+                    .availability()
+                    .map(|_| "".to_string())
+                    .unwrap_or_else(|e| e);
                 (_tool_name, _available, _reason)
             })
             .sorted()

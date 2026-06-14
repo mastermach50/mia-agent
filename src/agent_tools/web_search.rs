@@ -5,14 +5,15 @@ use crate::agent_tools::Tool;
 #[derive(Debug)]
 pub struct WebSearch;
 impl Tool for WebSearch {
-    fn name(&self) -> String { "web_search".to_string() }
-    fn icon(&self) -> String { "🌐".to_string() }
+    fn name(&self) -> String {
+        "web_search".to_string()
+    }
+    fn icon(&self) -> String {
+        "🌐".to_string()
+    }
     fn short(&self, args: serde_json::Value) -> String {
-        let query = args["query"].as_str()
-            .unwrap_or_default()
-            .to_string();
-        let max_results = args["max_results"].as_u64()
-            .unwrap_or(10);
+        let query = args["query"].as_str().unwrap_or_default().to_string();
+        let max_results = args["max_results"].as_u64().unwrap_or(10);
         format!("{query} (top: {max_results})")
     }
     fn availability(&self) -> Result<(), String> {
@@ -45,18 +46,19 @@ impl Tool for WebSearch {
         })
     }
     fn execute(&self, args: serde_json::Value) -> serde_json::Value {
-        let query = args["query"].as_str()
-            .expect("Query argument not found");
+        let query = args["query"].as_str().expect("Query argument not found");
         let max_results = args["max_results"].as_u64().unwrap_or(5) as i32;
-        
+
         let api_key = match std::env::var("TAVILY_API_KEY") {
             Ok(key) => key,
-            Err(_) => return json!({
-                "status": "error",
-                "message": "TAVILY_API_KEY not set in environment"
-            }),
+            Err(_) => {
+                return json!({
+                    "status": "error",
+                    "message": "TAVILY_API_KEY not set in environment"
+                });
+            }
         };
-        
+
         let client = reqwest::blocking::Client::new();
         let response = match client
             .post("https://api.tavily.com/search")
@@ -69,20 +71,24 @@ impl Tool for WebSearch {
             .send()
         {
             Ok(res) => res,
-            Err(e) => return json!({
-                "status": "error",
-                "message": format!("Request failed: {}", e)
-            }),
+            Err(e) => {
+                return json!({
+                    "status": "error",
+                    "message": format!("Request failed: {}", e)
+                });
+            }
         };
-        
+
         let result: serde_json::Value = match response.json() {
             Ok(json) => json,
-            Err(e) => return json!({
-                "status": "error",
-                "message": format!("Failed to parse response: {}", e)
-            }),
+            Err(e) => {
+                return json!({
+                    "status": "error",
+                    "message": format!("Failed to parse response: {}", e)
+                });
+            }
         };
-        
+
         json!({
             "status": "success",
             "query": query,

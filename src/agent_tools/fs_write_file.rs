@@ -1,19 +1,27 @@
-use std::fs;
 use serde_json::json;
+use std::fs;
 use termimad::crossterm::style::Stylize;
 
-use crate::{agent_tools::Tool, utils::{self, ask_permission}};
+use crate::{
+    agent_tools::Tool,
+    utils::{self, ask_permission},
+};
 
 #[derive(Debug)]
 pub struct FSWriteFile;
 impl Tool for FSWriteFile {
-    fn name(&self) -> String { "fs_write_file".to_string() }
-    fn icon(&self) -> String { "✍️".to_string() }
-    fn short(&self, args: serde_json::Value) -> String {
-        args["path"].as_str()
-            .unwrap_or_default().to_string()
+    fn name(&self) -> String {
+        "fs_write_file".to_string()
     }
-    fn availability(&self) -> Result<(), String> { Ok(()) }
+    fn icon(&self) -> String {
+        "✍️".to_string()
+    }
+    fn short(&self, args: serde_json::Value) -> String {
+        args["path"].as_str().unwrap_or_default().to_string()
+    }
+    fn availability(&self) -> Result<(), String> {
+        Ok(())
+    }
     fn schema(&self) -> serde_json::Value {
         json!({
             "type": "function",
@@ -38,15 +46,15 @@ impl Tool for FSWriteFile {
         })
     }
     fn execute(&self, args: serde_json::Value) -> serde_json::Value {
-        let path = args["path"].as_str()
-            .expect("Path argument not found");
-        let content = args["content"].as_str()
+        let path = args["path"].as_str().expect("Path argument not found");
+        let content = args["content"]
+            .as_str()
             .expect("Content argument not found");
 
         let colored_content = utils::highlight_text(path, content);
 
         let header = format!("{} {}", "Write to".red(), path.yellow());
-        if ask_permission(header, &colored_content) {        
+        if ask_permission(header, &colored_content) {
             match fs::write(path, content) {
                 Ok(_) => {
                     json!({
@@ -55,11 +63,11 @@ impl Tool for FSWriteFile {
                         "size": content.len(),
                         "message": format!("File written successfully ({} bytes)", content.len())
                     })
-                },
+                }
                 Err(e) => json!({
                     "status": "error",
                     "message": format!("Failed to write file: {}", e)
-                })
+                }),
             }
         } else {
             json!({

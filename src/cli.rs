@@ -20,7 +20,7 @@ pub enum MainSubCommands {
     Model {
         /// List all available models
         #[command(subcommand)]
-        sub_command: Option<ModelSubCommands>
+        sub_command: Option<ModelSubCommands>,
     },
 
     /// List all agent tools and their status
@@ -28,7 +28,6 @@ pub enum MainSubCommands {
 
     /// Run in interactive mode
     Tui {
-
         /// Start a new session
         #[arg(short, long)]
         new: bool,
@@ -39,7 +38,6 @@ pub enum MainSubCommands {
 pub enum ModelSubCommands {
     /// List all the models available on the server
     List {
-
         // Maximum price per million completion tokens
         #[arg(long)]
         max_price: Option<f64>,

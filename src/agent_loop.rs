@@ -13,24 +13,24 @@ pub async fn run_agent(
     on_assistant_status_update: impl Fn(&str),
     on_system_message: impl Fn(&str),
 ) -> Result<History> {
-    
     // Make history mutable
     let mut history = history;
-    
+
     // Setup a Ctrl-C listener to cancel the request
     // When a Ctrl-C is received the cancellation token is set to "cancelled"
     let cancel = CancellationToken::new();
     let cancel_watcher = cancel.clone();
     tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl-C");
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to listen for Ctrl-C");
         cancel_watcher.cancel();
     });
-    
+
     // Max number of iterations is configurable
     for iterations in 1..=AppConfig::global().agent.max_iterations {
         // Initially mark the assistant as waiting
         on_assistant_status_update("Waiting");
-
 
         // Check if the request is cancelled
         if cancel.is_cancelled() {
@@ -38,24 +38,26 @@ pub async fn run_agent(
         }
 
         // Send a message if the agent does a lot of iterations
-        if iterations >= 3 && (
-                iterations % 10 == 0 ||
-                iterations == 3 ||
-                iterations == AppConfig::global().agent.max_iterations
-            )
+        if iterations >= 3
+            && (iterations % 10 == 0
+                || iterations == 3
+                || iterations == AppConfig::global().agent.max_iterations)
         {
             on_assistant_message(&Message::new(
-                "assistant", 
-                format!("🔁 Iteration {}/{}", iterations, AppConfig::global().agent.max_iterations)
+                "assistant",
+                format!(
+                    "🔁 Iteration {}/{}",
+                    iterations,
+                    AppConfig::global().agent.max_iterations
+                ),
             ));
         }
-
 
         // Get the next message from the assistant and append it to the history
         // Pass over the cancellation token and thinking notifier too
         let assistant_msg = match completion(&history, &cancel, &on_assistant_status_update).await {
             // Success
-            Ok(message) => { message }
+            Ok(message) => message,
 
             // Cancelled
             Err(_) if cancel.is_cancelled() => {
@@ -68,7 +70,6 @@ pub async fn run_agent(
                 on_system_message(&format!("Assistant returned error:\n\t{err}"));
                 break;
             }
-            
         };
 
         // Forward the assistant's message
@@ -81,7 +82,8 @@ pub async fn run_agent(
         // Append the result of the tool calls to the history and continue the loop
         if let Some(tool_calls) = assistant_msg.tool_calls {
             for tool_call in tool_calls {
-                let content = ToolRegistry::call(&tool_call.function.name, &tool_call.function.arguments);
+                let content =
+                    ToolRegistry::call(&tool_call.function.name, &tool_call.function.arguments);
                 history.add_message(Message::new_tool_call_response(
                     tool_call.id.clone(),
                     content.to_string(),

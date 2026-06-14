@@ -1,19 +1,22 @@
-use std::io::{Write, stdout};
 use anyhow::Result;
 use nu_ansi_term::{Color, Style};
-use reedline::{ColumnarMenu, DefaultCompleter, EditCommand, Emacs, ExampleHighlighter, FileBackedHistory, KeyCode, KeyModifiers, MenuBuilder, Prompt, PromptHistorySearchStatus, Reedline, ReedlineEvent, ReedlineMenu, Signal, default_emacs_keybindings};
+use reedline::{
+    ColumnarMenu, DefaultCompleter, EditCommand, Emacs, ExampleHighlighter, FileBackedHistory,
+    KeyCode, KeyModifiers, MenuBuilder, Prompt, PromptHistorySearchStatus, Reedline, ReedlineEvent,
+    ReedlineMenu, Signal, default_emacs_keybindings,
+};
+use std::io::{Write, stdout};
 use termimad::{self, crossterm::style::Stylize};
 
+use crate::agent_loop;
 use crate::agent_tools::ToolRegistry;
-use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
+use crate::api::{History, Message};
+use crate::config::AppConfig;
 use crate::sessions::{load_session, save_session};
 use crate::system_prompt::get_system_prompt;
-use crate::config::AppConfig;
-use crate::agent_loop;
-use crate::api::{History, Message};
+use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
 
 pub async fn run(new_session: bool) -> Result<()> {
-
     let help_message = indoc::indoc! {"
     Commands:
         /help         Show this help message
@@ -29,7 +32,8 @@ pub async fn run(new_session: bool) -> Result<()> {
 
     on_system_message(&format!(
         "Use {} to exit the chat, {} to show all commands.",
-        "/exit".yellow(), "/help".yellow()
+        "/exit".yellow(),
+        "/help".yellow()
     ));
 
     // Unless a new session was requested load the previous history
@@ -46,12 +50,12 @@ pub async fn run(new_session: bool) -> Result<()> {
 
     // For full featured input powered by reedline
     let (mut rl, prompt) = get_reedline()?;
-    
+
     loop {
         // Update the system prompt every turn in case the user or system memory changed
         history.set_system_prompt(get_tui_system_prompt()?);
 
-        // A 
+        // A
         println!("{}", "─".repeat(textwrap::termwidth()));
         match rl.read_line(&prompt) {
             Ok(Signal::Success(line)) => {
@@ -81,9 +85,15 @@ pub async fn run(new_session: bool) -> Result<()> {
                     }
                     "/model" => {
                         let mut line = String::new();
-                        line.push_str(&format!("\nBase URL  {}", AppConfig::global().model.base_url));
+                        line.push_str(&format!(
+                            "\nBase URL  {}",
+                            AppConfig::global().model.base_url
+                        ));
                         line.push_str(&format!("\nName      {}", AppConfig::global().model.name));
-                        line.push_str(&format!("\nReasoning {}", AppConfig::global().model.reasoning));
+                        line.push_str(&format!(
+                            "\nReasoning {}",
+                            AppConfig::global().model.reasoning
+                        ));
                         on_system_message(&line);
                         continue;
                     }
@@ -102,8 +112,9 @@ pub async fn run(new_session: bool) -> Result<()> {
                     history,
                     on_assistant_message,
                     on_assistant_status_update,
-                    on_system_message
-                ).await?;
+                    on_system_message,
+                )
+                .await?;
 
                 // Save the session at the end of turn
                 save_session("tui-agent-history.json", &history)?;
@@ -111,17 +122,17 @@ pub async fn run(new_session: bool) -> Result<()> {
             Ok(Signal::CtrlC) => {
                 println!("^C");
                 continue;
-            },
+            }
             Ok(Signal::CtrlD) => {
                 println!("^D");
                 save_session("tui-agent-history.json", &history)?;
                 println!("Exiting...");
                 break;
-            },
-            Ok(_) => {},
+            }
+            Ok(_) => {}
             Err(err) => {
                 println!("Error: {:?}", err);
-                break
+                break;
             }
         }
     }
@@ -134,12 +145,14 @@ pub fn on_assistant_message(message: &Message) {
 
     let mut output = String::new();
     if let Some(reasoning) = message.reasoning.clone()
-    && AppConfig::global().tui.show_reasoning {
+        && AppConfig::global().tui.show_reasoning
+    {
         output += &format!("{mia_colored} 💭             \n");
         output += &format!("{}\n", generate_think_lines(reasoning.trim()));
     }
     if let Some(content) = message.content.clone()
-    && content.trim() != "" {
+        && content.trim() != ""
+    {
         output += &format!("{mia_colored} {}\n", content.trim());
     }
     if let Some(tool_calls) = message.tool_calls.clone() {
@@ -183,11 +196,8 @@ pub fn get_tui_system_prompt() -> Result<String> {
 
 fn get_reedline() -> Result<(Reedline, impl Prompt)> {
     let history = Box::new(
-        FileBackedHistory::with_file(
-            1000,
-            AppConfig::global().tui.history_file.clone().into()
-        )
-        .unwrap_or_else(|_| FileBackedHistory::new(1000).unwrap())
+        FileBackedHistory::with_file(1000, AppConfig::global().tui.history_file.clone().into())
+            .unwrap_or_else(|_| FileBackedHistory::new(1000).unwrap()),
     );
 
     let commands = vec![
@@ -201,7 +211,7 @@ fn get_reedline() -> Result<(Reedline, impl Prompt)> {
     let completion_menu = Box::new(
         ColumnarMenu::default()
             .with_name("completion_menu")
-            .with_text_style(Style::new().fg(Color::Green))
+            .with_text_style(Style::new().fg(Color::Green)),
     );
     let mut keybindings = default_emacs_keybindings();
     keybindings.add_binding(
@@ -213,22 +223,20 @@ fn get_reedline() -> Result<(Reedline, impl Prompt)> {
         ]),
     );
     keybindings.add_binding(
-    KeyModifiers::SHIFT,
+        KeyModifiers::SHIFT,
         KeyCode::Enter,
-        ReedlineEvent::Edit(vec![EditCommand::InsertNewline])
+        ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
     );
     let edit_mode = Box::new(Emacs::new(keybindings));
 
-    let mut completer = Box::new(
-        DefaultCompleter::with_inclusions(&['/', '-', '_'])
-    );
+    let mut completer = Box::new(DefaultCompleter::with_inclusions(&['/', '-', '_']));
     completer.insert(commands.clone());
 
     let mut hilighter = Box::new(ExampleHighlighter::new(commands.clone()));
     hilighter.change_colors(
         nu_ansi_term::Color::Green,
         nu_ansi_term::Color::Default,
-        nu_ansi_term::Color::Default
+        nu_ansi_term::Color::Default,
     );
 
     let prompt = CustomPrompt;
@@ -253,7 +261,10 @@ impl Prompt for CustomPrompt {
     fn render_prompt_right(&self) -> std::borrow::Cow<'_, str> {
         "".into()
     }
-    fn render_prompt_indicator(&self, _prompt_mode: reedline::PromptEditMode) -> std::borrow::Cow<'_, str> {
+    fn render_prompt_indicator(
+        &self,
+        _prompt_mode: reedline::PromptEditMode,
+    ) -> std::borrow::Cow<'_, str> {
         "> ".into()
     }
     fn render_prompt_multiline_indicator(&self) -> std::borrow::Cow<'_, str> {
@@ -268,10 +279,7 @@ impl Prompt for CustomPrompt {
             PromptHistorySearchStatus::Failing => "failing ",
         };
 
-        format!(
-            " ({} reverse-search: {}) ",
-            prefix, history_search.term
-        ).into()
+        format!(" ({} reverse-search: {}) ", prefix, history_search.term).into()
     }
 }
 

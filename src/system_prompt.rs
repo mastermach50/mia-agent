@@ -30,7 +30,7 @@ pub fn get_system_prompt() -> Result<String> {
         the_model_you_are_running: {model_name}
     "});
     system_prompt.push('\n');
-    let os_name =  os_info::get().to_string();
+    let os_name = os_info::get().to_string();
     let cwd = std::env::current_dir()?.into_string().unwrap();
     let date_and_hour = Local::now().format("%a, %d %b %Y %I%p %z");
     system_prompt.push_str(&indoc::formatdoc! {"
