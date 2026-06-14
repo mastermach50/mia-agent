@@ -60,7 +60,7 @@ impl Tool for WebSearch {
             }
         };
 
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let response = match client
             .post("https://api.tavily.com/search")
             .header("Content-Type", "application/json")
@@ -70,6 +70,7 @@ impl Tool for WebSearch {
                 "max_results": max_results
             }))
             .send()
+            .await
         {
             Ok(res) => res,
             Err(e) => {
@@ -80,7 +81,7 @@ impl Tool for WebSearch {
             }
         };
 
-        let result: serde_json::Value = match response.json() {
+        let result: serde_json::Value = match response.json().await {
             Ok(json) => json,
             Err(e) => {
                 return json!({
