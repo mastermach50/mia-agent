@@ -34,7 +34,7 @@ rustPlatform.buildRustPackage {
   '';
 
   meta = {
-    description = "Mia Agent, a configurable, easy to use AI agent.";
+    description = "The configurable, easy to use, personal AI agent.";
     homepage = "https://github.com/mastermach50/mia-agent";
     licence = lib.licenses.mit;
     maintainers = with lib.maintainers; [ mastermach50 ];
