@@ -5,3 +5,4 @@
 <!-- - Add some tool call result at the end of the tool call short string -->
 - Make streaming available
 - Read changelogs for draft release body
+- Fix model pricing calculation logic

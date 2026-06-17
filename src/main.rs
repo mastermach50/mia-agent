@@ -4,7 +4,7 @@
 use anyhow::{Ok, Result};
 use clap::Parser;
 use env_logger::Env;
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, prelude::FromPrimitive};
 use tabled::{builder::Builder, settings::Style};
 use termimad::crossterm::style::Stylize;
 
@@ -69,9 +69,10 @@ async fn main() -> Result<()> {
         Some(cli::MainSubCommands::Model { sub_command }) => match sub_command {
             Some(cli::ModelSubCommands::List {
                 max_price,
+                free,
                 min_context,
             }) => {
-                list_models(max_price, min_context).await?;
+                list_models(max_price,free,  min_context).await?;
             }
             Some(cli::ModelSubCommands::Show) => {
                 let mut table = Builder::new();
@@ -113,7 +114,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn list_models(max_price: Option<f64>, min_context: Option<String>) -> Result<()> {
+async fn list_models(max_price: Option<f64>, free_price: bool, min_context: Option<String>) -> Result<()> {
     let models = api::models().await?;
 
     if models.is_empty() {
@@ -140,12 +141,13 @@ async fn list_models(max_price: Option<f64>, min_context: Option<String>) -> Res
 
         if has_context {
             // Skip items that have low context length
+            if let Some(context_length) = model.context_length {
             if let Some(min_context) = &min_context
-                && let Some(context_length) = model.context_length
                 && context_length < parse_human_number(min_context)?
             {
                 continue;
             }
+        }
 
             record.push(match model.context_length {
                 Some(n) => format_number(n),
@@ -153,13 +155,16 @@ async fn list_models(max_price: Option<f64>, min_context: Option<String>) -> Res
             });
         }
 
+        // TODO fix this mess
         if has_pricing {
-            // Skip items that have high pricing
-            if let Some(max_price) = &max_price
-                && let Some(pricing) = &model.pricing
-                && pricing.completion > max_price.to_string()
-            {
-                continue;
+            // Skip items that have price greater than max_price
+            if let Some(pricing) = &model.pricing {
+                let max_requested_price = max_price.unwrap_or_else(|| if free_price { 0.0 } else { f64::INFINITY });
+                if let Some(completion_price) = pricing.completion.parse::<Decimal>().ok() {
+                    if completion_price * Decimal::from(1_000_000) > Decimal::from_f64(max_requested_price).unwrap() {
+                        continue;
+                    }
+                }
             }
 
             record.push(

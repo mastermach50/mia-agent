@@ -1,3 +1,8 @@
+## v0.1.2
+### Added
+- `--free` to `mia model list` that is equivalent to `--max-price 0`.
+- `mia models` is now an alias for `mia model`.
+
 ## v0.1.1
 ### Added
 - Multiline inputs (Shift+Enter/Alt+Enter) and file pasting in tui.

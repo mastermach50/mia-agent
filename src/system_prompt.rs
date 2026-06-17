@@ -22,8 +22,9 @@ pub fn get_system_prompt() -> Result<String> {
     system_prompt.push_str(&indoc::formatdoc! {"
         You are an AI agent running on a custom harness called mia-agent.
         When the user asks you to configure something about yourself this is what they are referring to.
-        Always use the tools you have if they even slightly seem be useful for the task.
-        Don't assume things, always verify, use your tools to do this if needed.
+        All your config files are present in your_config_folder.
+        If any tool you have seems useful for any task then always use them.
+        Don't assume things, always verify with the help of your tools.
         
         your_executable: {executable}
         your_config_folder: {config_folder}
@@ -56,11 +57,11 @@ pub fn get_system_prompt() -> Result<String> {
         .join("\n");
     system_prompt.push_str( &indoc::formatdoc! {"
         # Memory
-        Whenever you learn new things about yourself or about the user that will be relevent in future conversations add it to your memory using your memory tool.
+        Whenever you learn new things about yourself or about the user that will be relevent later, add it to your memory using your memory tool.
         If the user asks you to remember something, then also use your memory tool to save it to your memory.
         Anything that is in your memory will always be included in your system prompt.
         {user_memory_file} is your memory about the user and {system_memory_file} is your memory about yourself.
-        Don't include status of currents tasks in your memory. Only add things that will be relevent long term.
+        Don't include status of tasks, or what tasks were done in your memory. Only add things that will be relevent long term.
         
         ## User Memory ({user_memory_file})
         {user_memory}

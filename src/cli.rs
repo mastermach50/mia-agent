@@ -14,7 +14,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum MainSubCommands {
     /// Model commands
-    #[command(alias = "models")]
+    #[command(visible_alias = "models")]
     Model {
         /// List all available models
         #[command(subcommand)]
@@ -37,8 +37,12 @@ pub enum ModelSubCommands {
     /// List all the models available on the server
     List {
         // Maximum price per million completion tokens
-        #[arg(long)]
+        #[arg(long, conflicts_with="free")]
         max_price: Option<f64>,
+
+        // Show only free models
+        #[arg(long, conflicts_with="max_price")]
+        free: bool,
 
         // Minimum context length
         #[arg(long)]
