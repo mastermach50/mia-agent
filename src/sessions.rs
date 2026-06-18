@@ -42,13 +42,13 @@ fn get_session_paths() -> Vec<String> {
 pub fn list_sessions() -> Result<String> {
     let sessions = get_session_paths();
     let mut table = tabled::builder::Builder::new();
-    table.push_record(vec!["Name", "Owner", "Created"]);
+    table.push_record(vec!["Filename", "Name", "Owner", "Created"]);
 
     for filename in sessions {
         let s: Session = serde_json::from_str(&fs::read_to_string(
             AppConfig::internal().sessions_dir.join(filename),
         )?)?;
-        table.push_record(vec![s.name, s.owner, s.created.to_rfc2822()]);
+        table.push_record(vec![s.filename, s.name, s.owner, s.created.to_rfc2822()]);
     }
 
     Ok(table.build().with(Style::rounded()).to_string())
