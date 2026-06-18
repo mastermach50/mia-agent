@@ -2,6 +2,8 @@
 ### Added
 - `--free` to `mia model list` that is equivalent to `--max-price 0`.
 - `mia models` is now an alias for `mia model`.
+- Non overwriting sessions
+- `model sessions list` to view all sessions.
 
 ### Fixed
 - `--max-price` not evaluating properly

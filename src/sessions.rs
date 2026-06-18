@@ -3,6 +3,7 @@ use chrono::{DateTime, Local};
 use itertools::Itertools;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
+use tabled::settings::Style;
 use std::fs;
 
 use crate::api::History;
@@ -18,7 +19,7 @@ pub struct Session {
 }
 
 /// Get list of all the session files (filenames not full paths)
-fn get_session_list() -> Vec<String> {
+fn get_session_paths() -> Vec<String> {
     let dir = AppConfig::internal().sessions_dir.clone();
     if dir.exists()
         && let Ok(entries) = fs::read_dir(&dir)
@@ -35,6 +36,20 @@ fn get_session_list() -> Vec<String> {
         info!("Created sessions directory");
         Vec::new()
     }
+}
+
+/// Get table of sessions for printing
+pub fn list_sessions() -> Result<String> {
+    let sessions = get_session_paths();
+    let mut table = tabled::builder::Builder::new();
+    table.push_record(vec!["Name", "Owner", "Created"]);
+
+    for filename in sessions {
+        let s: Session = serde_json::from_str(&fs::read_to_string(AppConfig::internal().sessions_dir.join(filename))?)?;
+        table.push_record(vec![s.name, s.owner, s.created.to_rfc2822()]);
+    }
+
+    Ok(table.build().with(Style::rounded()).to_string())
 }
 
 /// Create a new session and return it
@@ -70,7 +85,7 @@ pub fn create_new_session(kind: &str, owner: &str) -> Result<Session> {
 
 /// Get the last session of the given owner and return it, otherwise return None
 pub fn get_last_session(kind: &str, owner: &str) -> Result<Option<Session>> {
-    let sessions = get_session_list();
+    let sessions = get_session_paths();
     let wanted_session = sessions
         .iter()
         .filter(|&s| s.starts_with(&format!("{kind}_{owner}_")))

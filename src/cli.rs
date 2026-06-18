@@ -16,9 +16,15 @@ pub enum MainSubCommands {
     /// Model commands
     #[command(visible_alias = "models")]
     Model {
-        /// List all available models
         #[command(subcommand)]
         sub_command: Option<ModelSubCommands>,
+    },
+
+    /// Manage sessions
+    #[command(visible_alias = "sessions")]
+    Session {
+        #[command(subcommand)]
+        sub_command: Option<SessionSubCommands>,
     },
 
     /// List all agent tools and their status
@@ -54,4 +60,10 @@ pub struct ModelListArgs {
     // Minimum context length
     #[arg(long)]
     pub min_context: Option<String>,
+}
+
+#[derive(Subcommand)]
+pub enum SessionSubCommands {
+    /// List all the sessions
+    List,
 }

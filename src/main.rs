@@ -25,9 +25,7 @@ use config::AppConfig;
 use log::{info, trace};
 
 use crate::{
-    api::History,
-    system_prompt::get_tui_system_prompt,
-    utils::{format_number, parse_human_number},
+    api::History, sessions::list_sessions, system_prompt::get_tui_system_prompt, utils::{format_number, parse_human_number}
 };
 
 #[tokio::main]
@@ -63,26 +61,27 @@ async fn main() -> Result<()> {
     }
 
     match cli.sub_command {
-        // Some(cli::Commands::Gateway) => {
-        //     info!("Starting gateway...");
-        //     gateway::whatsapp::start().await?;
-        // },
         Some(cli::MainSubCommands::Model { sub_command }) => match sub_command {
             Some(cli::ModelSubCommands::List(args)) => {
                 list_models(args).await?;
             }
             Some(cli::ModelSubCommands::Show) => {
-                let mut table = Builder::new();
-                table.push_record(["Base URL", &AppConfig::global().model.base_url]);
-                table.push_record(["Name", &AppConfig::global().model.name]);
-                table.push_record(["Reasoning", &AppConfig::global().model.reasoning]);
-
-                println!("{}", table.build().with(Style::blank()));
+                println!("Model     : {}", AppConfig::global().model.name);
+                println!("Reasoning : {}", AppConfig::global().model.reasoning);
+                println!("Base URL  : {}", AppConfig::global().model.base_url);
             }
             None => {
                 println!("No subcommand provided. Use --help for usage.");
             }
         },
+        Some(cli::MainSubCommands::Session { sub_command }) => match sub_command {
+            Some(cli::SessionSubCommands::List) => {
+                println!("{}", list_sessions()?);
+            }
+            None => {
+                println!("No subcommand provided. Use --help for usage.");
+            }
+        }
         Some(cli::MainSubCommands::Tools) => {
             println!("Available Tools:");
             for (tool_name, is_available, reason) in ToolRegistry::tools_status() {
