@@ -35,20 +35,23 @@ pub enum MainSubCommands {
 #[derive(Subcommand)]
 pub enum ModelSubCommands {
     /// List all the models available on the server
-    List {
-        // Maximum price per million completion tokens
-        #[arg(long, conflicts_with="free")]
-        max_price: Option<f64>,
-
-        // Show only free models
-        #[arg(long, conflicts_with="max_price")]
-        free: bool,
-
-        // Minimum context length
-        #[arg(long)]
-        min_context: Option<String>,
-    },
+    List(ModelListArgs),
 
     /// Show the current model info
     Show,
+}
+
+#[derive(Parser)]
+pub struct ModelListArgs {
+    // Maximum price per million completion tokens
+    #[arg(long, conflicts_with = "free")]
+    pub max_price: Option<f64>,
+
+    // Show only free models
+    #[arg(long, conflicts_with = "max_price")]
+    pub free: bool,
+
+    // Minimum context length
+    #[arg(long)]
+    pub min_context: Option<String>,
 }

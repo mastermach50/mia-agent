@@ -67,12 +67,8 @@ async fn main() -> Result<()> {
         //     gateway::whatsapp::start().await?;
         // },
         Some(cli::MainSubCommands::Model { sub_command }) => match sub_command {
-            Some(cli::ModelSubCommands::List {
-                max_price,
-                free,
-                min_context,
-            }) => {
-                list_models(max_price,free,  min_context).await?;
+            Some(cli::ModelSubCommands::List(args)) => {
+                list_models(args).await?;
             }
             Some(cli::ModelSubCommands::Show) => {
                 let mut table = Builder::new();
@@ -114,7 +110,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn list_models(max_price: Option<f64>, free_price: bool, min_context: Option<String>) -> Result<()> {
+async fn list_models(args: cli::ModelListArgs) -> Result<()> {
     let models = api::models().await?;
 
     if models.is_empty() {
@@ -141,13 +137,12 @@ async fn list_models(max_price: Option<f64>, free_price: bool, min_context: Opti
 
         if has_context {
             // Skip items that have low context length
-            if let Some(context_length) = model.context_length {
-            if let Some(min_context) = &min_context
-                && context_length < parse_human_number(min_context)?
+            if let Some(min_context) = &args.min_context // Min ctxt arg is given
+            && let Some(context_length) = model.context_length // Model has ctxt len info
+            && context_length < parse_human_number(min_context)?
             {
                 continue;
             }
-        }
 
             record.push(match model.context_length {
                 Some(n) => format_number(n),
@@ -155,15 +150,20 @@ async fn list_models(max_price: Option<f64>, free_price: bool, min_context: Opti
             });
         }
 
-        // TODO fix this mess
         if has_pricing {
             // Skip items that have price greater than max_price
-            if let Some(pricing) = &model.pricing {
-                let max_requested_price = max_price.unwrap_or_else(|| if free_price { 0.0 } else { f64::INFINITY });
-                if let Some(completion_price) = pricing.completion.parse::<Decimal>().ok() {
-                    if completion_price * Decimal::from(1_000_000) > Decimal::from_f64(max_requested_price).unwrap() {
-                        continue;
-                    }
+            let max_price = args
+                .max_price
+                .unwrap_or(if args.free { 0.0 } else { f64::INFINITY });
+            if let Some(pricing) = &model.pricing // Model has pricing info
+            && let Some(completion_price) = pricing.completion.parse::<Decimal>().ok()
+            {
+                // The price can be parsed properly
+                let completion_price_per_mil = completion_price * Decimal::from(1_000_000);
+                let max_price_per_mil =
+                    Decimal::from_f64(max_price).expect("Failed to convert max price to decimal");
+                if completion_price_per_mil > max_price_per_mil {
+                    continue;
                 }
             }
 
