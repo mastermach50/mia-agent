@@ -40,5 +40,7 @@ tokio = { version = "1.52.3", features = ["full"] }
 tokio-util = { version = "0.7.18", features = ["rt"] }
 toml = "1.1.2"
 unix_mode = "0.1.4"
-uzers = "0.12.2"
 which = "8.0.3"
+
+[target.'cfg(unix)'.dependencies]
+uzers = "0.12.2"

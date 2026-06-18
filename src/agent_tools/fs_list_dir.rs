@@ -156,7 +156,7 @@ fn owner_group_string(metadata: &fs::Metadata) -> (String, String) {
 }
 
 #[cfg(windows)]
-fn owner_group_string(metadata: &fs::Metadata) -> (String, String) {
+fn owner_group_string(_metadata: &fs::Metadata) -> (String, String) {
     ("-".to_string(), "-".to_string())
 }
 
