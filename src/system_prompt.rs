@@ -72,3 +72,17 @@ pub fn get_system_prompt() -> Result<String> {
 
     Ok(system_prompt)
 }
+
+pub fn get_tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
+    let mut system_prompt = get_system_prompt()?;
+    system_prompt.push_str(&format!(
+        "\nYou are talking to {} via a TUI.",
+        AppConfig::global().tui.username
+    ));
+    if let Some(help_msg) = help_msg {
+        system_prompt.push('\n');
+        system_prompt.push_str("This are the options available to the user in the TUI\n");
+        system_prompt.push_str(&help_msg);
+    }
+    Ok(system_prompt)
+}

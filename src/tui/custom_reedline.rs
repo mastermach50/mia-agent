@@ -19,7 +19,7 @@ use termimad::crossterm::{
 
 use crate::config::AppConfig;
 
-pub fn get_reedline() -> Result<(Reedline, impl Prompt, KittyProtocol)> {
+pub fn get_reedline(commands: Vec<String>) -> Result<(Reedline, impl Prompt, KittyProtocol)> {
     execute!(std::io::stdout(), EnableBracketedPaste)?;
 
     // Initialize the Kitty protocol before building Reedline
@@ -37,15 +37,6 @@ pub fn get_reedline() -> Result<(Reedline, impl Prompt, KittyProtocol)> {
         FileBackedHistory::with_file(1000, AppConfig::global().tui.history_file.clone().into())
             .unwrap_or_else(|_| FileBackedHistory::new(1000).unwrap()),
     );
-
-    // All commands
-    let commands = vec![
-        "/exit".into(),
-        "/bye".into(),
-        "/new".into(),
-        "/clear".into(),
-        "/cls".into(),
-    ];
 
     // Completion Menu
     let completion_menu = Box::new(

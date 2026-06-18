@@ -2,8 +2,8 @@ use bytesize::ByteSize;
 use chrono::{DateTime, Local};
 use log::warn;
 use serde_json::json;
-use tabled::grid::records::vec_records::Cell;
 use std::{fs, io};
+use tabled::grid::records::vec_records::Cell;
 
 use crate::agent_tools::Tool;
 
@@ -44,7 +44,7 @@ impl Tool for FSListDir {
     }
     async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().unwrap_or(".");
-        
+
         match fs::read_dir(path) {
             Ok(entries) => {
                 let mut md = String::new();
@@ -60,8 +60,13 @@ impl Tool for FSListDir {
                                 let perms = permission_string(&metadata);
                                 let size = ByteSize::b(metadata.len()).to_string();
                                 let (owner, group) = owner_group_string(&metadata);
-                                let modified = metadata.modified()
-                                    .map(|t| DateTime::<Local>::from(t).format("%Y-%m-%d %H:%M:%S").to_string())
+                                let modified = metadata
+                                    .modified()
+                                    .map(|t| {
+                                        DateTime::<Local>::from(t)
+                                            .format("%Y-%m-%d %H:%M:%S")
+                                            .to_string()
+                                    })
                                     .unwrap_or("-".to_string());
                                 md.push_str(&format!("| {perms} | {size:<10} | {owner} | {group} | {modified} | {path_disp} |\n"));
                             } else {
@@ -82,35 +87,33 @@ impl Tool for FSListDir {
                     "count": md.count_lines() - 2 // 1 line header, 1 line gap
                 });
             }
-            Err(e) => {
-                match e.kind() {
-                    io::ErrorKind::NotFound => {
-                        return json!({
-                            "status": "error",
-                            "message": format!("Directory not found: {}", path)
-                        });
-                    }
-                    io::ErrorKind::PermissionDenied => {
-                        return json!({
-                            "status": "error",
-                            "message": format!("Permission denied: {}", path)
-                        });
-                    }
-                    io::ErrorKind::NotADirectory => {
-                        return json!({
-                            "status": "error",
-                            "message": format!("Not a directory: {}", path)
-                        });
-                    }
-                    _ => {
-                        warn!("Unknown error: {:?}", e);
-                        return json!({
-                            "status": "error",
-                            "message": format!("Unknown error: {}", e)
-                        });
-                    }
+            Err(e) => match e.kind() {
+                io::ErrorKind::NotFound => {
+                    return json!({
+                        "status": "error",
+                        "message": format!("Directory not found: {}", path)
+                    });
                 }
-            }
+                io::ErrorKind::PermissionDenied => {
+                    return json!({
+                        "status": "error",
+                        "message": format!("Permission denied: {}", path)
+                    });
+                }
+                io::ErrorKind::NotADirectory => {
+                    return json!({
+                        "status": "error",
+                        "message": format!("Not a directory: {}", path)
+                    });
+                }
+                _ => {
+                    warn!("Unknown error: {:?}", e);
+                    return json!({
+                        "status": "error",
+                        "message": format!("Unknown error: {}", e)
+                    });
+                }
+            },
         }
     }
 }
@@ -166,5 +169,4 @@ mod tests {
         let out = FSListDir.execute(json!({})).await;
         println!("{}", serde_json::to_string_pretty(&out).unwrap())
     }
-
 }

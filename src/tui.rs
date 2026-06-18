@@ -7,14 +7,15 @@ mod custom_reedline;
 
 use crate::agent_loop;
 use crate::agent_tools::ToolRegistry;
-use crate::api::{History, Message};
+use crate::api::Message;
 use crate::config::AppConfig;
-use crate::sessions::{load_session, save_session};
-use crate::system_prompt::get_system_prompt;
+use crate::sessions::{Session, create_new_session, get_last_session, save_session};
+use crate::system_prompt::get_tui_system_prompt;
 use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
 use custom_reedline::get_reedline;
 
 pub async fn run(new_session: bool) -> Result<()> {
+    // Help message
     let help_message = indoc::indoc! {"
     Commands:
         /help         Show this help message
@@ -28,6 +29,17 @@ pub async fn run(new_session: bool) -> Result<()> {
         <Ctrl-D>      Exit
     "};
 
+    // All commands
+    let commands = vec![
+        "/help".into(),
+        "/exit".into(),
+        "/bye".into(),
+        "/new".into(),
+        "/clear".into(),
+        "/cls".into(),
+        "/model".into(),
+    ];
+
     on_system_message(&format!(
         "Use {} to exit the chat, {} to show all commands.",
         "/exit".yellow(),
@@ -35,24 +47,30 @@ pub async fn run(new_session: bool) -> Result<()> {
     ));
 
     // Unless a new session was requested load the previous history
-    let mut history = History::new();
-    if !new_session {
-        // Try to load the history from file
-        if let Ok(loaded_history) = load_session("tui-agent-history.json") {
-            history = loaded_history;
-            on_system_message("Loaded previous session history.");
-        }
-    } else {
+    let mut session: Session;
+    if new_session {
+        session = create_new_session("tui", "user")?;
         on_system_message("Started new session.");
+    } else {
+        if let Some(s) = get_last_session("tui", "user")? {
+            session = s;
+            on_system_message("Loaded last session.");
+        } else {
+            on_system_message("No previous session found.");
+            session = create_new_session("tui", "user")?;
+            on_system_message("Started new session.");
+        }
     }
 
     // For full featured input powered by reedline
     // The _terminal_lifecycle is needed to support kitty protocol stuff
-    let (mut rl, prompt, kitty_protocol) = get_reedline()?;
+    let (mut rl, prompt, kitty_protocol) = get_reedline(commands)?;
 
     loop {
         // Update the system prompt every turn in case the user or system memory changed
-        history.set_system_prompt(get_tui_system_prompt()?);
+        session
+            .history
+            .set_system_prompt(get_tui_system_prompt(Some(help_message))?);
 
         // Handle inputs using reedline
         println!("{}", "─".repeat(textwrap::termwidth()));
@@ -66,16 +84,16 @@ pub async fn run(new_session: bool) -> Result<()> {
                 // Match for commands
                 match line.as_str() {
                     "/exit" | "/bye" => {
-                        save_session("tui-agent-history.json", &history)?;
+                        save_session(&session)?;
                         break;
                     }
                     "/new" => {
-                        history = History::new();
+                        session = create_new_session("tui", "user")?;
                         on_system_message("New session started, history cleared.");
                         continue;
                     }
                     "/clear" | "/cls" => {
-                        rl.clear_scrollback()?;
+                        rl.clear_screen()?;
                         continue;
                     }
                     "/" | "/help" => {
@@ -105,15 +123,15 @@ pub async fn run(new_session: bool) -> Result<()> {
                     }
                 }
 
-                history.add_message(Message::new("user", &line));
+                session.history.add_message(Message::new("user", &line));
 
                 // Suspend the kitty protocol input handling before agent_loop::run_agent
                 // for the Ctrl-C handlers in it to work properly
                 kitty_protocol.suspend();
 
                 // Assistant's response is printed by the printer passed into the agent loop
-                history = agent_loop::run_agent(
-                    history,
+                session.history = agent_loop::run_agent(
+                    session.history,
                     on_assistant_message,
                     on_assistant_status_update,
                     on_system_message,
@@ -124,7 +142,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                 kitty_protocol.resume();
 
                 // Save the session at the end of turn
-                save_session("tui-agent-history.json", &history)?;
+                save_session(&session)?;
             }
             Ok(Signal::CtrlC) => {
                 println!("^C");
@@ -132,7 +150,7 @@ pub async fn run(new_session: bool) -> Result<()> {
             }
             Ok(Signal::CtrlD) => {
                 println!("^D");
-                save_session("tui-agent-history.json", &history)?;
+                save_session(&session)?;
                 println!("Exiting...");
                 break;
             }
@@ -190,15 +208,6 @@ pub fn on_system_message(message: &str) {
     stop_spinner();
     let system_colored = format!("\r{} {}", "System".yellow(), ">".cyan());
     println!("{} {}", system_colored, message);
-}
-
-pub fn get_tui_system_prompt() -> Result<String> {
-    let mut system_prompt = get_system_prompt()?;
-    system_prompt.push_str(&format!(
-        "\nYou are talking to {} via a TUI.",
-        AppConfig::global().tui.username
-    ));
-    Ok(system_prompt)
 }
 
 #[cfg(test)]

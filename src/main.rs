@@ -26,6 +26,7 @@ use log::{info, trace};
 
 use crate::{
     api::History,
+    system_prompt::get_tui_system_prompt,
     utils::{format_number, parse_human_number},
 };
 
@@ -50,7 +51,7 @@ async fn main() -> Result<()> {
 
     if let Some(command) = cli.command {
         let mut history = History::new();
-        history.set_system_prompt(tui::get_tui_system_prompt()?);
+        history.set_system_prompt(get_tui_system_prompt(None)?);
         history.add_message(api::Message::new("user", &command));
         agent_loop::run_agent(
             history,
