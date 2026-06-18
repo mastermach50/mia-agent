@@ -1,4 +1,9 @@
+use bytesize::ByteSize;
+use chrono::{DateTime, Local};
+use log::warn;
 use serde_json::json;
+use tabled::grid::records::vec_records::Cell;
+use std::{fs, io};
 
 use crate::agent_tools::Tool;
 
@@ -16,28 +21,14 @@ impl Tool for FSListDir {
         args["path"].as_str().unwrap_or(".").to_string()
     }
     fn availability(&self) -> Result<(), String> {
-        #[cfg(unix)]
-        return which::which("ls")
-            .map(|_| ())
-            .map_err(|_| "ls not found".to_string());
-
-        #[cfg(windows)]
-        return which::which("cmd")
-            .map(|_| ())
-            .map_err(|_| "cmd not found".to_string());
+        Ok(())
     }
     fn schema(&self) -> serde_json::Value {
-        #[cfg(unix)]
-        let description = "List the contents of a folder. Uses 'ls -la' under the hood.";
-
-        #[cfg(windows)]
-        let description = "List the contents of a folder. Uses 'dir /a' under the hood.";
-
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": description,
+                "description": "List the contents of a folder with details (permissions, user, group, size, modified).",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -46,35 +37,134 @@ impl Tool for FSListDir {
                             "description": "The folder path to list (relative to current directory, defaults to . )"
                         },
                     },
-                    "required": ["path"]
+                    "required": []
                 }
             }
         })
     }
     async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().unwrap_or(".");
+        
+        match fs::read_dir(path) {
+            Ok(entries) => {
+                let mut md = String::new();
+                md.push_str("| Permission | Size | User | Group | Modified | Path |\n");
+                md.push_str("|---|---|---|---|---|---|\n");
+                for entry in entries {
+                    match entry {
+                        Ok(entry) => {
+                            let path = entry.path();
+                            let path_disp = path.display();
 
-        #[cfg(unix)]
-        let output = std::process::Command::new("ls")
-            .arg("-la")
-            .arg(path)
-            .output()
-            .expect("Failed to execute ls");
+                            if let Some(metadata) = entry.metadata().ok() {
+                                let perms = permission_string(&metadata);
+                                let size = ByteSize::b(metadata.len()).to_string();
+                                let (owner, group) = owner_group_string(&metadata);
+                                let modified = metadata.modified()
+                                    .map(|t| DateTime::<Local>::from(t).format("%Y-%m-%d %H:%M:%S").to_string())
+                                    .unwrap_or("-".to_string());
+                                md.push_str(&format!("| {perms} | {size:<10} | {owner} | {group} | {modified} | {path_disp} |\n"));
+                            } else {
+                                warn!("Failed to read metadata for {path_disp}\n");
+                                md.push_str(&format!("(faild to get metadata) {path_disp}\n"));
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to read directory entry: {:?}", e);
+                            md.push_str("(failed to read entry)\n");
+                        }
+                    }
+                }
 
-        #[cfg(windows)]
-        let output = std::process::Command::new("cmd")
-            .arg("/c")
-            .arg("dir")
-            .arg("/a")
-            .arg(path)
-            .output()
-            .expect("Failed to execute dir");
-
-        json!({
-            "status": if output.status.success() { "success" } else { "error" },
-            "exit_code": output.status.code().unwrap(),
-            "stdout": String::from_utf8(output.stdout).unwrap(),
-            "stderr": String::from_utf8(output.stderr).unwrap()
-        })
+                return json!({
+                    "status": "success",
+                    "output": md,
+                    "count": md.count_lines() - 2 // 1 line header, 1 line gap
+                });
+            }
+            Err(e) => {
+                match e.kind() {
+                    io::ErrorKind::NotFound => {
+                        return json!({
+                            "status": "error",
+                            "message": format!("Directory not found: {}", path)
+                        });
+                    }
+                    io::ErrorKind::PermissionDenied => {
+                        return json!({
+                            "status": "error",
+                            "message": format!("Permission denied: {}", path)
+                        });
+                    }
+                    io::ErrorKind::NotADirectory => {
+                        return json!({
+                            "status": "error",
+                            "message": format!("Not a directory: {}", path)
+                        });
+                    }
+                    _ => {
+                        warn!("Unknown error: {:?}", e);
+                        return json!({
+                            "status": "error",
+                            "message": format!("Unknown error: {}", e)
+                        });
+                    }
+                }
+            }
+        }
     }
+}
+
+#[cfg(unix)]
+fn permission_string(metadata: &fs::Metadata) -> String {
+    use std::os::unix::fs::MetadataExt;
+    use unix_mode;
+
+    unix_mode::to_string(metadata.mode())
+}
+
+#[cfg(windows)]
+fn permission_string(metadata: &fs::Metadata) -> String {
+    let dir_str = if metadata.is_dir() {
+        "d".to_string()
+    } else {
+        "-".to_string()
+    };
+    let perm_str = if metadata.permissions().readonly() {
+        "r-".to_string()
+    } else {
+        "rw".to_string()
+    };
+    dir_str + &perm_str + "-------"
+}
+
+#[cfg(unix)]
+fn owner_group_string(metadata: &fs::Metadata) -> (String, String) {
+    use std::os::unix::fs::MetadataExt;
+    use uzers;
+
+    let user = uzers::get_user_by_uid(metadata.uid())
+        .map(|u| u.name().to_string_lossy().to_string())
+        .unwrap_or("-".to_string());
+    let group = uzers::get_group_by_gid(metadata.gid())
+        .map(|g| g.name().to_string_lossy().to_string())
+        .unwrap_or("-".to_string());
+    (user, group)
+}
+
+#[cfg(windows)]
+fn owner_group_string(metadata: &fs::Metadata) -> (String, String) {
+    ("-".to_string(), "-".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_fs_list_dir() {
+        let out = FSListDir.execute(json!({})).await;
+        println!("{}", serde_json::to_string_pretty(&out).unwrap())
+    }
+
 }

@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.102"
 async-trait = "0.1.89"
+bytesize = "2.4.0"
 chrono = "0.4.45"
 clap = { version = "4.6.1", features = ["derive"] }
 config = { version = "0.15.23", features = ["toml"] }
@@ -39,6 +40,9 @@ textwrap = { version = "0.16.2", features = ["terminal_size"] }
 tokio = { version = "1.52.3", features = ["full"] }
 tokio-util = { version = "0.7.18", features = ["rt"] }
 toml = "1.1.2"
+umask = "2.1.0"
+unix_mode = "0.1.4"
+uzers = "0.12.2"
 # wacore = "0.6.0"
 # waproto = "0.6.0"
 # whatsapp-rust = "0.6.0"
