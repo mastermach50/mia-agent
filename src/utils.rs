@@ -198,39 +198,3 @@ pub fn stop_spinner() {
         stdout().flush().unwrap();
     }
 }
-
-// This test requires user input to pass
-// #[cfg(test)]
-// mod tests {
-//     use std::process::Stdio;
-
-// use super::*;
-
-//     use termimad::crossterm::style::Stylize;
-
-//     static CODE: &str = "
-// import os
-// print('hello world')
-//     ";
-
-//     #[test]
-//     fn test_hilight_text() {
-
-//         ask_permission(
-//             "Execute?".red(),
-//             &highlight_text("some/python.py", CODE)
-//         );
-
-//     }
-
-//     #[test]
-//     fn test_permission_prompt() {
-//         ask_permission("Execute?".red(), "Hi");
-//         ask_permission(
-//             format!("{} {}?", "Write file:".red(), "somelongpaththatnobodycaresaboutsoitcanbewritterntowithoutanyproblems.png".yellow()),
-//             &highlight_text("some/python.py", CODE)
-//         );
-//         ask_permission("Execute?".red(), "Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-//         ask_permission("Very long content aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".red(), "Hi");
-//     }
-// }

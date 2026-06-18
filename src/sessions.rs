@@ -3,13 +3,13 @@ use chrono::{DateTime, Local};
 use itertools::Itertools;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use tabled::settings::Style;
 use std::fs;
+use tabled::settings::Style;
 
 use crate::api::History;
 use crate::config::AppConfig;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Session {
     pub name: String,
     pub created: DateTime<Local>,
@@ -45,7 +45,9 @@ pub fn list_sessions() -> Result<String> {
     table.push_record(vec!["Name", "Owner", "Created"]);
 
     for filename in sessions {
-        let s: Session = serde_json::from_str(&fs::read_to_string(AppConfig::internal().sessions_dir.join(filename))?)?;
+        let s: Session = serde_json::from_str(&fs::read_to_string(
+            AppConfig::internal().sessions_dir.join(filename),
+        )?)?;
         table.push_record(vec![s.name, s.owner, s.created.to_rfc2822()]);
     }
 
@@ -69,12 +71,12 @@ pub fn create_new_session(kind: &str, owner: &str) -> Result<Session> {
         name: String::new(),
         created: time,
         owner: owner.to_string(),
-        filename: filename,
+        filename: filename.clone(),
         history: History::new(),
     };
 
     fs::write(
-        filepath,
+        &filepath,
         serde_json::to_string_pretty(&new_session).context("Failed to serialize session")?,
     )
     .context("Failed to write session to file")?;
@@ -94,7 +96,7 @@ pub fn get_last_session(kind: &str, owner: &str) -> Result<Option<Session>> {
         .map(|s| s.to_string());
 
     if wanted_session.is_none() {
-        return Ok(None)
+        return Ok(None);
     }
 
     let sessions_dir = AppConfig::internal().sessions_dir.clone();

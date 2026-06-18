@@ -60,7 +60,7 @@ impl Message {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct History {
     pub messages: Vec<Message>,
 }

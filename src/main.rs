@@ -25,7 +25,10 @@ use config::AppConfig;
 use log::{info, trace};
 
 use crate::{
-    api::History, sessions::list_sessions, system_prompt::get_tui_system_prompt, utils::{format_number, parse_human_number}
+    api::History,
+    sessions::list_sessions,
+    system_prompt::get_tui_system_prompt,
+    utils::{format_number, parse_human_number},
 };
 
 #[tokio::main]
@@ -81,7 +84,7 @@ async fn main() -> Result<()> {
             None => {
                 println!("No subcommand provided. Use --help for usage.");
             }
-        }
+        },
         Some(cli::MainSubCommands::Tools) => {
             println!("Available Tools:");
             for (tool_name, is_available, reason) in ToolRegistry::tools_status() {
