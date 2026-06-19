@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
         },
         Some(cli::MainSubCommands::Setup) => {
             setup::setup().await?;
-        },
+        }
         Some(cli::MainSubCommands::Tools) => {
             println!("Available Tools:");
             for (tool_name, is_available, reason) in ToolRegistry::tools_status() {

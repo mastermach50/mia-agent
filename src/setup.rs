@@ -1,25 +1,28 @@
-use std::{fmt::Display, io::{self, Write}};
 use anyhow::Result;
-use termimad::crossterm::style::Stylize;
 use inquire::{Password, Select, Text, min_length, required, validator::Validation};
 use inquire_derive::Selectable;
 use itertools::Itertools;
-use toml_edit::{DocumentMut, value};
 use std::fs;
+use std::{
+    fmt::Display,
+    io::{self, Write},
+};
+use termimad::crossterm::style::Stylize;
+use toml_edit::{DocumentMut, value};
 
 use crate::{api, config::AppConfig};
 
 #[derive(Debug, Clone, Copy, Selectable)]
 enum Providers {
     Openrouter,
-    Local
+    Local,
 }
 
 impl Display for Providers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Providers::Openrouter => write!(f, "Openrouter.ai"),
-            Providers::Local => write!(f, "Local LLM (Ollama, LMStudio, llama.cpp etc.)")
+            Providers::Local => write!(f, "Local LLM (Ollama, LMStudio, llama.cpp etc.)"),
         }
     }
 }
@@ -34,7 +37,7 @@ impl Display for EditModes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EditModes::Keep => write!(f, "Keep"),
-            EditModes::Change => write!(f, "Change")
+            EditModes::Change => write!(f, "Change"),
         }
     }
 }
@@ -94,16 +97,16 @@ async fn set_provider_base_url(url: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-async fn set_api_key(key: &str) -> Result<()>{
+async fn set_api_key(key: &str) -> Result<()> {
     let env = fs::read_to_string(AppConfig::internal().env_file.clone())?;
 
     if env.contains(&format!("{key}=")) {
         match EditModes::select("Keep existing key:").prompt()? {
-            EditModes::Keep => {
-            },
+            EditModes::Keep => {}
             EditModes::Change => {
                 let api_key = Password::new("Enter API key:").prompt()?;
-                let new_env = env.lines()
+                let new_env = env
+                    .lines()
                     .map(|l| {
                         if l.starts_with(&format!("{key}=")) {
                             format!("{key}={api_key}")
@@ -133,8 +136,7 @@ async fn set_model_name() -> Result<()> {
     // Fetch the models
     print!("{}\r", "Fetching models...".blue());
     io::stdout().flush()?;
-    let models = api::models().await
-        .unwrap_or(Vec::new());
+    let models = api::models().await.unwrap_or(Vec::new());
     let options = models.iter().map(|m| m.id.clone()).collect::<Vec<String>>();
 
     let model_suggester = |input: &str| {
@@ -143,8 +145,7 @@ async fn set_model_name() -> Result<()> {
             .iter()
             .filter(|o| o.contains(&input_lower))
             .map(|s| s.to_string())
-            .collect()
-        )
+            .collect())
     };
 
     let model = Text::new("Model name:")
@@ -186,7 +187,7 @@ async fn set_tui_username() -> Result<()> {
         Some(username) => {
             doc["tui"]["username"] = value(username);
             fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
-        },
+        }
         None => {
             println!("Username unchanged");
         }
@@ -203,7 +204,9 @@ async fn set_max_iterations() -> Result<()> {
         if input.parse::<u64>().is_ok() {
             Ok(Validation::Valid)
         } else {
-            Ok(Validation::Invalid("Value must be a positive number".into()))
+            Ok(Validation::Invalid(
+                "Value must be a positive number".into(),
+            ))
         }
     };
 
@@ -215,7 +218,7 @@ async fn set_max_iterations() -> Result<()> {
         Some(max_iter) => {
             doc["agent"]["max_iterations"] = value(max_iter.parse::<i64>().unwrap());
             fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
-        },
+        }
         None => {
             println!("Max iterations unchanged");
         }
