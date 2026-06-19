@@ -27,6 +27,9 @@ pub enum MainSubCommands {
         sub_command: Option<SessionSubCommands>,
     },
 
+    /// Setup the agent
+    Setup,
+
     /// List all agent tools and their status
     Tools,
 

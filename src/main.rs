@@ -13,8 +13,8 @@ mod agent_tools;
 mod api;
 mod cli;
 mod config;
-// mod gateway;
 mod sessions;
+mod setup;
 mod system_prompt;
 mod tui;
 mod utils;
@@ -84,6 +84,9 @@ async fn main() -> Result<()> {
             None => {
                 println!("No subcommand provided. Use --help for usage.");
             }
+        },
+        Some(cli::MainSubCommands::Setup) => {
+            setup::setup()?;
         },
         Some(cli::MainSubCommands::Tools) => {
             println!("Available Tools:");

@@ -1,3 +1,10 @@
+## v0.1.3
+### Added
+- `mia setup` command to quickly setup the agent.
+
+### Fixed
+- tui `/model` command output formatting.
+
 ## v0.1.2
 ### Added
 - `--free` to `mia model list` that is equivalent to `--max-price 0`.

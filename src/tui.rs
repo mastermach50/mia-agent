@@ -102,11 +102,13 @@ pub async fn run(new_session: bool) -> Result<()> {
                     }
                     "/model" => {
                         let mut line = String::new();
+                        let model_config = AppConfig::global().model.clone();
                         line.push_str(&indoc::formatdoc! {"
+                        
                         Model     : {}
                         Base URL  : {}
-                        Reasoning : {}
-                        ", AppConfig::global().model.name, AppConfig::global().model.base_url, AppConfig::global().model.reasoning});
+                        Reasoning : {}",
+                        model_config.name, model_config.base_url, model_config.reasoning});
                         on_system_message(&line);
                         continue;
                     }

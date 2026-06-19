@@ -5,3 +5,4 @@
 - Read changelogs for draft release body
 - Add session title generation
 - Make session pruning
+- Parse memory and tui_history file locations and store them in internal config instead of editing the global config
