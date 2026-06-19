@@ -33,8 +33,10 @@ pub fn get_reedline(commands: Vec<String>) -> Result<(Reedline, impl Prompt, Kit
     let kitty_protocol = KittyProtocol { kitty_enabled };
 
     // History handling
+    let history_file = AppConfig::internal().tui_history_file.clone();
+    let max_history = AppConfig::global().tui.max_history;
     let history = Box::new(
-        FileBackedHistory::with_file(1000, AppConfig::internal().tui_history_file.clone().into())
+        FileBackedHistory::with_file(max_history, history_file)
             .unwrap_or_else(|_| FileBackedHistory::new(1000).unwrap()),
     );
 

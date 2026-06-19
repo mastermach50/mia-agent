@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
             }
         },
         Some(cli::MainSubCommands::Setup) => {
-            setup::setup()?;
+            setup::setup().await?;
         },
         Some(cli::MainSubCommands::Tools) => {
             println!("Available Tools:");

@@ -1,13 +1,13 @@
-use std::fmt::Display;
+use std::{fmt::Display, io::{self, Write}};
 use anyhow::Result;
-
-use inquire::{Password, Text, required, validator::Validation};
+use termimad::crossterm::style::Stylize;
+use inquire::{Password, Select, Text, min_length, required, validator::Validation};
 use inquire_derive::Selectable;
 use itertools::Itertools;
 use toml_edit::{DocumentMut, value};
 use std::fs;
 
-use crate::config::AppConfig;
+use crate::{api, config::AppConfig};
 
 #[derive(Debug, Clone, Copy, Selectable)]
 enum Providers {
@@ -39,37 +39,52 @@ impl Display for EditModes {
     }
 }
 
-pub fn setup() -> Result<()> {
-    println!("Select LLM Provider");
+pub async fn setup() -> Result<()> {
+    println!("{}", "Model Options".yellow());
     let provider = Providers::select("Provider:").prompt()?;
-
     match provider {
         Providers::Openrouter => {
-            println!("Base URL found");
-            set_provider_base_url(Some("https://openrouter.ai/api/v1"))?;
-            set_api_key("Openrouter", "OPENROUTER_API_KEY")?;
+            println!("{}", "Base URL found".blue());
+            set_provider_base_url(Some("https://openrouter.ai/api/v1")).await?;
+            set_api_key("OPENROUTER_API_KEY").await?;
         }
         Providers::Local => {
-            println!("No API key required");
-            set_provider_base_url(None)?;
+            println!("{}", "No API key required".blue());
+            set_provider_base_url(None).await?;
         }
     }
+    set_model_name().await?;
+    set_model_reasoning().await?;
 
-    set_tui_username()?;
-    set_max_iterations()?;
+    println!("\n{}", "TUI Options".yellow());
+    set_tui_username().await?;
+
+    println!("\n{}", "Agent Options".yellow());
+    set_max_iterations().await?;
 
     Ok(())
 }
 
-fn set_provider_base_url(url: Option<&str>) -> Result<()> {
+async fn set_provider_base_url(url: Option<&str>) -> Result<()> {
     let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
     let mut doc = config.parse::<DocumentMut>()?;
+
+    let http_validator = |input: &str| {
+        if input.starts_with("http://") || input.starts_with("https://") {
+            Ok(Validation::Valid)
+        } else {
+            Ok(Validation::Invalid("Must be a valid URL".into()))
+        }
+    };
+
     if let Some(base_url) = url {
         doc["model"]["base_url"] = value(base_url);
     } else {
         println!("Enter provider base url");
         let base_url = Text::new("Provider Base URL")
             .with_validator(required!())
+            .with_validator(http_validator)
+            .with_validator(min_length!(1))
             .prompt()?;
         doc["model"]["base_url"] = value(base_url);
     }
@@ -79,14 +94,12 @@ fn set_provider_base_url(url: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn set_api_key(provider: &str, key: &str) -> Result<()>{
+async fn set_api_key(key: &str) -> Result<()>{
     let env = fs::read_to_string(AppConfig::internal().env_file.clone())?;
 
     if env.contains(&format!("{key}=")) {
-        println!("{} key found, do you want to keep it?", provider);
-        match EditModes::select("Edit:").prompt()? {
+        match EditModes::select("Keep existing key:").prompt()? {
             EditModes::Keep => {
-                println!("Keeping current API key");
             },
             EditModes::Change => {
                 let api_key = Password::new("Enter API key:").prompt()?;
@@ -111,11 +124,62 @@ fn set_api_key(provider: &str, key: &str) -> Result<()>{
     Ok(())
 }
 
-fn set_tui_username() -> Result<()> {
+async fn set_model_name() -> Result<()> {
     let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
     let mut doc = config.parse::<DocumentMut>()?;
 
-    let username = Text::new("Username (what your assistant should call you):")
+    let current_model_name = &AppConfig::global().model.name.clone();
+
+    // Fetch the models
+    print!("{}\r", "Fetching models...".blue());
+    io::stdout().flush()?;
+    let models = api::models().await
+        .unwrap_or(Vec::new());
+    let options = models.iter().map(|m| m.id.clone()).collect::<Vec<String>>();
+
+    let model_suggester = |input: &str| {
+        let input_lower = input.to_lowercase();
+        Ok(options
+            .iter()
+            .filter(|o| o.contains(&input_lower))
+            .map(|s| s.to_string())
+            .collect()
+        )
+    };
+
+    let model = Text::new("Model name:")
+        .with_autocomplete(model_suggester)
+        .with_default(current_model_name)
+        .prompt()?;
+    doc["model"]["name"] = value(model);
+    fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
+
+    Ok(())
+}
+
+async fn set_model_reasoning() -> Result<()> {
+    let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
+    let mut doc = config.parse::<DocumentMut>()?;
+
+    let levels = vec!["xhigh", "high", "medium", "low", "minimal", "none"];
+    let current_level = AppConfig::global().model.reasoning.clone();
+    let starting_index = levels.iter().position(|i| i == &current_level).unwrap_or(0);
+
+    let reasoning = Select::new("Model reasoning level:", levels)
+        .with_starting_cursor(starting_index)
+        .prompt()?;
+    doc["model"]["reasoning"] = value(reasoning);
+    fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
+
+    Ok(())
+}
+
+async fn set_tui_username() -> Result<()> {
+    let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
+    let mut doc = config.parse::<DocumentMut>()?;
+
+    let username = Text::new("Username:")
+        .with_help_message("This is what the assistant will call you")
         .with_default(&AppConfig::global().tui.username)
         .prompt_skippable()?;
     match username {
@@ -131,11 +195,11 @@ fn set_tui_username() -> Result<()> {
     Ok(())
 }
 
-fn set_max_iterations() -> Result<()> {
+async fn set_max_iterations() -> Result<()> {
     let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
     let mut doc = config.parse::<DocumentMut>()?;
 
-    let validator = |input: &str| {
+    let num_validator = |input: &str| {
         if input.parse::<u64>().is_ok() {
             Ok(Validation::Valid)
         } else {
@@ -145,7 +209,7 @@ fn set_max_iterations() -> Result<()> {
 
     let max_iter = Text::new("Max iterations:")
         .with_default(&AppConfig::global().agent.max_iterations.to_string())
-        .with_validator(validator)
+        .with_validator(num_validator)
         .prompt_skippable()?;
     match max_iter {
         Some(max_iter) => {

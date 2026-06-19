@@ -5,6 +5,9 @@
 ### Fixed
 - tui `/model` command output formatting.
 
+### Removed
+- Removed the `document` section from `config.toml` and moved it to the internal config. If it is present in an existing config then that section is ignored by the parser.
+
 ## v0.1.2
 ### Added
 - `--free` to `mia model list` that is equivalent to `--max-price 0`.

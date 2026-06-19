@@ -71,6 +71,7 @@ impl Default for AgentConfig {
 pub struct TuiConfig {
     pub username: String,
     // pub history_file: String,
+    pub max_history: usize,
     pub show_reasoning: bool,
     pub show_spinner: bool,
 }
@@ -80,6 +81,7 @@ impl Default for TuiConfig {
         Self {
             username: "user".to_string(),
             // history_file: ".mia_tui_history".to_string(),
+            max_history: 1000,
             show_reasoning: true,
             show_spinner: true,
         }
