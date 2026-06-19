@@ -41,7 +41,7 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 ## Tools
 Currently Mia has the following tools:
 
-|| Tool | Description | Permission Required |
+|| Tool | Description | Gated |
 |:-:|:-|:-|:-:|
 | 📅 | `datetime`       | Get the current date and time              | No  |
 | 📁 | `fs_list_dir`    | List files in a directory                  | No  |
