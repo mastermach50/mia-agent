@@ -11,7 +11,7 @@ pub fn get_system_prompt() -> Result<String> {
     let mut system_prompt = String::new();
 
     // Soul
-    let soul = fs::read_to_string(&AppConfig::global().documents.soul)?;
+    let soul = fs::read_to_string(&AppConfig::internal().soul_file)?;
     system_prompt.push_str(&soul);
     system_prompt.push('\n');
 
@@ -43,13 +43,13 @@ pub fn get_system_prompt() -> Result<String> {
     system_prompt.push('\n');
 
     // Memory
-    let user_memory_file = AppConfig::global().documents.user_memory.clone();
+    let user_memory_file = AppConfig::internal().user_memory_file.clone();
     let user_memory = fs::read_to_string(&user_memory_file)?
         .lines()
         .filter(|&f| f != "§")
         .collect::<Vec<&str>>()
         .join("\n");
-    let system_memory_file = AppConfig::global().documents.system_memory.clone();
+    let system_memory_file = AppConfig::internal().system_memory_file.clone();
     let system_memory = fs::read_to_string(&system_memory_file)?
         .lines()
         .filter(|&f| f != "§")
@@ -68,7 +68,7 @@ pub fn get_system_prompt() -> Result<String> {
 
         ## System Memory ({system_memory_file})
         {system_memory}
-    "});
+    ", user_memory_file = user_memory_file.to_string_lossy(), system_memory_file=system_memory_file.to_string_lossy()});
 
     Ok(system_prompt)
 }

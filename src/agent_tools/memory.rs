@@ -68,14 +68,12 @@ impl Tool for Memory {
             .expect("Content argument not found");
 
         let path = if memory_type == "user" {
-            crate::config::AppConfig::global()
-                .documents
-                .user_memory
+            crate::config::AppConfig::internal()
+                .user_memory_file
                 .clone()
         } else if memory_type == "system" {
-            crate::config::AppConfig::global()
-                .documents
-                .system_memory
+            crate::config::AppConfig::internal()
+                .system_memory_file
                 .clone()
         } else {
             return json!({

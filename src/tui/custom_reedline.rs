@@ -34,7 +34,7 @@ pub fn get_reedline(commands: Vec<String>) -> Result<(Reedline, impl Prompt, Kit
 
     // History handling
     let history = Box::new(
-        FileBackedHistory::with_file(1000, AppConfig::global().tui.history_file.clone().into())
+        FileBackedHistory::with_file(1000, AppConfig::internal().tui_history_file.clone().into())
             .unwrap_or_else(|_| FileBackedHistory::new(1000).unwrap()),
     );
 

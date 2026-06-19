@@ -17,7 +17,7 @@ static INTERNAL_CONFIG_CACHE: OnceLock<InternalConfig> = OnceLock::new();
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct AppConfig {
     pub model: ModelConfig,
-    pub documents: DocumentConfig,
+    // pub documents: DocumentConfig,
     pub agent: AgentConfig,
     pub tui: TuiConfig,
 }
@@ -39,22 +39,22 @@ impl Default for ModelConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct DocumentConfig {
-    pub soul: String,
-    pub user_memory: String,
-    pub system_memory: String,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug)]
+// pub struct DocumentConfig {
+//     pub soul: String,
+//     pub user_memory: String,
+//     pub system_memory: String,
+// }
 
-impl Default for DocumentConfig {
-    fn default() -> Self {
-        Self {
-            soul: "SOUL.md".to_string(),
-            user_memory: "memories/USER.md".to_string(),
-            system_memory: "memories/MEMORY.md".to_string(),
-        }
-    }
-}
+// impl Default for DocumentConfig {
+//     fn default() -> Self {
+//         Self {
+//             soul: "SOUL.md".to_string(),
+//             user_memory: "memories/USER.md".to_string(),
+//             system_memory: "memories/MEMORY.md".to_string(),
+//         }
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AgentConfig {
@@ -70,7 +70,7 @@ impl Default for AgentConfig {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TuiConfig {
     pub username: String,
-    pub history_file: String,
+    // pub history_file: String,
     pub show_reasoning: bool,
     pub show_spinner: bool,
 }
@@ -79,13 +79,14 @@ impl Default for TuiConfig {
     fn default() -> Self {
         Self {
             username: "user".to_string(),
-            history_file: ".mia_tui_history".to_string(),
+            // history_file: ".mia_tui_history".to_string(),
             show_reasoning: true,
             show_spinner: true,
         }
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct InternalConfig {
     pub home_dir: PathBuf,
@@ -93,8 +94,12 @@ pub struct InternalConfig {
     pub config_file: PathBuf,
     pub env_file: PathBuf,
     pub sessions_dir: PathBuf,
-    #[allow(dead_code)] // TODO remove when gateways implemented
     pub gateways_dir: PathBuf,
+    pub soul_file: PathBuf,
+    pub memory_dir: PathBuf,
+    pub user_memory_file: PathBuf,
+    pub system_memory_file: PathBuf,
+    pub tui_history_file: PathBuf,
 }
 
 impl AppConfig {
@@ -119,6 +124,11 @@ impl AppConfig {
         let config_file = mia_dir.join("config.toml");
         let sessions_dir = mia_dir.join("sessions");
         let gateways_dir = mia_dir.join("gateways");
+        let soul_file = mia_dir.join("SOUL.md");
+        let memory_dir = mia_dir.join("memories");
+        let user_memory_file = memory_dir.join("USER.md");
+        let system_memory_file = memory_dir.join("MEMORY.md");
+        let tui_history_file = mia_dir.join(".mia_tui_history");
 
         INTERNAL_CONFIG_CACHE
             .set(InternalConfig {
@@ -128,6 +138,11 @@ impl AppConfig {
                 env_file,
                 sessions_dir,
                 gateways_dir,
+                soul_file,
+                memory_dir,
+                user_memory_file,
+                system_memory_file,
+                tui_history_file,
             })
             .unwrap();
 
@@ -219,53 +234,53 @@ impl AppConfig {
         }
 
         // In the config expand the paths
-        let mia_dir = std::env::home_dir().unwrap().join(".mia");
-        config.documents.soul = mia_dir
-            .join(config.documents.soul)
-            .to_str()
-            .unwrap()
-            .to_string();
-        config.documents.user_memory = mia_dir
-            .join(config.documents.user_memory)
-            .to_str()
-            .unwrap()
-            .to_string();
-        config.documents.system_memory = mia_dir
-            .join(config.documents.system_memory)
-            .to_str()
-            .unwrap()
-            .to_string();
-        config.tui.history_file = mia_dir
-            .join(config.tui.history_file)
-            .to_str()
-            .unwrap()
-            .to_string();
+        // let mia_dir = std::env::home_dir().unwrap().join(".mia");
+        // config.documents.soul = mia_dir
+        //     .join(config.documents.soul)
+        //     .to_str()
+        //     .unwrap()
+        //     .to_string();
+        // config.documents.user_memory = mia_dir
+        //     .join(config.documents.user_memory)
+        //     .to_str()
+        //     .unwrap()
+        //     .to_string();
+        // config.documents.system_memory = mia_dir
+        //     .join(config.documents.system_memory)
+        //     .to_str()
+        //     .unwrap()
+        //     .to_string();
+        // config.tui.history_file = mia_dir
+        //     .join(config.tui.history_file)
+        //     .to_str()
+        //     .unwrap()
+        //     .to_string();
 
-        // Make all necessary files if they don't exist
-        let paths: Vec<PathBuf> = vec![
-            config.documents.soul.parse()?,
-            config.documents.user_memory.parse()?,
-            config.documents.system_memory.parse()?,
-            config.tui.history_file.parse()?,
-        ];
-        for path in paths {
-            if !path.exists() {
-                // Create parent directories if they don't exist
-                if let Some(parent) = path.parent() {
-                    fs::create_dir_all(parent)
-                        .context(format!("Failed to create directory {:?}", parent))?;
-                }
-                // Create file if it doesn't exist
-                fs::File::create(&path).context(format!("Failed to create file {:?}", path))?;
+        // // Make all necessary files if they don't exist
+        // let paths: Vec<PathBuf> = vec![
+        //     config.documents.soul.parse()?,
+        //     config.documents.user_memory.parse()?,
+        //     config.documents.system_memory.parse()?,
+        //     config.tui.history_file.parse()?,
+        // ];
+        // for path in paths {
+        //     if !path.exists() {
+        //         // Create parent directories if they don't exist
+        //         if let Some(parent) = path.parent() {
+        //             fs::create_dir_all(parent)
+        //                 .context(format!("Failed to create directory {:?}", parent))?;
+        //         }
+        //         // Create file if it doesn't exist
+        //         fs::File::create(&path).context(format!("Failed to create file {:?}", path))?;
 
-                // Write the initial soul if the file had to be created
-                if path == config.documents.soul {
-                    let initial_soul =
-                        "You are Mia, a personal assistant. Respond accurately and concisely";
-                    fs::write(path, initial_soul)?;
-                }
-            }
-        }
+        //         // Write the initial soul if the file had to be created
+        //         if path == config.documents.soul {
+        //             let initial_soul =
+        //                 "You are Mia, a personal assistant. Respond accurately and concisely";
+        //             fs::write(path, initial_soul)?;
+        //         }
+        //     }
+        // }
 
         // Make sure there is no / at the end of the base url
         if config.model.base_url.ends_with('/') {

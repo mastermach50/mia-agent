@@ -48,7 +48,6 @@ async fn main() -> Result<()> {
 
     // Print config
     trace!("Model: {:?}", AppConfig::global().model);
-    trace!("Documents: {:?}", AppConfig::global().documents);
 
     if let Some(command) = cli.command {
         let mut history = History::new();
