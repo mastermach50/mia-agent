@@ -25,10 +25,8 @@ fn get_session_paths() -> Vec<String> {
         && let Ok(entries) = fs::read_dir(&dir)
     {
         let mut items: Vec<String> = Vec::new();
-        for entry in entries {
-            if let Ok(item) = entry {
-                items.push(item.file_name().to_string_lossy().to_string());
-            }
+        for item in entries.flatten() {
+            items.push(item.file_name().to_string_lossy().to_string());
         }
         items
     } else {
@@ -100,7 +98,7 @@ pub fn get_last_session(kind: &str, owner: &str) -> Result<Option<Session>> {
     }
 
     let sessions_dir = AppConfig::internal().sessions_dir.clone();
-    let filename = sessions_dir.join(&wanted_session.unwrap());
+    let filename = sessions_dir.join(wanted_session.unwrap());
 
     let last_session: Session =
         serde_json::from_str(&fs::read_to_string(filename).expect("Failed to read session file"))
@@ -113,7 +111,7 @@ pub fn get_last_session(kind: &str, owner: &str) -> Result<Option<Session>> {
 /// Save an existing session
 pub fn save_session(session: &Session) -> Result<()> {
     let filename = &session.filename;
-    let filepath = AppConfig::internal().sessions_dir.join(&filename);
+    let filepath = AppConfig::internal().sessions_dir.join(filename);
 
     fs::write(
         filepath,

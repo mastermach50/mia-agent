@@ -61,6 +61,11 @@ Currently Mia has the following tools:
 ```
 winget install Mach50.MiaAgent
 ```
+Open a new terminal and run
+```
+mia setup
+```
+to configure your agent and start using it.
 ### Option B: Using cargo (Windows/Linux)
 Mia requires rust nightly
 ```
@@ -69,8 +74,13 @@ rustup default nightly
 ```
 Cargo can fetch, build and install mia.
 ```
-cargo install --git https://github.com/mastermach50/mia-agent
+cargo +nightly install --git https://github.com/mastermach50/mia-agent
 ```
+Run
+```
+mia setup
+```
+to configure your agent and start using it.
 ### Option C: Using nix flakes (NixOS/Linux)
 Run the given command to test out mia on your system.
 ```

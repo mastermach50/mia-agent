@@ -82,7 +82,7 @@ pub fn get_tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
     if let Some(help_msg) = help_msg {
         system_prompt.push('\n');
         system_prompt.push_str("This are the options available to the user in the TUI\n");
-        system_prompt.push_str(&help_msg);
+        system_prompt.push_str(help_msg);
     }
     Ok(system_prompt)
 }

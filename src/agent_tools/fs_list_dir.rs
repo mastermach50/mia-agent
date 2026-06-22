@@ -56,7 +56,7 @@ impl Tool for FSListDir {
                             let path = entry.path();
                             let path_disp = path.display();
 
-                            if let Some(metadata) = entry.metadata().ok() {
+                            if let Ok(metadata) = entry.metadata() {
                                 let perms = permission_string(&metadata);
                                 let size = ByteSize::b(metadata.len()).to_string();
                                 let (owner, group) = owner_group_string(&metadata);
