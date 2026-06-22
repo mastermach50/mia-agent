@@ -1,5 +1,8 @@
-use anyhow::{Context, Ok, Result};
-use log::{debug, error, trace};
+use std::collections::HashMap;
+use std::result::Result::Ok;
+
+use anyhow::{Context, Result};
+use log::{debug, error, trace, warn};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderMap, REFERER},
@@ -7,6 +10,7 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
+use futures_util::StreamExt;
 
 use crate::agent_tools::ToolRegistry;
 use crate::config::AppConfig;
@@ -60,6 +64,16 @@ impl Message {
     }
 }
 
+/// A partial message struct, that helps in outputing streamed content
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PartialMessage {
+    pub role: String,
+    pub reasoning_chunk_index: i64,
+    pub reasoning: Option<String>,
+    pub content_chunk_index: i64,
+    pub content: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct History {
     pub messages: Vec<Message>,
@@ -87,42 +101,47 @@ impl History {
     }
 }
 
-/// Simply calls the chat/completion endpoint with a given history and returns the response
 pub async fn completion(
     history: &History,
+    stream: bool,
     cancel: &CancellationToken,
     on_status_update: impl Fn(&str),
+    on_partial_message: impl Fn(&PartialMessage),
 ) -> Result<Message> {
+
+    // Get the http client, with the default headers required to identify this as mia agent
     let client = Client::builder()
         .default_headers(get_default_headers())
         .build()?;
 
+    // Generate the payload
     let payload = json!({
         "messages": history.messages,
         "model": AppConfig::global().model.name,
         "reasoning": {
             "effort": AppConfig::global().model.reasoning
         },
-        "tools": ToolRegistry::schema()
+        "tools": ToolRegistry::schema(),
+        "stream": stream
     });
 
+    // Generate the request url
     let request_url = AppConfig::global().model.base_url.clone() + "/chat/completions";
 
-    // Ctrl-C is acceptable while waiting for response headers
+    // Send the request
     let response = tokio::select! {
         res = client.post(request_url).json(&payload).send() => {
-            res.context("Failed to send chat completion request")?
+            res.context("Failed to send streaming chat completion request")?
         },
         _ = cancel.cancelled() => {
             anyhow::bail!("Request cancelled")
         }
     };
 
+    // Response status is returned first
     debug!("Response Status: {}", response.status());
-
-    // Mark assistant as thinking once the response headers are received
-    on_status_update("Thinking");
-
+    
+    // If the status shows some errors then bail
     if !response.status().is_success() {
         let status = response.status();
         let json = response.json::<serde_json::Value>().await?;
@@ -131,22 +150,191 @@ pub async fn completion(
         anyhow::bail!("API request failed with status {}", status);
     }
 
-    // Ctrl-C is acceptable while waiting for a response body
-    let content = tokio::select! {
-        res = response.json::<serde_json::Value>() => {
-            res.context("Failed to read response body")?
-        },
-        _ = cancel.cancelled() => {
-            anyhow::bail!("Request cancelled")
+    // If the status is success then mark the assistant as thinking
+    on_status_update("Thinking");
+
+    // If the response is not to be streamed then no complex logic is required.
+    // Simply return the whole message content
+    if !stream {
+        // Cancellation can be made during json parsing
+        let content = tokio::select! {
+            res = response.json::<serde_json::Value>() => {
+                res.context("Failed to read response body")?
+            },
+            _ = cancel.cancelled() => {
+                anyhow::bail!("Request cancelled")
+            }
+        };
+
+        trace!("Response Content: {:?}", content);
+
+        // Decode the message into a Message struct and return it
+        let message: Message = serde_json::from_value(content["choices"][0]["message"].clone())
+            .context("Failed to decode assistant message")?;
+
+        return Ok(message);
+    }
+
+    // Define some variables to accumulate the streamed data
+    let mut full_content = String::new();
+    let mut full_reasoning = String::new();
+    let mut tool_calls_map: HashMap<usize, ToolCall> = HashMap::new();
+
+    // Get the bytestream, and a buffer for leftover content
+    let mut byte_stream = response.bytes_stream();
+    let mut leftover = String::new();
+
+    // Keep track of the chunk index
+    let mut reasoning_chunk_index = -1;
+    let mut content_chunk_index = -1;
+
+    // Loop until the whole response has been received
+    'stream: loop {
+        // Check for cancellation before processing
+        let chunk = tokio::select! {
+            chunk = byte_stream.next() => chunk,
+            _ = cancel.cancelled() => anyhow::bail!("Stream Cancelled")
+        };
+
+        // Break if chuck is None
+        let Some(chunk) = chunk else {
+            break;
+        };
+
+        // Get the text from the chunk
+        let bytes = chunk.context("Failed to read stream chunk")?;
+        let text = std::str::from_utf8(&bytes).context("Stream chunk is not valid utf-8")?;
+
+        // Put the text into the buffer
+        leftover.push_str(text);
+
+        // When a full line is received process it, otherwise wait until a full line is recieved
+        while let Some(newline_idx) = leftover.find('\n') {
+            // Get the string till the \n as the line, keep the rest in the buffer
+            let line = leftover[..newline_idx].trim_end_matches('\r').to_string();
+            leftover = leftover[newline_idx + 1..].to_string();
+
+            trace!("SSE: {:?}", line);
+
+            // If the line is empty, skip processing
+            if line.is_empty() {
+                continue;
+            }
+
+            // If there is no data section, skip processing
+            let data = if let Some(d) = line.strip_prefix("data: ") {
+                d
+            } else {
+                continue;
+            };
+
+            // If "[DONE]" is received that means the stream is done, break out of the stream loop
+            if data == "[DONE]" {
+                break 'stream;
+            }
+
+            // If the data could not be parsed as json, skip processing
+            let Ok(chunk_json) = serde_json::from_str::<serde_json::Value>(data) else {
+                warn!("Could not parse streamed data as JSON: {:?}", data);
+                continue;
+            };
+
+            // Get the delta section of the streamed data
+            let delta = &chunk_json["choices"][0]["delta"];
+
+            // If there is some reasoning data then append it to the full reasoning
+            // and do any processing necessary
+            if let Some(reasoning) = delta["reasoning"].as_str().filter(|s| !s.is_empty()) {
+                reasoning_chunk_index += 1;
+
+                let reasoning = if reasoning_chunk_index == 0 {
+                    reasoning.trim_start_matches('\n')
+                } else {
+                    reasoning
+                };
+
+                full_reasoning.push_str(reasoning);
+
+                on_partial_message(
+                    &PartialMessage {
+                        role: "assistant".to_string(),
+                        reasoning_chunk_index: reasoning_chunk_index,
+                        reasoning: Some(reasoning.to_string()),
+                        content_chunk_index: content_chunk_index, 
+                        content: None
+                    }
+                );
+            }
+            // If there is some content then append it to the full content
+            // and do any processing necessary
+            if let Some(content) = delta["content"].as_str().filter(|s| !s.is_empty()) {
+                content_chunk_index += 1;
+
+                let content = if content_chunk_index == 0 {
+                    content.trim_start_matches('\n')
+                } else {
+                    content
+                };
+
+                full_content.push_str(content);
+                
+                on_partial_message(
+                    &PartialMessage {
+                        role: "assistant".to_string(),
+                        reasoning_chunk_index: reasoning_chunk_index,
+                        reasoning: None,
+                        content_chunk_index: content_chunk_index,
+                        content: Some(content.to_string())
+                    }
+                );
+            }
+
+            // If there are any tool calls then accumulate it
+            if let Some(tc_deltas) = delta["tool_calls"].as_array() {
+                for tc_delta in tc_deltas {
+                    let index = tc_delta["index"].as_u64().unwrap_or(0) as usize;
+                    let entry = tool_calls_map.entry(index).or_insert_with(|| ToolCall {
+                        id: String::new(),
+                        type_field: "function".to_string(),
+                        function: FunctionCall {
+                            name: String::new(),
+                            arguments: String::new()
+                        }
+                    });
+                    
+                    if let Some(id) = tc_delta["id"].as_str() {
+                        entry.id.push_str(id);
+                    }
+                    // if let Some(t) = tc_delta["type"].as_str() {
+                    //     entry.type_field = t.to_string(); // Won't this ever be a cuttoff partial value, also won't this always need to be "function"
+                    // }
+                    if let Some(name) = tc_delta["function"]["name"].as_str() {
+                        entry.function.name.push_str(name);
+                    }
+                    if let Some(args)  = tc_delta["function"]["arguments"].as_str() {
+                        entry.function.arguments.push_str(args);
+                    }
+                }
+            }
         }
+    }
+
+    // After streaming is finished assemple the tool calls
+    let full_tool_calls = if tool_calls_map.is_empty() {
+        None
+    } else {
+        let mut sort_buffer: Vec<(usize, ToolCall)> = tool_calls_map.into_iter().collect();
+        sort_buffer.sort_by_key(|(i, _)| *i);
+        Some(sort_buffer.into_iter().map(|(_, tc)| tc).collect())
     };
 
-    trace!("Response Content: {:?}", content);
-
-    let message: Message = serde_json::from_value(content["choices"][0]["message"].clone())
-        .context("Failed to decode assistant message")?;
-
-    Ok(message)
+    Ok(Message {
+        role: "assistant".to_string(),
+        reasoning: if full_reasoning.is_empty() { None } else { Some(full_reasoning) },
+        content: if full_content.is_empty() { None } else { Some(full_content) },
+        tool_calls: full_tool_calls,
+        tool_call_id: None
+    })
 }
 
 #[derive(Serialize, Deserialize)]

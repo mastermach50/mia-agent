@@ -1,5 +1,8 @@
 use anyhow::Result;
 use reedline::Signal;
+use termimad::crossterm::terminal::{Clear, ClearType};
+use termimad::crossterm::execute;
+use termimad::crossterm::cursor::{RestorePosition, SavePosition};
 use std::io::{Write, stdout};
 use termimad::{self, crossterm::style::Stylize};
 
@@ -7,7 +10,7 @@ mod custom_reedline;
 
 use crate::agent_loop;
 use crate::agent_tools::ToolRegistry;
-use crate::api::Message;
+use crate::api::{Message, PartialMessage};
 use crate::config::AppConfig;
 use crate::sessions::{Session, create_new_session, get_last_session, save_session};
 use crate::system_prompt::get_tui_system_prompt;
@@ -45,6 +48,8 @@ pub async fn run(new_session: bool) -> Result<()> {
         "/exit".yellow(),
         "/help".yellow()
     ));
+
+    let stream = AppConfig::global().tui.streaming;
 
     // Unless a new session was requested load the previous history
     let mut session: Session;
@@ -130,7 +135,9 @@ pub async fn run(new_session: bool) -> Result<()> {
                 // Assistant's response is printed by the printer passed into the agent loop
                 session.history = agent_loop::run_agent(
                     session.history,
+                    stream,
                     on_assistant_message,
+                    on_partial_assistant_message,
                     on_assistant_status_update,
                     on_system_message,
                 )
@@ -166,11 +173,16 @@ pub fn on_assistant_message(message: &Message) {
     stop_spinner();
     let mia_colored = format!("\r{}  {}", "Mia".red(), ">".cyan());
 
+    // If streaming, restore cursor position and clear lines before printing
+    if AppConfig::global().tui.streaming {
+        execute!(stdout(), RestorePosition, Clear(ClearType::FromCursorDown)).unwrap();
+    }
+
     let mut output = String::new();
     if let Some(reasoning) = message.reasoning.clone()
         && AppConfig::global().tui.show_reasoning
     {
-        output += &format!("{mia_colored} 💭             \n");
+        output += &format!("{mia_colored} 💭\n");
         output += &format!("{}\n", generate_think_lines(reasoning.trim()));
     }
     if let Some(content) = message.content.clone()
@@ -178,6 +190,7 @@ pub fn on_assistant_message(message: &Message) {
     {
         output += &format!("{mia_colored} {}\n", content.trim());
     }
+
     if let Some(tool_calls) = message.tool_calls.clone() {
         for tool_call in tool_calls {
             output += &format!(
@@ -190,6 +203,36 @@ pub fn on_assistant_message(message: &Message) {
     }
 
     termimad::print_text(&output);
+}
+
+pub fn on_partial_assistant_message(message: &PartialMessage) {
+    let mia_colored = format!("\r{}  {}", "Mia".red(), ">".cyan());
+
+    // Before printing the very first chunk save cursor state
+    if message.reasoning_chunk_index == 0 // first reasoning chunk
+    || (message.reasoning_chunk_index == -1 && message.content_chunk_index == 0) // First content chunk without recieving a reasoning chunk
+    {
+        execute!(stdout(), SavePosition).unwrap();
+    }
+
+    if let Some(reasoning) = &message.reasoning
+    && AppConfig::global().tui.show_reasoning {
+        if message.reasoning_chunk_index == 0 {
+            stop_spinner();
+            println!("{mia_colored} 💭");
+        }
+        print!("{reasoning}");
+    }
+
+    if let Some(content) = &message.content {
+        if message.content_chunk_index == 0 {
+            stop_spinner();
+            print!("{mia_colored} ");
+        }
+        print!("{content}");
+    }
+
+    stdout().flush().unwrap();
 }
 
 pub fn on_assistant_status_update(kind: &str) {

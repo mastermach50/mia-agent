@@ -1,3 +1,8 @@
+## v0.1.4
+### Added
+- Response streaming
+- new `streaming` option in config
+
 ## v0.1.3
 ### Added
 - `mia setup` command to quickly setup the agent.

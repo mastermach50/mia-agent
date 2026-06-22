@@ -19,8 +19,8 @@ use textwrap::{self, core::display_width, termwidth, wrap};
 use tokio::task::JoinHandle;
 
 pub fn generate_think_lines(thinking: &str) -> String {
-    let left_gap = "    ╎ ";
-    let width = termwidth() - 6;
+    let left_gap = "> ";
+    let width = termwidth() - 2;
     left_gap.to_string() + &wrap(thinking, width).join(&("\n".to_owned() + left_gap))
 }
 

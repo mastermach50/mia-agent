@@ -1,4 +1,5 @@
 use anyhow::Result;
+use inquire::Confirm;
 use inquire::{Password, Select, Text, min_length, required, validator::Validation};
 use inquire_derive::Selectable;
 use itertools::Itertools;
@@ -61,6 +62,8 @@ pub async fn setup() -> Result<()> {
 
     println!("\n{}", "TUI Options".yellow());
     set_tui_username().await?;
+    set_tui_streaming().await?;
+    set_tui_reasoning().await?;
 
     println!("\n{}", "Agent Options".yellow());
     set_max_iterations().await?;
@@ -190,6 +193,48 @@ async fn set_tui_username() -> Result<()> {
         }
         None => {
             println!("Username unchanged");
+        }
+    }
+
+    Ok(())
+}
+
+async fn set_tui_streaming() -> Result<()> {
+    let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
+    let mut doc = config.parse::<DocumentMut>()?;
+
+    let streaming = Confirm::new("Streaming:")
+        .with_help_message("Whether to stream content in the tui")
+        .with_default(AppConfig::global().tui.streaming)
+        .prompt_skippable()?;
+    match streaming {
+        Some(streaming) => {
+            doc["tui"]["streaming"] = value(streaming);
+            fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
+        }
+        None => {
+            println!("Value unchanged");
+        }
+    }
+
+    Ok(())
+}
+
+async fn set_tui_reasoning() -> Result<()> {
+    let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
+    let mut doc = config.parse::<DocumentMut>()?;
+
+    let reasoning = Confirm::new("Show reasoning:")
+        .with_help_message("Show the reasoning content from the model, if any")
+        .with_default(AppConfig::global().tui.show_reasoning)
+        .prompt_skippable()?;
+    match reasoning {
+        Some(reasoning) => {
+            doc["tui"]["show_reasoning"] = value(reasoning);
+            fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
+        }
+        None => {
+            println!("Value unchanged");
         }
     }
 

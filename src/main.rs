@@ -55,7 +55,9 @@ async fn main() -> Result<()> {
         history.add_message(api::Message::new("user", &command));
         agent_loop::run_agent(
             history,
+            true,
             tui::on_assistant_message,
+            tui::on_partial_assistant_message,
             tui::on_assistant_status_update,
             tui::on_system_message,
         )

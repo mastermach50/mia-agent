@@ -2,14 +2,16 @@ use anyhow::Result;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_tools::ToolRegistry;
-use crate::api::{History, Message, completion};
+use crate::api::{History, Message, PartialMessage, completion};
 use crate::config::AppConfig;
 
 /// Takes in a message history that includes the next prompt from the user and returns
 /// a new history that includes the assistant's response and any tools calls processed
 pub async fn run_agent(
     history: History,
+    stream: bool,
     on_assistant_message: impl Fn(&Message),
+    on_partial_assistant_message: impl Fn(&PartialMessage),
     on_assistant_status_update: impl Fn(&str),
     on_system_message: impl Fn(&str),
 ) -> Result<History> {
@@ -50,7 +52,13 @@ pub async fn run_agent(
         // Pass over the cancellation token and thinking notifier too
         // Also accept Ctrl-C signal and break out of loop if it arises
         let assistant_msg = tokio::select! {
-            res = completion(&history, &cancel, &on_assistant_status_update) => {
+            res = completion(
+                &history,
+                stream,
+                &cancel,
+                &on_assistant_status_update,
+                &on_partial_assistant_message
+            ) => {
                 match res {
                     Ok(message) => message,
                     Err(err) => {
