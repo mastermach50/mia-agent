@@ -1,8 +1,7 @@
 use anyhow::Result;
 use reedline::Signal;
 use termimad::crossterm::terminal::{Clear, ClearType};
-use termimad::crossterm::execute;
-use termimad::crossterm::cursor::{RestorePosition, SavePosition};
+use termimad::crossterm::{cursor, execute};
 use std::io::{Write, stdout};
 use termimad::{self, crossterm::style::Stylize};
 
@@ -14,7 +13,7 @@ use crate::api::{Message, PartialMessage};
 use crate::config::AppConfig;
 use crate::sessions::{Session, create_new_session, get_last_session, save_session};
 use crate::system_prompt::get_tui_system_prompt;
-use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
+use crate::utils::{generate_think_lines, start_spinner, stop_spinner, visual_linecount};
 use custom_reedline::get_reedline;
 
 pub async fn run(new_session: bool) -> Result<()> {
@@ -175,7 +174,14 @@ pub fn on_assistant_message(message: &Message) {
 
     // If streaming, restore cursor position and clear lines before printing
     if AppConfig::global().tui.streaming {
-        execute!(stdout(), RestorePosition, Clear(ClearType::FromCursorDown)).unwrap();
+
+        let stream_printed_lines = visual_linecount(&message);
+        execute!(
+            stdout(),
+            cursor::MoveUp(stream_printed_lines as u16),
+            cursor::MoveToColumn(0),
+            Clear(ClearType::FromCursorDown)
+        ).unwrap();
     }
 
     let mut output = String::new();
@@ -207,13 +213,6 @@ pub fn on_assistant_message(message: &Message) {
 
 pub fn on_partial_assistant_message(message: &PartialMessage) {
     let mia_colored = format!("\r{}  {}", "Mia".red(), ">".cyan());
-
-    // Before printing the very first chunk save cursor state
-    if message.reasoning_chunk_index == 0 // first reasoning chunk
-    || (message.reasoning_chunk_index == -1 && message.content_chunk_index == 0) // First content chunk without recieving a reasoning chunk
-    {
-        execute!(stdout(), SavePosition).unwrap();
-    }
 
     if let Some(reasoning) = &message.reasoning
     && AppConfig::global().tui.show_reasoning {
