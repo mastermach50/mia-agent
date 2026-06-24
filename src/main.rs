@@ -4,6 +4,7 @@
 use anyhow::{Ok, Result};
 use clap::Parser;
 use env_logger::Env;
+// use ratatui_textarea;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use tabled::{builder::Builder, settings::Style};
 use termimad::crossterm::style::Stylize;
@@ -18,6 +19,8 @@ mod setup;
 mod system_prompt;
 mod tui;
 mod utils;
+
+// mod ratatuitui;
 
 use agent_tools::ToolRegistry;
 use cli::Cli;
@@ -55,7 +58,7 @@ async fn main() -> Result<()> {
         history.add_message(api::Message::new("user", &command));
         agent_loop::run_agent(
             history,
-            true,
+            AppConfig::global().tui.streaming,
             tui::on_assistant_message,
             tui::on_partial_assistant_message,
             tui::on_assistant_status_update,

@@ -1,7 +1,10 @@
 ## v0.1.4
 ### Added
-- Response streaming
-- new `streaming` option in config
+- Added experimental streaming support.
+    - new `streaming` option in config.
+
+### Changed
+- Changed, session structure, older sessions will be invalid.
 
 ## v0.1.3
 ### Added

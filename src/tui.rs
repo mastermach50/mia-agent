@@ -1,7 +1,5 @@
 use anyhow::Result;
 use reedline::Signal;
-use termimad::crossterm::terminal::{Clear, ClearType};
-use termimad::crossterm::{cursor, execute};
 use std::io::{Write, stdout};
 use termimad::{self, crossterm::style::Stylize};
 
@@ -13,7 +11,7 @@ use crate::api::{Message, PartialMessage};
 use crate::config::AppConfig;
 use crate::sessions::{Session, create_new_session, get_last_session, save_session};
 use crate::system_prompt::get_tui_system_prompt;
-use crate::utils::{generate_think_lines, start_spinner, stop_spinner, visual_linecount};
+use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
 use custom_reedline::get_reedline;
 
 pub async fn run(new_session: bool) -> Result<()> {
@@ -171,30 +169,21 @@ pub async fn run(new_session: bool) -> Result<()> {
 pub fn on_assistant_message(message: &Message) {
     stop_spinner();
     let mia_colored = format!("\r{}  {}", "Mia".red(), ">".cyan());
-
-    // If streaming, restore cursor position and clear lines before printing
-    if AppConfig::global().tui.streaming {
-
-        let stream_printed_lines = visual_linecount(&message);
-        execute!(
-            stdout(),
-            cursor::MoveUp(stream_printed_lines as u16),
-            cursor::MoveToColumn(0),
-            Clear(ClearType::FromCursorDown)
-        ).unwrap();
-    }
-
     let mut output = String::new();
-    if let Some(reasoning) = message.reasoning.clone()
+
+    // Print the reasoning and content, only if it was not streamed
+    if !AppConfig::global().tui.streaming {
+        if let Some(reasoning) = message.reasoning.clone()
         && AppConfig::global().tui.show_reasoning
-    {
-        output += &format!("{mia_colored} 💭\n");
-        output += &format!("{}\n", generate_think_lines(reasoning.trim()));
-    }
-    if let Some(content) = message.content.clone()
+        {
+            output += &format!("{mia_colored} 💭\n");
+            output += &format!("{}\n", generate_think_lines(reasoning.trim()));
+        }
+        if let Some(content) = message.content.clone()
         && content.trim() != ""
-    {
-        output += &format!("{mia_colored} {}\n", content.trim());
+        {
+            output += &format!("{mia_colored} {}\n", content.trim());
+        }
     }
 
     if let Some(tool_calls) = message.tool_calls.clone() {
@@ -215,7 +204,8 @@ pub fn on_partial_assistant_message(message: &PartialMessage) {
     let mia_colored = format!("\r{}  {}", "Mia".red(), ">".cyan());
 
     if let Some(reasoning) = &message.reasoning
-    && AppConfig::global().tui.show_reasoning {
+        && AppConfig::global().tui.show_reasoning
+    {
         if message.reasoning_chunk_index == 0 {
             stop_spinner();
             println!("{mia_colored} 💭");

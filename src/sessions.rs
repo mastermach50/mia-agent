@@ -3,6 +3,7 @@ use chrono::{DateTime, Local};
 use itertools::Itertools;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use std::fs;
 use tabled::settings::Style;
 
@@ -11,7 +12,8 @@ use crate::config::AppConfig;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Session {
-    pub name: String,
+    pub id: String,
+    pub title: String,
     pub created: DateTime<Local>,
     pub owner: String,
     pub filename: String,
@@ -39,14 +41,23 @@ fn get_session_paths() -> Vec<String> {
 /// Get table of sessions for printing
 pub fn list_sessions() -> Result<String> {
     let sessions = get_session_paths();
+    if sessions.is_empty() {
+        return Ok("No sessions found.".to_string());
+    }
+    
     let mut table = tabled::builder::Builder::new();
-    table.push_record(vec!["Filename", "Name", "Owner", "Created"]);
+    table.push_record(vec!["ID", "Title", "Owner", "Created"]);
 
     for filename in sessions {
-        let s: Session = serde_json::from_str(&fs::read_to_string(
-            AppConfig::internal().sessions_dir.join(filename),
-        )?)?;
-        table.push_record(vec![s.filename, s.name, s.owner, s.created.to_rfc2822()]);
+        let session_file_contents = &fs::read_to_string(
+            AppConfig::internal().sessions_dir.join(&filename),
+        )?;
+        if let Ok(s) = serde_json::from_str::<Session>(session_file_contents) {
+            table.push_record([s.id, s.title, s.owner, s.created.to_rfc2822()]);
+        } else {
+            table.push_record([format!("Invalid Session ({filename})")]);
+        }
+        
     }
 
     Ok(table.build().with(Style::rounded()).to_string())
@@ -66,7 +77,8 @@ pub fn create_new_session(kind: &str, owner: &str) -> Result<Session> {
     let filepath = session_dir.join(&filename);
 
     let new_session = Session {
-        name: String::new(),
+        id: Uuid::now_v7().to_string(),
+        title: String::new(),
         created: time,
         owner: owner.to_string(),
         filename: filename.clone(),

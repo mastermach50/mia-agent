@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::result::Result::Ok;
 
 use anyhow::{Context, Result};
+use futures_util::StreamExt;
 use log::{debug, error, trace, warn};
 use reqwest::{
     Client,
@@ -10,7 +11,6 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
-use futures_util::StreamExt;
 
 use crate::agent_tools::ToolRegistry;
 use crate::config::AppConfig;
@@ -108,7 +108,6 @@ pub async fn completion(
     on_status_update: impl Fn(&str),
     on_partial_message: impl Fn(&PartialMessage),
 ) -> Result<Message> {
-
     // Get the http client, with the default headers required to identify this as mia agent
     let client = Client::builder()
         .default_headers(get_default_headers())
@@ -140,7 +139,7 @@ pub async fn completion(
 
     // Response status is returned first
     debug!("Response Status: {}", response.status());
-    
+
     // If the status shows some errors then bail
     if !response.status().is_success() {
         let status = response.status();
@@ -255,15 +254,13 @@ pub async fn completion(
 
                 full_reasoning.push_str(reasoning);
 
-                on_partial_message(
-                    &PartialMessage {
-                        role: "assistant".to_string(),
-                        reasoning_chunk_index: reasoning_chunk_index,
-                        reasoning: Some(reasoning.to_string()),
-                        content_chunk_index: content_chunk_index, 
-                        content: None
-                    }
-                );
+                on_partial_message(&PartialMessage {
+                    role: "assistant".to_string(),
+                    reasoning_chunk_index: reasoning_chunk_index,
+                    reasoning: Some(reasoning.to_string()),
+                    content_chunk_index: content_chunk_index,
+                    content: None,
+                });
             }
             // If there is some content then append it to the full content
             // and do any processing necessary
@@ -277,16 +274,14 @@ pub async fn completion(
                 };
 
                 full_content.push_str(content);
-                
-                on_partial_message(
-                    &PartialMessage {
-                        role: "assistant".to_string(),
-                        reasoning_chunk_index: reasoning_chunk_index,
-                        reasoning: None,
-                        content_chunk_index: content_chunk_index,
-                        content: Some(content.to_string())
-                    }
-                );
+
+                on_partial_message(&PartialMessage {
+                    role: "assistant".to_string(),
+                    reasoning_chunk_index: reasoning_chunk_index,
+                    reasoning: None,
+                    content_chunk_index: content_chunk_index,
+                    content: Some(content.to_string()),
+                });
             }
 
             // If there are any tool calls then accumulate it
@@ -298,10 +293,10 @@ pub async fn completion(
                         type_field: "function".to_string(),
                         function: FunctionCall {
                             name: String::new(),
-                            arguments: String::new()
-                        }
+                            arguments: String::new(),
+                        },
                     });
-                    
+
                     if let Some(id) = tc_delta["id"].as_str() {
                         entry.id.push_str(id);
                     }
@@ -311,7 +306,7 @@ pub async fn completion(
                     if let Some(name) = tc_delta["function"]["name"].as_str() {
                         entry.function.name.push_str(name);
                     }
-                    if let Some(args)  = tc_delta["function"]["arguments"].as_str() {
+                    if let Some(args) = tc_delta["function"]["arguments"].as_str() {
                         entry.function.arguments.push_str(args);
                     }
                 }
@@ -330,10 +325,18 @@ pub async fn completion(
 
     Ok(Message {
         role: "assistant".to_string(),
-        reasoning: if full_reasoning.is_empty() { None } else { Some(full_reasoning) },
-        content: if full_content.is_empty() { None } else { Some(full_content) },
+        reasoning: if full_reasoning.is_empty() {
+            None
+        } else {
+            Some(full_reasoning)
+        },
+        content: if full_content.is_empty() {
+            None
+        } else {
+            Some(full_content)
+        },
         tool_calls: full_tool_calls,
-        tool_call_id: None
+        tool_call_id: None,
     })
 }
 

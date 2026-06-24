@@ -18,8 +18,6 @@ use termimad::crossterm::style::{ResetColor, Stylize};
 use textwrap::{self, core::display_width, termwidth, wrap};
 use tokio::task::JoinHandle;
 
-use crate::api::Message;
-
 pub fn generate_think_lines(thinking: &str) -> String {
     let left_gap = "> ";
     let width = termwidth() - 2;
@@ -199,17 +197,4 @@ pub fn stop_spinner() {
         print!("\r{}\r", " ".repeat(20));
         stdout().flush().unwrap();
     }
-}
-
-
-pub fn visual_linecount(message: &Message) -> u64 {
-    let message = message.clone();
-    let reasoning = message.reasoning.unwrap_or_default();
-    let content = message.content.unwrap_or_default();
-
-    let full_printed = "Mia  > 💭\n".to_string() + &reasoning + "Mia  > " + &content;
-
-    let wrapped = wrap(&full_printed, termwidth());
-
-    wrapped.iter().count() as u64
 }
