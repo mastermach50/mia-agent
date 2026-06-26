@@ -24,6 +24,7 @@ pub struct AppConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModelConfig {
+    pub provider: String,
     pub base_url: String,
     pub name: String,
     pub reasoning: String,
@@ -32,6 +33,7 @@ pub struct ModelConfig {
 impl Default for ModelConfig {
     fn default() -> Self {
         Self {
+            provider: "openrouter".to_string(),
             base_url: "https://openrouter.ai/api/v1".to_string(),
             name: "openrouter/owl-alpha".to_string(),
             reasoning: "medium".to_string(),
