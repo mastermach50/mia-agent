@@ -11,6 +11,15 @@ pub fn get_system_prompt() -> Result<String> {
     let mut system_prompt = String::new();
 
     // Soul
+    if !AppConfig::internal().soul_file.exists() {
+        fs::write(
+            &AppConfig::internal().soul_file,
+            indoc::indoc! {"
+                You are Mia, a helpful personal AI agent running on the user's machine.
+                You have tools — use them to get things done rather than just describing how they could be done.
+            "},
+        )?;
+    };
     let soul = fs::read_to_string(&AppConfig::internal().soul_file)?;
     system_prompt.push_str(&soul);
     system_prompt.push('\n');

@@ -235,6 +235,11 @@ impl AppConfig {
             fs::create_dir(&gateways_dir).context("Failed to create gateways dir")?;
             info!("Created gateways directory at {:?}", gateways_dir)
         }
+        let memory_dir = Self::internal().memory_dir.clone();
+        if !memory_dir.exists() {
+            fs::create_dir(&memory_dir).context("Failed to create memory dir")?;
+            info!("Created memory directory at {:?}", memory_dir)
+        }
 
         // Make sure there is no / at the end of the base url
         if config.model.base_url.ends_with('/') {
