@@ -7,17 +7,18 @@ use config::{Config, Environment, File, FileFormat};
 use log::{debug, info, trace, warn};
 use serde::{Deserialize, Serialize};
 
+use crate::setup::Providers;
+
 /// Cached config that is loaded on load() and accessed on global()
 static APP_CONFIG_CACHE: OnceLock<AppConfig> = OnceLock::new();
 
 /// Cached internal config
 static INTERNAL_CONFIG_CACHE: OnceLock<InternalConfig> = OnceLock::new();
 
-/// Config structure
+/// App config structure for the config stored in config.toml
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct AppConfig {
     pub model: ModelConfig,
-    // pub documents: DocumentConfig,
     pub agent: AgentConfig,
     pub tui: TuiConfig,
 }
@@ -41,23 +42,6 @@ impl Default for ModelConfig {
     }
 }
 
-// #[derive(Serialize, Deserialize, Clone, Debug)]
-// pub struct DocumentConfig {
-//     pub soul: String,
-//     pub user_memory: String,
-//     pub system_memory: String,
-// }
-
-// impl Default for DocumentConfig {
-//     fn default() -> Self {
-//         Self {
-//             soul: "SOUL.md".to_string(),
-//             user_memory: "memories/USER.md".to_string(),
-//             system_memory: "memories/MEMORY.md".to_string(),
-//         }
-//     }
-// }
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AgentConfig {
     pub max_iterations: i32,
@@ -72,7 +56,6 @@ impl Default for AgentConfig {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TuiConfig {
     pub username: String,
-    // pub history_file: String,
     pub max_history: usize,
     pub show_reasoning: bool,
     pub streaming: bool,
@@ -92,6 +75,8 @@ impl Default for TuiConfig {
     }
 }
 
+/// Internal config structure that defines paths of files and folders
+/// that needs to be accessed in several places in the code
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct InternalConfig {
@@ -119,7 +104,11 @@ impl AppConfig {
         cached_config
     }
 
+    /// Used to access the internal config
+    /// Also handles caching of it
     pub fn internal() -> &'static InternalConfig {
+
+        // Return cached config if it exists
         if let Some(cached) = INTERNAL_CONFIG_CACHE.get() {
             return cached;
         }
@@ -157,25 +146,28 @@ impl AppConfig {
 
     /// Loads config to the cache and returns it.
     /// If the config file doesn't exist, it creates a default one and then loads it.
+    /// Also creates necessary paths for intial startup.
     pub fn load() -> Result<Self> {
-        let home_dir = Self::internal().home_dir.clone();
-        let mia_dir = Self::internal().mia_dir.clone();
-        let env_file = Self::internal().env_file.clone();
-        let config_file = Self::internal().config_file.clone();
-
+        
         // Create home dir, mia dir, config.toml and .env if they don't exist
+        // These are the only paths necessary for startup
+        // Other paths can be created later
+        let home_dir = Self::internal().home_dir.clone();
         if !home_dir.exists() {
             fs::create_dir_all(&home_dir).context("Failed to create home dir")?;
             info!("Created home directory at {:?}", home_dir);
         }
+        let mia_dir = Self::internal().mia_dir.clone();
         if !mia_dir.exists() {
             fs::create_dir_all(&mia_dir).context("Failed to create agent home dir")?;
             info!("Created agent home directory at {:?}", mia_dir);
         }
+        let env_file = Self::internal().env_file.clone();
         if !env_file.exists() {
             fs::write(&env_file, "")?;
             info!("Created default .env file at {:?}", env_file);
         }
+        let config_file = Self::internal().config_file.clone();
         if !config_file.exists() {
             fs::write(&config_file, toml::to_string(&AppConfig::default())?)
                 .context("Failed to create default config file")?;
@@ -213,12 +205,19 @@ impl AppConfig {
 
     /// Executes checks and actions to be done right after config load
     fn post_config_load(mut config: AppConfig) -> Result<AppConfig> {
-        // Check if required api keys are present in env
-        if config.model.base_url.contains("openrouter.ai")
-            && env::var("OPENROUTER_API_KEY").is_err()
-        {
-            warn!("OPENROUTER_API_KEY not set in .env");
-        };
+        // Validate provider and check if api key is present
+        let provider_name = config.model.provider.clone();
+        let provider = Providers::from_name(&provider_name);
+        if let Some(provider) = provider {
+            if provider != Providers::Local {
+                let api_key_name = provider.api_key_name().unwrap();
+                if env::var(api_key_name).is_err() {
+                    anyhow::bail!("{api_key_name} not set in .env");
+                }
+            }
+        } else {
+            anyhow::bail!("Unknown provider: {}", provider_name);
+        }
 
         // Check for Tavily API key (warning only, tools will just be unavailable)
         if env::var("TAVILY_API_KEY").is_err() {
@@ -228,65 +227,16 @@ impl AppConfig {
         }
 
         // Make required folders if they don't exist
-        let sessions_dir = Self::internal().mia_dir.join("sessions");
+        let sessions_dir = Self::internal().sessions_dir.clone();
         if !sessions_dir.exists() {
             fs::create_dir(&sessions_dir).context("Failed to create sessions dir")?;
             info!("Created sessions directory at {:?}", sessions_dir)
         }
-        let gateways_dir = Self::internal().mia_dir.join("gateways");
+        let gateways_dir = Self::internal().gateways_dir.clone();
         if !gateways_dir.exists() {
             fs::create_dir(&gateways_dir).context("Failed to create gateways dir")?;
             info!("Created gateways directory at {:?}", gateways_dir)
         }
-
-        // In the config expand the paths
-        // let mia_dir = std::env::home_dir().unwrap().join(".mia");
-        // config.documents.soul = mia_dir
-        //     .join(config.documents.soul)
-        //     .to_str()
-        //     .unwrap()
-        //     .to_string();
-        // config.documents.user_memory = mia_dir
-        //     .join(config.documents.user_memory)
-        //     .to_str()
-        //     .unwrap()
-        //     .to_string();
-        // config.documents.system_memory = mia_dir
-        //     .join(config.documents.system_memory)
-        //     .to_str()
-        //     .unwrap()
-        //     .to_string();
-        // config.tui.history_file = mia_dir
-        //     .join(config.tui.history_file)
-        //     .to_str()
-        //     .unwrap()
-        //     .to_string();
-
-        // // Make all necessary files if they don't exist
-        // let paths: Vec<PathBuf> = vec![
-        //     config.documents.soul.parse()?,
-        //     config.documents.user_memory.parse()?,
-        //     config.documents.system_memory.parse()?,
-        //     config.tui.history_file.parse()?,
-        // ];
-        // for path in paths {
-        //     if !path.exists() {
-        //         // Create parent directories if they don't exist
-        //         if let Some(parent) = path.parent() {
-        //             fs::create_dir_all(parent)
-        //                 .context(format!("Failed to create directory {:?}", parent))?;
-        //         }
-        //         // Create file if it doesn't exist
-        //         fs::File::create(&path).context(format!("Failed to create file {:?}", path))?;
-
-        //         // Write the initial soul if the file had to be created
-        //         if path == config.documents.soul {
-        //             let initial_soul =
-        //                 "You are Mia, a personal assistant. Respond accurately and concisely";
-        //             fs::write(path, initial_soul)?;
-        //         }
-        //     }
-        // }
 
         // Make sure there is no / at the end of the base url
         if config.model.base_url.ends_with('/') {

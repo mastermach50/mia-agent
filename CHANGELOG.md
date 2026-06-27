@@ -1,3 +1,10 @@
+## v0.1.5
+### Added
+- More LLM providers
+    - Google AI Studio
+    - Groq
+    - Cerebras
+
 ## v0.1.4
 ### Added
 - Added experimental streaming support.
