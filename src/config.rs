@@ -107,7 +107,6 @@ impl AppConfig {
     /// Used to access the internal config
     /// Also handles caching of it
     pub fn internal() -> &'static InternalConfig {
-
         // Return cached config if it exists
         if let Some(cached) = INTERNAL_CONFIG_CACHE.get() {
             return cached;
@@ -148,7 +147,6 @@ impl AppConfig {
     /// If the config file doesn't exist, it creates a default one and then loads it.
     /// Also creates necessary paths for intial startup.
     pub fn load() -> Result<Self> {
-        
         // Create home dir, mia dir, config.toml and .env if they don't exist
         // These are the only paths necessary for startup
         // Other paths can be created later

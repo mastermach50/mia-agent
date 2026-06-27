@@ -3,12 +3,12 @@ use inquire::Confirm;
 use inquire::{Password, Select, Text, min_length, required, validator::Validation};
 use inquire_derive::Selectable;
 use itertools::Itertools;
-use strum::{EnumIter, IntoEnumIterator};
 use std::fs;
 use std::{
     fmt::Display,
     io::{self, Write},
 };
+use strum::{EnumIter, IntoEnumIterator};
 use termimad::crossterm::style::Stylize;
 use toml_edit::{DocumentMut, value};
 
@@ -70,7 +70,9 @@ impl Providers {
             Providers::Local => anyhow::bail!("Local provider doesn't have default base url"),
             Providers::Groq => Ok("https://api.groq.com/openai/v1"),
             Providers::Cerebras => Ok("https://api.cerebras.ai/v1"),
-            Providers::GoogleAIStudio => Ok("https://generativelanguage.googleapis.com/v1beta/openai/"),
+            Providers::GoogleAIStudio => {
+                Ok("https://generativelanguage.googleapis.com/v1beta/openai/")
+            }
         }
     }
 }
@@ -184,7 +186,9 @@ async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
     // Fetch the models
     print!("{}\r", "Fetching models...".blue());
     io::stdout().flush()?;
-    let models = api::models(base_url, api_key_name).await.unwrap_or(Vec::new());
+    let models = api::models(base_url, api_key_name)
+        .await
+        .unwrap_or(Vec::new());
     let options = models.iter().map(|m| m.id.clone()).collect::<Vec<String>>();
 
     let model_suggester = |input: &str| {
@@ -297,7 +301,9 @@ async fn set_max_iterations(doc: &mut DocumentMut) -> Result<()> {
     Ok(())
 }
 
-fn http_validator(input: &str) -> core::result::Result<Validation, Box<dyn std::error::Error + Send + Sync + 'static>> {
+fn http_validator(
+    input: &str,
+) -> core::result::Result<Validation, Box<dyn std::error::Error + Send + Sync + 'static>> {
     if input.starts_with("http://") || input.starts_with("https://") {
         Ok(Validation::Valid)
     } else {

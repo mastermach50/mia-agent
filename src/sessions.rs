@@ -3,9 +3,9 @@ use chrono::{DateTime, Local};
 use itertools::Itertools;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::fs;
 use tabled::settings::Style;
+use uuid::Uuid;
 
 use crate::api::History;
 use crate::config::AppConfig;
@@ -44,20 +44,18 @@ pub fn list_sessions() -> Result<String> {
     if sessions.is_empty() {
         return Ok("No sessions found.".to_string());
     }
-    
+
     let mut table = tabled::builder::Builder::new();
     table.push_record(vec!["ID", "Title", "Owner", "Created"]);
 
     for filename in sessions {
-        let session_file_contents = &fs::read_to_string(
-            AppConfig::internal().sessions_dir.join(&filename),
-        )?;
+        let session_file_contents =
+            &fs::read_to_string(AppConfig::internal().sessions_dir.join(&filename))?;
         if let Ok(s) = serde_json::from_str::<Session>(session_file_contents) {
             table.push_record([s.id, s.title, s.owner, s.created.to_rfc2822()]);
         } else {
             table.push_record([format!("Invalid Session ({filename})")]);
         }
-        
     }
 
     Ok(table.build().with(Style::rounded()).to_string())

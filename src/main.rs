@@ -28,7 +28,11 @@ use config::AppConfig;
 use log::{info, trace};
 
 use crate::{
-    api::History, sessions::list_sessions, setup::Providers, system_prompt::get_tui_system_prompt, utils::{format_number, parse_human_number}
+    api::History,
+    sessions::list_sessions,
+    setup::Providers,
+    system_prompt::get_tui_system_prompt,
+    utils::{format_number, parse_human_number},
 };
 
 #[tokio::main]
@@ -119,7 +123,7 @@ async fn main() -> Result<()> {
 
 async fn list_models(args: cli::ModelListArgs) -> Result<()> {
     let base_url = AppConfig::global().model.base_url.clone();
-    let provider_name= AppConfig::global().model.provider.clone();
+    let provider_name = AppConfig::global().model.provider.clone();
     let provider = Providers::from_name(&provider_name).unwrap();
 
     let models = api::models(&base_url, provider.api_key_name()).await?;

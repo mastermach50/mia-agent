@@ -174,13 +174,13 @@ pub fn on_assistant_message(message: &Message) {
     // Print the reasoning and content, only if it was not streamed
     if !AppConfig::global().tui.streaming {
         if let Some(reasoning) = message.reasoning.clone()
-        && AppConfig::global().tui.show_reasoning
+            && AppConfig::global().tui.show_reasoning
         {
             output += &format!("{mia_colored} 💭\n");
             output += &format!("{}\n", generate_think_lines(reasoning.trim()));
         }
         if let Some(content) = message.content.clone()
-        && content.trim() != ""
+            && content.trim() != ""
         {
             output += &format!("{mia_colored} {}\n", content.trim());
         }
