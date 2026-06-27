@@ -4,6 +4,7 @@
     - Google AI Studio
     - Groq
     - Cerebras
+- Updated system prompts to make the agent more intelligent.
 
 ## v0.1.4
 ### Added

@@ -2,8 +2,9 @@
 - Do something about tool calls and messages looking the same
 <!-- - Add some tool call result at the end of the tool call short string -->
 - Read changelogs for draft release body
-- Add session title generation
 - Make session pruning
 - Split setup into sections
 - Fix cerebras model listing not working
-- Fix reasoning effort not supported error for groq 
+- Fix reasoning effort not supported error for groq
+- Implement session to handle saving and title generation
+- Pass session id in chat completion requests.
