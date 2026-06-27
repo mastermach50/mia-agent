@@ -1,3 +1,4 @@
+use indoc::indoc;
 use serde_json::json;
 
 use crate::agent_tools::Tool;
@@ -23,11 +24,17 @@ impl Tool for WebSearch {
             .map_err(|_| "TAVILY_API_KEY not found".to_string())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Search the web via Tavily and return top results with titles, URLs, and content snippets.
+        Use for: current documentation, error message lookup, package discovery, and any question that may have changed since the model's training cutoff.
+        Write specific queries — include version numbers, library names, or exact error text for better results.
+        Follow up with web_extract on promising URLs to get their full content.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Search the web using Tavily API for relevant results.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {

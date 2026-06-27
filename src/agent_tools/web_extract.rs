@@ -1,3 +1,4 @@
+use indoc::indoc;
 use serde_json::json;
 
 use crate::agent_tools::Tool;
@@ -21,11 +22,17 @@ impl Tool for WebExtract {
             .map_err(|_| "TAVILY_API_KEY not found".to_string())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Fetch and return the full readable text of a specific URL via Tavily.
+        Use when you have a URL and need its complete content: documentation pages, GitHub READMEs, API references, changelogs, articles.
+        More thorough than web_search snippets for a known URL.
+        Typical pattern: web_search to find relevant URLs, web_extract to read them in depth.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Extract content from a URL using Tavily API.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {

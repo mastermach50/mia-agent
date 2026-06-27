@@ -1,5 +1,6 @@
 use serde_json::json;
 use std::process::Command;
+use indoc::indoc;
 use std::process::Stdio;
 use termimad::crossterm::style::Stylize;
 
@@ -33,11 +34,12 @@ impl Tool for ExecShell {
             .map_err(|_| "powershell not found".to_string());
     }
     fn schema(&self) -> serde_json::Value {
-        #[cfg(unix)]
-        let description = "Run commands in bash.";
-
-        #[cfg(windows)]
-        let description = "Run commands in powershell.";
+        let description = indoc! {"
+        Execute an arbitrary command in bash (Unix) or PowerShell (Windows) and return stdout, stderr, and exit code.
+        Use for: installed CLIs, package managers, build tools, git, network utilities, and any system task not covered by a specialized tool.
+        Commands run in the current working directory.
+        Prefer fs_* tools for file operations — this is the general-purpose fallback when no dedicated tool exists.
+        "};
 
         json!({
             "type": "function",

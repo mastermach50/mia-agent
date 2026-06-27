@@ -1,3 +1,4 @@
+use indoc::indoc;
 use serde_json::json;
 
 use crate::agent_tools::Tool;
@@ -27,11 +28,19 @@ impl Tool for FSGrepFiles {
             .map_err(|_| "rg not found".to_string())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Search file contents with ripgrep (rg).
+        Applies smart-case matching, respects .gitignore, and skips hidden files by default.
+        Use to find where a string, function, symbol, or pattern appears across files.
+        Returns matching lines with file paths and line numbers.
+        Faster and more precise than grep through exec_shell for code searches.
+        Use fs_search_dirs to find files by name; use this to find files by content.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Search files contents using 'ripgrep', uses smart-case and respects gitignore and hidden files.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {

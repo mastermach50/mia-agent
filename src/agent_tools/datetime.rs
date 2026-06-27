@@ -1,4 +1,5 @@
 use chrono::Local;
+use indoc::indoc;
 use serde_json::json;
 
 use crate::agent_tools::Tool;
@@ -20,11 +21,16 @@ impl Tool for DateTime {
         Ok(())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Return the current local date and time in RFC 2822 format.
+        Call this at the start of any time-sensitive task — scheduling, logging, timestamping, or when the user asks what time it is.
+        More accurate than the approximate datetime in the system prompt.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Get the current date and time in RFC2822 format.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {}

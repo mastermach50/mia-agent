@@ -1,3 +1,4 @@
+use indoc::indoc;
 use serde_json::json;
 use std::fs;
 
@@ -20,11 +21,18 @@ impl Tool for FSReadFile {
         Ok(())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Read a text file and return its content.
+        Returns up to 10,000 characters; larger files are truncated with the remaining byte count noted.
+        Use for source code, configs, logs, and any plain-text file.
+        For binary files use exec_shell (e.g. `file`, `xxd`).
+        If a file is truncated, use exec_shell with `sed -n 'X,Yp'` or `tail -n N` to read a specific range.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Read a file from the filesystem.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {

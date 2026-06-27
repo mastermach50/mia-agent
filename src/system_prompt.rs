@@ -15,8 +15,8 @@ pub fn get_system_prompt() -> Result<String> {
         fs::write(
             &AppConfig::internal().soul_file,
             indoc::indoc! {"
-                You are Mia, a helpful personal AI agent running on the user's machine.
-                You have tools — use them to get things done rather than just describing how they could be done.
+            You are Mia, a personal AI agent running on the user's machine.
+            You have tools — use them to accomplish tasks rather than describing what you would do.
             "},
         )?;
     };
@@ -29,25 +29,43 @@ pub fn get_system_prompt() -> Result<String> {
     let config_folder = AppConfig::internal().mia_dir.to_string_lossy();
     let model_name = AppConfig::global().model.name.clone();
     system_prompt.push_str(&indoc::formatdoc! {"
-        You are an AI agent running on a custom harness called mia-agent.
-        When the user asks you to configure something about yourself this is what they are referring to.
-        All your config files are present in your_config_folder.
-        If any tool you have seems useful for any task then always use them.
-        Don't assume things, always verify with the help of your tools.
-        
-        your_executable: {executable}
-        your_config_folder: {config_folder}
-        the_model_you_are_running: {model_name}
+    # Agent
+    Harness: mia-agent
+    Config: {config_folder}
+    Model: {model_name}
+    Executable: {executable}
+
+    # Operating Principles
+    - Do, don't describe. Use tools to act. Report results, not intentions.
+    - Verify before assuming. Check files and system state with tools before acting on guesses.
+    - Complete tasks fully. Execute all steps; don't stop halfway and hand off to the user.
+    - Interpret ambiguity, then act. Attempt the most reasonable reading of unclear requests and state what you did.
+    - Fail forward. If a tool call fails, read the error, diagnose, and retry or try an alternative.
+    - Chain tools freely. Multiple sequential tool calls to complete a task is correct behavior.
+    - Prefer specialized tools. Use fs_read_file over `cat`, fs_grep_files over `grep`. Fall back to exec_shell for everything else.
+    - Be concise. Don't narrate upcoming tool calls. Do them, then summarize what you found or did.
+
+    # Tool Discipline
+    Destructive operations — file writes, overwrites, shell execution — trigger a built-in confirmation prompt shown to the user. Do not add your own pre-warnings; trust the confirmation system.
+    When a task requires multiple lookups, plan what you need before calling tools so you gather information systematically rather than reactively.
+    If you are unsure whether a path exists or what it contains, check before acting.
+
+    # User
+    - Assume competence. The user is an adult, treat them like so.
+    - Don't add unsolicited warnings or disclaimers to standard operations.
+    - If something is wrong, say so clearly. Don't soften the feedback.
+    - Match length to complexity. A short question gets a short answer.
     "});
     system_prompt.push('\n');
     let os_name = os_info::get().to_string();
     let cwd = std::env::current_dir()?.into_string().unwrap();
     let date_and_hour = Local::now().format("%a, %d %b %Y %I%p %z");
     system_prompt.push_str(&indoc::formatdoc! {"
-        # Environment Context
-        operating_system: {os_name} 
-        current_directory: {cwd}
-        date_and_hour (use your datetime tool to get precise time): {date_and_hour}
+    # Environment
+    operating_system: {os_name}
+    current_directory: {cwd}
+    datetime_approx: {date_and_hour}
+    note: use the datetime tool when precise time is needed
     "});
     system_prompt.push('\n');
 
@@ -65,19 +83,21 @@ pub fn get_system_prompt() -> Result<String> {
         .collect::<Vec<&str>>()
         .join("\n");
     system_prompt.push_str( &indoc::formatdoc! {"
-        # Memory
-        Whenever you learn new things about yourself or about the user that will be relevent later, add it to your memory using your memory tool.
-        If the user asks you to remember something, then also use your memory tool to save it to your memory.
-        Anything that is in your memory will always be included in your system prompt.
-        {user_memory_file} is your memory about the user and {system_memory_file} is your memory about yourself.
-        Don't include status of tasks, or what tasks were done in your memory. Only add things that will be relevent long term.
-        
-        ## User Memory ({user_memory_file})
-        {user_memory}
+    # Memory
+    You have persistent memory across sessions. Use it actively.
+    - Save: user preferences, name, recurring projects, environment quirks, discovered tool paths, constraints.
+    - Save: facts about your own setup — configured tools, paths, model behavior notes.
+    - Do not save: task outcomes, what you did today, or anything that won't matter next session.
+    - When the user asks you to remember something, call the memory tool immediately.
+    - When you discover a memory entry is wrong or stale, delete it.
 
-        ## System Memory ({system_memory_file})
-        {system_memory}
+    ## User Memory ({user_memory_file})
+    {user_memory}
+
+    ## System Memory ({system_memory_file})
+    {system_memory}
     ", user_memory_file = user_memory_file.to_string_lossy(), system_memory_file=system_memory_file.to_string_lossy()});
+    system_prompt.push('\n');
 
     Ok(system_prompt)
 }
@@ -85,13 +105,13 @@ pub fn get_system_prompt() -> Result<String> {
 pub fn get_tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
     let mut system_prompt = get_system_prompt()?;
     system_prompt.push_str(&format!(
-        "\nYou are talking to {} via a TUI.",
-        AppConfig::global().tui.username
-    ));
+    "You are in a terminal TUI session with {}.",
+    AppConfig::global().tui.username));
+    system_prompt.push('\n');
     if let Some(help_msg) = help_msg {
-        system_prompt.push('\n');
-        system_prompt.push_str("This are the options available to the user in the TUI\n");
+        system_prompt.push_str("Commands available to the user:\n");
         system_prompt.push_str(help_msg);
+        system_prompt.push('\n');
     }
     Ok(system_prompt)
 }

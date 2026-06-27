@@ -1,5 +1,6 @@
 use bytesize::ByteSize;
 use chrono::{DateTime, Local};
+use indoc::indoc;
 use log::warn;
 use serde_json::json;
 use std::{fs, io};
@@ -24,11 +25,16 @@ impl Tool for FSListDir {
         Ok(())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        List the contents of a directory with full metadata: permissions, owner, group, file size, and last modification time.
+        Use before reading or modifying unknown directories, to audit what files are present, or when the user asks about directory structure.
+        Defaults to the current directory if no path is given.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "List the contents of a folder with details (permissions, user, group, size, modified).",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {

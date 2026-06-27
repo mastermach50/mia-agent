@@ -1,3 +1,4 @@
+use indoc::indoc;
 use serde_json::json;
 use std::{fs, iter};
 
@@ -30,11 +31,21 @@ impl Tool for Memory {
         Ok(())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Insert or delete a single fact in your persistent memory files.
+        Two scopes:
+            - 'user': facts about the user — name, preferences, projects, machine setup, constraints.
+            - 'system': facts about your own configuration — installed tools, discovered paths, behavior notes.
+        Memory is included in every system prompt, so keep entries terse and durable.
+        Insert facts that will remain relevant across future sessions.
+        Delete entries that become wrong or outdated when you discover they are.
+        Do not store task logs, session notes, or transient state — memory is for facts only.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Manage memory files - insert, or delete lines. Use this to remember things about the user or yourself.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {

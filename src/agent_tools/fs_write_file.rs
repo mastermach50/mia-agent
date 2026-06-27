@@ -1,3 +1,4 @@
+use indoc::indoc;
 use serde_json::json;
 use std::fs;
 use termimad::crossterm::style::Stylize;
@@ -24,11 +25,17 @@ impl Tool for FSWriteFile {
         Ok(())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Write text content to a file, creating it if it does not exist or fully overwriting it if it does.
+        Requires explicit user approval before writing.
+        Use for saving generated code, configs, and new files.
+        This replaces the entire file — for targeted edits to existing files, prefer exec_shell with sed, awk, or a Python one-liner to avoid clobbering unchanged content.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Write content to a file. Creates new files or overwrites existing ones.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {

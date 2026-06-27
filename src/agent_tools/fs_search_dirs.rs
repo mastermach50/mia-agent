@@ -1,3 +1,4 @@
+use indoc::indoc;
 use serde_json::json;
 
 use crate::agent_tools::Tool;
@@ -27,11 +28,17 @@ impl Tool for FSSearchDirs {
             .map_err(|_| "fd not found".to_string())
     }
     fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Find files and directories by name pattern using fd.
+        Accepts regex, respects .gitignore, and skips hidden files by default.
+        Use when you know part of a filename but not its location, or to enumerate all files matching a pattern (e.g. all *.toml files in a project).
+        Pair with fs_grep_files: this finds files by name, grep finds files by content.
+        "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Search for files in a directory using 'fd'. Uses regex based search.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {
