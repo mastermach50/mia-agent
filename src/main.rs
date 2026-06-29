@@ -1,11 +1,12 @@
 #![feature(iter_intersperse)]
 #![feature(pathbuf_into_string)]
+#![feature(file_buffered)]
 
-use anyhow::{Ok, Result};
+use anyhow::{Context, Ok, Result};
 use clap::Parser;
 use env_logger::Env;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
-use tabled::{builder::Builder, settings::Style};
+use tabled::{Table, builder::Builder, settings::Style};
 use termimad::crossterm::style::Stylize;
 
 mod agent_loop;
@@ -83,7 +84,25 @@ async fn main() -> Result<()> {
         },
         Some(cli::MainSubCommands::Session { sub_command }) => match sub_command {
             Some(cli::SessionSubCommands::List) => {
-                println!("{}", list_sessions()?);
+                let sessions = list_sessions(true)?;
+                let table = Table::builder(sessions);
+                println!("{}", table.build().with(Style::rounded()));
+            }
+            Some(cli::SessionSubCommands::Clear) => {
+                let clear = inquire::Confirm::new("Clear all sessions?")
+                    .with_default(false)
+                    .prompt()?;
+                if clear {
+                    let sessions_dir = AppConfig::internal().sessions_dir.clone();
+                    for file in sessions_dir.read_dir()? {
+                        let file = file?;
+                        std::fs::remove_file(file.path()).context(format!(
+                            "Failed to delete {}",
+                            file.file_name().to_string_lossy()
+                        ))?;
+                    }
+                    println!("All sessions cleared.");
+                }
             }
             None => {
                 println!("No subcommand provided. Use --help for usage.");

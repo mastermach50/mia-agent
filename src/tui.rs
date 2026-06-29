@@ -9,7 +9,7 @@ use crate::agent_loop;
 use crate::agent_tools::ToolRegistry;
 use crate::api::{Message, PartialMessage};
 use crate::config::AppConfig;
-use crate::sessions::{Session, create_new_session, get_last_session, save_session};
+use crate::sessions::Session;
 use crate::system_prompt::get_tui_system_prompt;
 use crate::utils::{generate_think_lines, start_spinner, stop_spinner};
 use custom_reedline::get_reedline;
@@ -51,15 +51,15 @@ pub async fn run(new_session: bool) -> Result<()> {
     // Unless a new session was requested load the previous history
     let mut session: Session;
     if new_session {
-        session = create_new_session("tui", "user")?;
+        session = Session::new("tui", "user");
         on_system_message("Started new session.");
     } else {
-        if let Some(s) = get_last_session("tui", "user")? {
+        if let Ok(s) = Session::load_last_session("tui", "user") {
             session = s;
             on_system_message("Loaded last session.");
         } else {
             on_system_message("No previous session found.");
-            session = create_new_session("tui", "user")?;
+            session = Session::new("tui", "user");
             on_system_message("Started new session.");
         }
     }
@@ -86,11 +86,11 @@ pub async fn run(new_session: bool) -> Result<()> {
                 // Match for commands
                 match line.as_str() {
                     "/exit" | "/bye" => {
-                        save_session(&session)?;
+                        session.save()?;
                         break;
                     }
                     "/new" => {
-                        session = create_new_session("tui", "user")?;
+                        session = Session::new("tui", "user");
                         on_system_message("New session started, history cleared.");
                         continue;
                     }
@@ -144,7 +144,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                 kitty_protocol.resume();
 
                 // Save the session at the end of turn
-                save_session(&session)?;
+                session.save()?;
             }
             Ok(Signal::CtrlC) => {
                 println!("^C");
@@ -152,7 +152,7 @@ pub async fn run(new_session: bool) -> Result<()> {
             }
             Ok(Signal::CtrlD) => {
                 println!("^D");
-                save_session(&session)?;
+                session.save()?;
                 println!("Exiting...");
                 break;
             }

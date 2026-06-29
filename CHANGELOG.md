@@ -5,6 +5,11 @@
     - Groq
     - Cerebras
 - Updated system prompts to make the agent more intelligent.
+- New `mia session clear` command.
+- Added experimental ratatui ui (`mia ratatui`).
+
+### Changed
+- Changed, session structure, older sessions will be invalid.
 
 ## v0.1.4
 ### Added

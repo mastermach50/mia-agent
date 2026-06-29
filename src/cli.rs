@@ -77,4 +77,7 @@ pub struct ModelListArgs {
 pub enum SessionSubCommands {
     /// List all the sessions
     List,
+
+    /// Clear all sessions
+    Clear,
 }

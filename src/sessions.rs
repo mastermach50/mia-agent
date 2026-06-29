@@ -1,134 +1,120 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
-use itertools::Itertools;
-use log::{debug, info};
+use log::debug;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use tabled::settings::Style;
+use std::fs::{self, File};
+use std::io::BufReader;
+use tabled::Tabled;
 use uuid::Uuid;
 
 use crate::api::History;
 use crate::config::AppConfig;
 
+const SESSION_VERSION: &str = "1";
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Session {
     pub id: String,
+    pub version: String,
     pub title: String,
     pub created: DateTime<Local>,
+    pub modified: DateTime<Local>,
     pub owner: String,
-    pub filename: String,
+    pub channel: String,
     pub history: History,
 }
 
-/// Get list of all the session files (filenames not full paths)
-fn get_session_paths() -> Vec<String> {
-    let dir = AppConfig::internal().sessions_dir.clone();
-    if dir.exists()
-        && let Ok(entries) = fs::read_dir(&dir)
-    {
-        let mut items: Vec<String> = Vec::new();
-        for item in entries.flatten() {
-            items.push(item.file_name().to_string_lossy().to_string());
-        }
-        items
-    } else {
-        fs::create_dir_all(&dir).unwrap();
-        info!("Created sessions directory");
-        Vec::new()
-    }
+#[derive(Tabled, Deserialize, Clone, Default)]
+pub struct PartialSession {
+    #[tabled(rename = "ID")]
+    pub id: String,
+    #[tabled(skip)]
+    pub version: String,
+    #[tabled(rename = "Title")]
+    pub title: String,
+    #[tabled(skip)]
+    pub created: DateTime<Local>,
+    #[tabled(rename = "Modified")]
+    pub modified: DateTime<Local>,
+    #[tabled(rename = "Owner")]
+    pub owner: String,
+    #[tabled(rename = "Channel")]
+    pub channel: String,
+    // History not included
 }
 
-/// Get table of sessions for printing
-pub fn list_sessions() -> Result<String> {
-    let sessions = get_session_paths();
-    if sessions.is_empty() {
-        return Ok("No sessions found.".to_string());
+impl Session {
+    pub fn new(owner: &str, channel: &str) -> Self {
+        Session {
+            id: Uuid::now_v7().to_string(),
+            version: SESSION_VERSION.to_string(),
+            title: String::new(),
+            created: Local::now(),
+            modified: Local::now(),
+            owner: owner.to_string(),
+            channel: channel.to_string(),
+            history: History::new(),
+        }
     }
 
-    let mut table = tabled::builder::Builder::new();
-    table.push_record(vec!["ID", "Title", "Owner", "Created"]);
+    pub fn save(&self) -> Result<()> {
+        let filename = self.id.clone() + ".json";
+        let session_dir = AppConfig::internal().sessions_dir.clone();
+        let filepath = session_dir.join(&filename);
 
-    for filename in sessions {
-        let session_file_contents =
-            &fs::read_to_string(AppConfig::internal().sessions_dir.join(&filename))?;
-        if let Ok(s) = serde_json::from_str::<Session>(session_file_contents) {
-            table.push_record([s.id, s.title, s.owner, s.created.to_rfc2822()]);
+        fs::write(
+            &filepath,
+            serde_json::to_string_pretty(self).context("Failed to serialize session")?,
+        )
+        .context("Failed to save session file")
+    }
+
+    pub fn load(id: &str) -> Result<Self> {
+        let session_file = AppConfig::internal()
+            .sessions_dir
+            .join(id.to_owned() + ".json");
+        let session: Session = serde_json::from_str(
+            &fs::read_to_string(session_file).context("Failed to read session file")?,
+        )
+        .context("Failed to deserialize session")?;
+
+        Ok(session)
+    }
+
+    pub fn load_last_session(owner: &str, channel: &str) -> Result<Self> {
+        let last_session = list_sessions(false)?
+            .into_iter()
+            .filter(|s| s.owner == owner && s.channel == channel)
+            .max_by_key(|s| s.id.clone());
+
+        if let Some(session) = last_session {
+            Session::load(&session.id)
         } else {
-            table.push_record([format!("Invalid Session ({filename})")]);
+            debug!("No existing session found for ({owner}, {channel})");
+            anyhow::bail!("No existing session found for ({owner}, {channel})");
+        }
+    }
+}
+
+pub fn list_sessions(keep_invalid: bool) -> Result<Vec<PartialSession>> {
+    let sessions_dir = AppConfig::internal().sessions_dir.clone();
+    let mut valid_sessions = Vec::new();
+
+    for file in sessions_dir.read_dir()? {
+        if let Ok(file) = file {
+            if let Ok(session) = serde_json::from_reader::<BufReader<File>, PartialSession>(
+                File::open_buffered(file.path())?,
+            ) && session.version == SESSION_VERSION
+            {
+                valid_sessions.push(session);
+            } else if keep_invalid {
+                let mut invalid_session = PartialSession::default();
+                invalid_session.id =
+                    format!("INVALID SESSION: {}", file.file_name().to_string_lossy());
+                valid_sessions.push(invalid_session);
+            }
         }
     }
 
-    Ok(table.build().with(Style::rounded()).to_string())
-}
-
-/// Create a new session and return it
-pub fn create_new_session(kind: &str, owner: &str) -> Result<Session> {
-    let time = chrono::Local::now();
-    let time_string = time.format("%Y%m%d_%H%M%S").to_string();
-
-    let session_dir = AppConfig::internal().sessions_dir.clone();
-    if !session_dir.exists() {
-        fs::create_dir_all(&session_dir).context("Failed to create sessions directory")?;
-        info!("Created sessions directory");
-    }
-    let filename = format!("{kind}_{owner}_{time_string}.json");
-    let filepath = session_dir.join(&filename);
-
-    let new_session = Session {
-        id: Uuid::now_v7().to_string(),
-        title: String::new(),
-        created: time,
-        owner: owner.to_string(),
-        filename: filename.clone(),
-        history: History::new(),
-    };
-
-    fs::write(
-        &filepath,
-        serde_json::to_string_pretty(&new_session).context("Failed to serialize session")?,
-    )
-    .context("Failed to write session to file")?;
-    debug!("Created new session: {}", new_session.filename);
-
-    Ok(new_session)
-}
-
-/// Get the last session of the given owner and return it, otherwise return None
-pub fn get_last_session(kind: &str, owner: &str) -> Result<Option<Session>> {
-    let sessions = get_session_paths();
-    let wanted_session = sessions
-        .iter()
-        .filter(|&s| s.starts_with(&format!("{kind}_{owner}_")))
-        .sorted()
-        .last()
-        .map(|s| s.to_string());
-
-    if wanted_session.is_none() {
-        return Ok(None);
-    }
-
-    let sessions_dir = AppConfig::internal().sessions_dir.clone();
-    let filename = sessions_dir.join(wanted_session.unwrap());
-
-    let last_session: Session =
-        serde_json::from_str(&fs::read_to_string(filename).expect("Failed to read session file"))
-            .expect("Failed to deserialize session file");
-    debug!("Loaded last session: {}", last_session.filename);
-
-    Ok(Some(last_session))
-}
-
-/// Save an existing session
-pub fn save_session(session: &Session) -> Result<()> {
-    let filename = &session.filename;
-    let filepath = AppConfig::internal().sessions_dir.join(filename);
-
-    fs::write(
-        filepath,
-        serde_json::to_string_pretty(&session).context("Failed to serialize session")?,
-    )
-    .context("Failed to write session file")?;
-    debug!("Saved session: {}", filename);
-
-    Ok(())
+    Ok(valid_sessions)
 }
