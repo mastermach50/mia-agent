@@ -1,6 +1,6 @@
+use indoc::indoc;
 use serde_json::json;
 use std::process::Command;
-use indoc::indoc;
 use std::process::Stdio;
 use termimad::crossterm::style::Stylize;
 

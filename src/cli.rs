@@ -39,6 +39,14 @@ pub enum MainSubCommands {
         #[arg(short, long)]
         new: bool,
     },
+
+    /// Run the new ratatui based TUI
+    #[command(hide(true))] // Hidden while still in development
+    Ratatui {
+        /// Start a new session
+        #[arg(short, long)]
+        new: bool,
+    },
 }
 
 #[derive(Subcommand)]

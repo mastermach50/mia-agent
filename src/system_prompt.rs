@@ -105,8 +105,9 @@ pub fn get_system_prompt() -> Result<String> {
 pub fn get_tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
     let mut system_prompt = get_system_prompt()?;
     system_prompt.push_str(&format!(
-    "You are in a terminal TUI session with {}.",
-    AppConfig::global().tui.username));
+        "You are in a terminal TUI session with {}.",
+        AppConfig::global().tui.username
+    ));
     system_prompt.push('\n');
     if let Some(help_msg) = help_msg {
         system_prompt.push_str("Commands available to the user:\n");

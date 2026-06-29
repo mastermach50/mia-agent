@@ -4,7 +4,6 @@
 use anyhow::{Ok, Result};
 use clap::Parser;
 use env_logger::Env;
-// use ratatui_textarea;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use tabled::{builder::Builder, settings::Style};
 use termimad::crossterm::style::Stylize;
@@ -20,7 +19,7 @@ mod system_prompt;
 mod tui;
 mod utils;
 
-// mod ratatuitui;
+mod ratatuitui;
 
 use agent_tools::ToolRegistry;
 use cli::Cli;
@@ -112,6 +111,10 @@ async fn main() -> Result<()> {
         Some(cli::MainSubCommands::Tui { new }) => {
             info!("Starting TUI...");
             tui::run(new).await?;
+        }
+        Some(cli::MainSubCommands::Ratatui { new }) => {
+            info!("Starting Ratatui...");
+            ratatuitui::run(new).await?;
         }
         None => {
             println!("No command provided. Use --help for usage.");

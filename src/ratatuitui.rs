@@ -1,63 +1,100 @@
-use ratatui::layout::{Constraint, Direction, Layout};
-use ratatui_textarea::{Input, Key, TextArea};
+use anyhow::Result;
+use crossterm::{
+    event::{
+        self, Event, KeyCode, KeyEventKind, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+        PushKeyboardEnhancementFlags,
+    },
+    execute,
+};
+use ratatui::{
+    DefaultTerminal, Frame,
+    layout::{Constraint, Direction, Layout},
+    style::Stylize,
+    text::{Line, Text},
+    widgets::{Block, BorderType, Borders, Paragraph, Widget},
+};
+use ratatui_textarea::TextArea;
+use reedline::KeyModifiers;
 
-struct App<'a> {
-    messages: Vec<(String, String)>,
-    textarea: TextArea<'a>,
-    scroll_offset: usize,
-    total_lines: usize,
-    viewport_height: usize,
-    status: String,
+pub async fn run(new_session: bool) -> Result<()> {
+    ratatui::run(|terminal| App::init().run(terminal))?;
+    Ok(())
 }
 
-impl<'a> App<'a> {
-    fn new() -> Self {
-        let mut textarea = TextArea::default();
-
-        // styling
+struct App {
+    messages: Vec<(String, String)>,
+    textbox: TextArea<'static>,
+    status_message: String,
+    exit: bool,
+}
+impl App {
+    fn init() -> Self {
+        let mut textbox = TextArea::default();
+        textbox.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded),
+        );
 
         Self {
-            messages: vec![
-                ("Star".into(), "Hi therre".into()),
-                ("Marco".into(), "Hi the\n\n\n\n\n\n\n\rre".into()),
-                ("Genie".into(), "yooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo".into()),
-                ("Alice".into(), "Hi therre".into()),
-            ],
-            textarea,
-            scroll_offset: 0,
-            total_lines: 0,
-            viewport_height: 0,
-            status: "50% used".into()
+            messages: vec![],
+            textbox: textbox,
+            status_message: String::new(),
+            exit: false,
         }
     }
 
-    fn submit(&mut self) {
-        let text = self.textarea.lines().join("\n");
-        let trimmed = text.trim().to_string();
-        if !trimmed.is_empty() {
-            self.messages.push(("user".into(), trimmed));
-            self.scroll_offset = 0;
+    fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+        while !self.exit {
+            terminal.draw(|frame| self.draw(frame))?;
+            self.handle_events()?;
         }
+
+        Ok(())
     }
 
-    fn ui(f: &mut ratatui::Frame, app: &mut App) {
-        let total_area = f.area();
-
-        let chunks = Layout::default()
+    fn draw(&mut self, frame: &mut Frame) {
+        let sections = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Min(0),
-                Constraint::Length(1),
-                Constraint::Length(1),
-            ])
-            .split(total_area);
+            .constraints(vec![Constraint::Min(1), Constraint::Length(3)])
+            .split(frame.area());
 
-        let msg_area = chunks[0];
-        let bar_area = chunks[1];
-        let input_area = chunks[2];
+        frame.render_widget(Paragraph::new("Messages"), sections[0]);
 
-        // render_messages(f, app, msg_area);
-        // render_bar(f, app, bar_area);
-        f.render_widget(&app.textarea, input_area);
+        self.textbox.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title(Line::from(self.status_message.clone().yellow()).right_aligned()),
+        );
+
+        frame.render_widget(&self.textbox, sections[1]);
+    }
+
+    fn handle_events(&mut self) -> Result<()> {
+        match event::read()? {
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                match key_event.code {
+                    KeyCode::Esc => {
+                        self.exit = true;
+                    }
+                    KeyCode::Enter => {
+                        if key_event.modifiers.contains(KeyModifiers::SHIFT) {
+                            self.textbox.insert_newline();
+                        } else {
+                            let text = self.textbox.lines().join("\n");
+                            self.status_message = text;
+                            self.textbox = TextArea::default();
+                        }
+                    }
+                    _ => {
+                        self.textbox.input(key_event);
+                    }
+                }
+            }
+            _ => {}
+        };
+
+        Ok(())
     }
 }
