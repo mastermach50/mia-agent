@@ -9,6 +9,7 @@ use crate::config::AppConfig;
 /// a new history that includes the assistant's response and any tools calls processed
 pub async fn run_agent(
     history: History,
+    session_id: &str,
     stream: bool,
     on_assistant_message: impl Fn(&Message),
     on_partial_assistant_message: impl Fn(&PartialMessage),
@@ -54,6 +55,7 @@ pub async fn run_agent(
         let assistant_msg = tokio::select! {
             res = completion(
                 &history,
+                &session_id,
                 stream,
                 &cancel,
                 &on_assistant_status_update,

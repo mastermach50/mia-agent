@@ -10,49 +10,53 @@ use uuid::Uuid;
 use crate::api::History;
 use crate::config::AppConfig;
 
-const SESSION_VERSION: &str = "1";
+const SESSION_VERSION: &str = "2";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Session {
-    pub id: String,
     pub version: String,
+    pub id: String,
     pub title: String,
+    pub owner: String,
+    pub platform: String,
+    pub channel: String,
     pub created: DateTime<Local>,
     pub modified: DateTime<Local>,
-    pub owner: String,
-    pub channel: String,
     pub history: History,
 }
 
 #[derive(Tabled, Deserialize, Clone, Default)]
 pub struct PartialSession {
-    #[tabled(rename = "ID")]
-    pub id: String,
     #[tabled(skip)]
     pub version: String,
+    #[tabled(rename = "ID")]
+    pub id: String,
     #[tabled(rename = "Title")]
     pub title: String,
+    #[tabled(rename = "Owner")]
+    pub owner: String,
+    #[tabled(skip)]
+    pub platform: String,
+    #[tabled(rename = "Channel")]
+    pub channel: String,
     #[tabled(skip)]
     pub created: DateTime<Local>,
     #[tabled(rename = "Modified")]
     pub modified: DateTime<Local>,
-    #[tabled(rename = "Owner")]
-    pub owner: String,
-    #[tabled(rename = "Channel")]
-    pub channel: String,
     // History not included
 }
 
 impl Session {
-    pub fn new(owner: &str, channel: &str) -> Self {
+    pub fn new(owner: &str, platform: &str, channel: &str) -> Self {
         Session {
-            id: Uuid::now_v7().to_string(),
             version: SESSION_VERSION.to_string(),
+            id: Uuid::now_v7().to_string(),
             title: String::new(),
+            owner: owner.to_string(),
+            platform: platform.to_string(),
+            channel: channel.to_string(),
             created: Local::now(),
             modified: Local::now(),
-            owner: owner.to_string(),
-            channel: channel.to_string(),
             history: History::new(),
         }
     }
@@ -93,6 +97,16 @@ impl Session {
             debug!("No existing session found for ({owner}, {channel})");
             anyhow::bail!("No existing session found for ({owner}, {channel})");
         }
+    }
+
+    pub fn get_extended_session_id(&self) -> String {
+        // Lengths
+        // mia_agent_:_ = 12
+        // {platform}   = 104
+        // {channel}    = 104
+        // {id}         = 36
+        // Total        = 256
+        format!("mia-agent_{}:{}_{}", self.platform, self.channel, self.id)
     }
 }
 

@@ -107,6 +107,7 @@ impl History {
 
 pub async fn completion(
     history: &History,
+    session_id: &str,
     stream: bool,
     cancel: &CancellationToken,
     on_status_update: impl Fn(&str),
@@ -124,15 +125,12 @@ pub async fn completion(
     let mut payload = json!({
         "messages": history.messages,
         "model": AppConfig::global().model.name,
+        "reasoning_effort": AppConfig::global().model.reasoning,
         "tools": ToolRegistry::schema(),
         "stream": stream
     });
     if provider == Providers::Openrouter {
-        payload["reasoning"] = json!({
-            "effort": AppConfig::global().model.reasoning
-        })
-    } else {
-        payload["reasoning_effort"] = json!(AppConfig::global().model.reasoning);
+        payload["session_id"] = json!{ session_id }
     }
 
     // Generate the request url

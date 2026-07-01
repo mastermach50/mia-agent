@@ -30,30 +30,32 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 - Agent memory
 - Session and prompt history
 - Full markdown rendering in terminal (thanks to [termimad](https://github.com/Canop/termimad))
-- OpenAI Compatible API access
+- OpenAI Compatible API access with support for multiple providers:
+  - OpenRouter (default, recommended)
+  - Google AI Studio
+  - Groq
+  - Cerebras
+  - Local LLMs (Ollama, LMStudio, llama.cpp, etc.)
 - Web search and extract using [Tavily](https://tavily.com)
-
-## Upcoming Features
-- Whatsapp and Discord gateways
-- Agent skills
-- MCP connectivity
+- Experimental streaming support
+- Experimental ratatui interface
 
 ## Tools
 Currently Mia has the following tools:
 
-|| Tool | Description | Gated |
-|:-:|:-|:-|:-:|
-| 📅 | `datetime`       | Get the current date and time              | No  |
-| 📁 | `fs_list_dir`    | List files in a directory                  | No  |
-| 📖 | `fs_read_file`   | Read a file from the filesystem            | No  |
-| 🔍 | `fs_grep_files`  | Search file contents                       | No  |
-| 🧭 | `fs_search_dirs` | Search for files in a directory            | No  |
-| ✍️ | `fs_write_file`  | Write content to a file                    | Yes |
-| 🧠 | `memory`         | Manage memory about the user and the agent | No  |
-| 🐍 | `exec_python`    | Execute Python 3 code                      | Yes |
-| 🐚 | `exec_shell`     | Run shell commands                         | Yes |
-| 🪏 | `web_extract`    | Extract content from a URL                 | No  |
-| 🌐 | `web_search`     | Search the web                             | No  |
+| Tool | Description | Gated |
+|:-:|:-|:-:|
+| 📅 | `datetime` | Get the current date and time | No |
+| 📁 | `fs_list_dir` | List files in a directory | No |
+| 📖 | `fs_read_file` | Read a file from the filesystem | No |
+| 🔍 | `fs_grep_files` | Search file contents | No |
+| 🧭 | `fs_search_dirs` | Search for files in a directory | No |
+| ✍️ | `fs_write_file` | Write content to a file | Yes |
+| 🧠 | `memory` | Manage memory about the user and the agent | No |
+| 🐍 | `exec_python` | Execute Python 3 code | Yes |
+| 🐚 | `exec_shell` | Run shell commands | Yes |
+| 🪏 | `web_extract` | Extract content from a URL | No |
+| 🌐 | `web_search` | Search the web | No |
 
 ## Installation
 ### Option A: Package Manager
@@ -89,26 +91,28 @@ nix run github:mastermach50/mia-agent
 To install it, add to your system packages using the same flake.
 
 ## Configuration
-Mia requires an [Openrouter API key](https://openrouter.ai/workspaces/default/keys) (can be obtained for free, [there are also free models](https://openrouter.ai/docs/guides/routing/model-variants/free)), currently this is the only way to access LLMs.
->Support for using any OpenAI compatible API is planned for the future (very soon).
+Mia supports multiple LLM providers:
 
-1. On the first run, the agent will create all required folders and files, but will not start because of no API keys.
-```
-mia
-```
-2. Edit `~/.mia/.env` on Linux or `C:\Users\<username>\.mia\.env` on Windows and add
+- **[OpenRouter](https://openrouter.ai/workspaces/default/keys)** (default, recommended) - can be obtained for free, [there are also free models](https://openrouter.ai/docs/guides/routing/model-variants/free)
+- **[Google AI Studio](https://aistudio.google.com/)** - free tier available
+- **[Groq](https://groq.com/)** - fast inference API
+- **[Cerebras](https://www.cerebras.ai/)** - large model inference
+- **Local LLMs** - Ollama, LMStudio, llama.cpp, and other OpenAI-compatible local servers
+
+1. Run `mia setup` to configure your agent interactively.
+
+2. For advanced configuration, you can manually edit the `~/.mia/.env` file on Linux or `C:\Users\\<username>\.mia\.env` on Windows to add your API key:
 ```
 OPENROUTER_API_KEY=<your-openrouter-api-key>
 ```
+Or for other providers, set the appropriate environment variable.
 
-3. Run `mia tui` to start the agent.
-
-4. (Optional) Add your [Tavily API key](https://app.tavily.com/home) (can be obtained for free and has a reasonable number of free searches per month) to `.mia/.env` allow the `web_search` tool.
+3. (Optional) Add your [Tavily API key](https://app.tavily.com/home) (can be obtained for free and has a reasonable number of free searches per month) to `.mia/.env` to enable the `web_search` tool.
 ```
 TAVILY_API_KEY=<your-tavily-api-key>
 ```
 
-5. (Optional) Run `mia tools` to see if all the tools are usable and find which components are missing if any.
+4. (Optional) Run `mia tools` to see if all the tools are usable and find which components are missing if any.
 
 Currently the external tools required by mia are
 - [Python](https://python.org)
@@ -116,11 +120,21 @@ Currently the external tools required by mia are
 - [fd](https://github.com/sharkdp/fd)
 
 ## Usage
-### Cli
-Use `mia --help` to acces the full cli help menu.
+### CLI
+Use `mia --help` to access the full cli help menu.
 
-### Tui
-The tui supports certain commands use `/help` while in the tui to see them.
+### TUI
+The TUI supports certain commands. Use `/help` while in the TUI to see them.
+
+### Available Commands
+- `mia tui` - Start the main terminal UI
+- `mia ratatui` - Start the experimental ratatui interface
+- `mia setup` - Interactive setup wizard
+- `mia tools` - Check tool availability
+- `mia model list` - List available models
+- `mia model show` - Show current model info
+- `mia sessions list` - List all sessions
+- `mia session clear` - Clear all sessions (prompts for confirmation)
 
 ## Development
 ### MSRV

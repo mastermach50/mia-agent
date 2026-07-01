@@ -26,6 +26,7 @@ use agent_tools::ToolRegistry;
 use cli::Cli;
 use config::AppConfig;
 use log::{info, trace};
+use uuid::Uuid;
 
 use crate::{
     api::History,
@@ -57,8 +58,10 @@ async fn main() -> Result<()> {
         let mut history = History::new();
         history.set_system_prompt(get_tui_system_prompt(None)?);
         history.add_message(api::Message::new("user", &command));
+        let session_id = format!("mia-agent_{}", Uuid::now_v7().to_string());
         agent_loop::run_agent(
             history,
+            &session_id,
             AppConfig::global().tui.streaming,
             tui::on_assistant_message,
             tui::on_partial_assistant_message,
@@ -115,7 +118,7 @@ async fn main() -> Result<()> {
             println!("Available Tools:");
             for (tool_name, is_available, reason) in ToolRegistry::tools_status() {
                 println!(
-                    "    {} {:15} {} {}",
+                    "{} {:15} {} {}",
                     ToolRegistry::tool_icon(&tool_name),
                     tool_name,
                     if is_available {

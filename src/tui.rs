@@ -51,7 +51,7 @@ pub async fn run(new_session: bool) -> Result<()> {
     // Unless a new session was requested load the previous history
     let mut session: Session;
     if new_session {
-        session = Session::new("tui", "user");
+        session = Session::new("user", "tui", "tui");
         on_system_message("Started new session.");
     } else {
         if let Ok(s) = Session::load_last_session("tui", "user") {
@@ -59,10 +59,11 @@ pub async fn run(new_session: bool) -> Result<()> {
             on_system_message("Loaded last session.");
         } else {
             on_system_message("No previous session found.");
-            session = Session::new("tui", "user");
+            session = Session::new("user", "tui", "tui");
             on_system_message("Started new session.");
         }
     }
+    let session_id = session.get_extended_session_id();
 
     // For full featured input powered by reedline
     // The _terminal_lifecycle is needed to support kitty protocol stuff
@@ -90,7 +91,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                         break;
                     }
                     "/new" => {
-                        session = Session::new("tui", "user");
+                        session = Session::new("user", "tui", "tui");
                         on_system_message("New session started, history cleared.");
                         continue;
                     }
@@ -132,6 +133,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                 // Assistant's response is printed by the printer passed into the agent loop
                 session.history = agent_loop::run_agent(
                     session.history,
+                    &session_id,
                     stream,
                     on_assistant_message,
                     on_partial_assistant_message,
@@ -172,7 +174,9 @@ pub fn on_assistant_message(message: &Message) {
     let mut output = String::new();
 
     // Print the reasoning and content, only if it was not streamed
-    if !AppConfig::global().tui.streaming {
+    if AppConfig::global().tui.streaming {
+        output.push('\n');
+    } else {
         if let Some(reasoning) = message.reasoning.clone()
             && AppConfig::global().tui.show_reasoning
         {
