@@ -48,7 +48,7 @@ pub struct PartialSession {
 
 impl Session {
     pub fn new(owner: &str, platform: &str, channel: &str) -> Self {
-        Session {
+        let session = Session {
             version: SESSION_VERSION.to_string(),
             id: Uuid::now_v7().to_string(),
             title: String::new(),
@@ -58,7 +58,15 @@ impl Session {
             created: Local::now(),
             modified: Local::now(),
             history: History::new(),
+        };
+
+        // For internal testing purposes only, length of session id can only be influenced by
+        // platform and channel name, which can only be set by developers
+        if session.get_extended_session_id().len() > 256 {
+            panic!("Session ID is too long");
         }
+
+        session
     }
 
     pub fn save(&self) -> Result<()> {
@@ -85,10 +93,10 @@ impl Session {
         Ok(session)
     }
 
-    pub fn load_last_session(owner: &str, channel: &str) -> Result<Self> {
+    pub fn load_last_session(owner: &str, platform: &str, channel: &str) -> Result<Self> {
         let last_session = list_sessions(false)?
             .into_iter()
-            .filter(|s| s.owner == owner && s.channel == channel)
+            .filter(|s| s.owner == owner && s.platform == platform &&s.channel == channel)
             .max_by_key(|s| s.id.clone());
 
         if let Some(session) = last_session {

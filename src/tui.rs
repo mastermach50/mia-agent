@@ -54,7 +54,7 @@ pub async fn run(new_session: bool) -> Result<()> {
         session = Session::new("user", "tui", "tui");
         on_system_message("Started new session.");
     } else {
-        if let Ok(s) = Session::load_last_session("tui", "user") {
+        if let Ok(s) = Session::load_last_session("user", "tui", "tui") {
             session = s;
             on_system_message("Loaded last session.");
         } else {
