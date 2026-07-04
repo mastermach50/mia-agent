@@ -12,7 +12,7 @@ use crate::config::AppConfig;
 
 const SESSION_VERSION: &str = "2";
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct Session {
     pub version: String,
     pub id: String,

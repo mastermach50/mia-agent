@@ -1,29 +1,37 @@
 use std::time::Duration;
 
-use crossterm::{event::{self, Event, KeyCode, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags}, execute};
-use ratatui::{Frame, layout::{Constraint, Direction, Layout}, style::{Color, Stylize}, text::{Line, Span, Text}, widgets::{Block, BorderType, Borders, Paragraph, Wrap}};
+use crossterm::{event::{self, KeyCode, Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags}, execute};
+use ratatui::{Frame, layout::{Constraint, Layout}, style::Stylize, text::{Line, Span, Text}, widgets::{Paragraph, Wrap}};
+use ratatui_textarea::TextArea;
 use anyhow::Result;
-use ratatui_textarea::{TextArea, WrapMode};
 
-use crate::{config::AppConfig, sessions::Session};
+use crate::{api::Message, sessions::Session};
 
 pub async fn run(new_session: bool) -> Result<()> {
-
-    let mut state = AppState::new();
-
-    let mut session = if new_session {
-        state.on_system_message("Started new session.");
+ 
+    let mut state = AppState {
+        session: Session::default(),
+        input: TextArea::default(),
+        messages: Vec::new(),
+        partial_message: String::new(),
+        exit: false
+    };
+    
+    let session = if new_session {
+        state.on_system_message("Started new session.".to_string());
         Session::new("user", "tui", "tui")
     } else {
         if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
-            state.on_system_message("Loaded last session.");
+            state.on_system_message("Loaded last session.".to_string());
             session
         } else {
-            state.on_system_message("No previous session found, starting new one.");
+            state.on_system_message("No previous session found, starting new one.".to_string());
             Session::new("user", "tui", "tui")
         }
     };
 
+    state.session = session;
+    
     let mut terminal = ratatui::init();
     execute!(
         std::io::stdout(),
@@ -34,12 +42,12 @@ pub async fn run(new_session: bool) -> Result<()> {
             KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
         )
     )?;
-
+ 
     while !state.exit {
         terminal.draw(|f| state.draw(f))?;
-        handle_key_events(&mut state, &mut session)?;
+        handle_key_events(&mut state).await?;
     }
-
+ 
     ratatui::restore();
     execute!(
         std::io::stdout(),
@@ -48,124 +56,209 @@ pub async fn run(new_session: bool) -> Result<()> {
     Ok(())
 }
 
-struct AppState<'a> {
-    input: TextArea<'a>,
 
-    status: String,
-    model: String,
+struct AppState {
+    session: Session,
 
-    complete_messages: Vec<TUIMessage<'a>>,
+    input: TextArea<'static>,
+
+    messages: Vec<RenderAwareTUIMessage>,
     partial_message: String,
-    scroll_offset: u32,
 
-    exit: bool,
+    exit: bool
 }
 
-enum TUIMessage<'a> {
-    Message(Role, Text<'a>),
-    ToolCall(String, String, String),
+struct RenderAwareTUIMessage {
+    message: TUIMessage,
+    cached_text: Text<'static>,
+    rendered: bool
 }
 
+enum TUIMessage {
+    TextMessage {
+        role: Role,
+        reasoning: String,
+        content: String,
+    },
+
+    ToolCallNotifier {
+        icon: String,
+        name: String,
+        shorthand: String,
+    }
+}
+
+#[derive(Clone, Copy)]
 enum Role {
     User,
-    System,
     Assistant,
+    System
 }
 
-impl<'a> AppState<'a> {
-    fn new() -> Self {
-        let mut input = TextArea::default();
-        input.set_wrap_mode(WrapMode::WordOrGlyph);
-        input.set_block(Block::new().bg(Color::Gray));
-
-        Self {
-            input: input,
-
-            status: String::new(),
-            model: AppConfig::global().model.name.clone(),
-
-            complete_messages: Vec::new(),
-            partial_message: String::new(),
-            scroll_offset: 0,
-
-            exit: false,
-        }
-    }
-
-    fn submit(&mut self) {
-        if !self.input.is_empty() {
-            self.complete_messages.push(TUIMessage::Message(
-                Role::User,
-                Text::from(self.input.lines())
-            ));
-            self.input.clear();
-        }
-    }
-
-    fn draw(&self, frame: &mut Frame) {
+impl AppState {
+    /// Draw the frame from the current state
+    /// It requires a mutable self because it also calls pre_render_messages()
+    /// that requires a mutable self inorder to cache the rendered messages
+    fn draw(&mut self, frame: &mut Frame) {
         let area = frame.area();
-        let input_width = area.width.max(1) as usize;
 
-        let input_height: u16 = self.input.lines().iter()
-            .map(|line| {
-                let len = line.chars().count().max(1);
+        // Calculate the height required by the input based on its contents
+        let input_width = area.width as usize;
+        let input_height = self.input.lines().iter()
+            .map(|l| {
+                let len = l.chars().count().max(1);
                 ((len + input_width - 1) / input_width) as u16
             })
             .sum::<u16>()
             .max(1);
 
+        // Divide up the total frame area
         let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
+            .constraints(vec![
                 Constraint::Min(1),
+                Constraint::Length(1),
                 Constraint::Length(input_height)
             ])
-            .split(frame.area());
+            .split(area);
 
-        let mut full_text: Text = Text::default();
-        for item in &self.complete_messages {
-            match item {
-                TUIMessage::Message(role, text) => {
-                    let name = match role {
-                        Role::User => "User".green().into(),
-                        Role::System => "System".yellow().into(),
-                        Role::Assistant => "Mia".cyan().into(),
+        frame.render_widget(&self.input, chunks[2]);
+
+        self.pre_render_messages(frame);
+
+        let mut display_lines = Vec::new();
+        for ra_message in &self.messages {
+            display_lines.extend(ra_message.cached_text.lines.clone());
+        }
+        let messages_paragraph = Paragraph::new(display_lines)
+            .wrap(Wrap { trim: false }); 
+
+        frame.render_widget(messages_paragraph, chunks[0]);
+    }
+    
+    /// Take in the messages and then prerender it and store it in the cache.
+    /// Only needs to render uncached messsages
+    fn pre_render_messages(&mut self, frame: &mut Frame) {
+        let area_width = frame.area().width as usize;
+
+        for ra_message in &mut self.messages {
+            if ra_message.rendered{
+                continue;
+            }
+            
+            match &mut ra_message.message {
+                TUIMessage::TextMessage { role, reasoning, content } => {
+                    let sender = match role {
+                        Role::User => "User".green(),
+                        Role::Assistant => "Mia".cyan(),
+                        Role::System => "System".yellow()
                     };
-                    full_text.push_line(Line::from(vec![
-                        name,
-                        " ◣".into(),
-                    ]));
-                    full_text.extend(text.clone().lines);
+
+                    let short_line = reasoning.is_empty()
+                    && !content.contains("\n")
+                    && content.chars().count() < (area_width - sender.width() - 10);
+
+                    if short_line {
+                        ra_message.cached_text.push_line(Line::from(vec![
+                            sender,
+                            " > ".into(),
+                            content.clone().into(),
+                        ]));
+                        ra_message.rendered = true;
+                        continue;
+                    } else {
+                        ra_message.cached_text.push_line(Line::from(vec![
+                            sender,
+                            " ◣".into(),
+                        ]));
+                    }
+
+                    if !reasoning.is_empty() {
+                        let text_width = (frame.area().width - 2) as usize;
+                        let wrapped = textwrap::wrap(reasoning, text_width);
+
+                        for line in wrapped {
+                            ra_message.cached_text.push_line(Line::from(vec![
+                                "| ".into(),
+                                line.into_owned().into()
+                            ]));
+                        }
+                    }
+                    if !content.is_empty() {
+                        for line in content.split("\n") {
+                            ra_message.cached_text.push_line(Line::from(line.to_string()));
+                        }
+                    }
+
+                    ra_message.rendered = true;
                 }
-                _ => {}
+                TUIMessage::ToolCallNotifier { icon, name, shorthand } => {
+                    ra_message.cached_text.push_line(Line::from(vec![
+                        "Mia".cyan(),
+                        " > ".into(),
+                        icon.to_string().into(),
+                        name.to_string().into(),
+                        shorthand.to_string().into(),
+                    ]));
+                    ra_message.rendered = true;
+                }
             }
         }
-        let messages = Paragraph::new(full_text);
-        frame.render_widget(messages, chunks[0]);
-        frame.render_widget(&self.input, chunks[1]);
     }
 
-    fn on_system_message(&mut self, message: &'a str) {
-        self.complete_messages.push(TUIMessage::Message(
-            Role::System,
-            Text::from(message)
-        ));
+    /// Take in the current contents of the input and make it into a new message
+    fn submit(&mut self) -> Result<()> {
+        if !self.input.is_empty() {
+            let lines = self.input.lines();
+            let text = lines.join("\n");
+ 
+            self.messages.push(
+                RenderAwareTUIMessage {
+                    message: TUIMessage::TextMessage {
+                        role: Role::User,
+                        reasoning: String::new(),
+                        content: text.clone()
+                    },
+                    cached_text: Text::default(),
+                    rendered: false
+                }
+            );
+ 
+            self.session.history.add_message(Message::new("user", text));
+ 
+            self.input.clear();
+        }
+
+        Ok(())
+    }
+
+    fn on_system_message(&mut self, message: String) {
+        self.messages.push(
+            RenderAwareTUIMessage {
+            message: TUIMessage::TextMessage {
+                role: Role::System,
+                reasoning: String::new(),
+                content: message
+            },
+            cached_text: Text::default(),
+            rendered: false
+            }
+        );
     }
 }
 
-fn handle_key_events(state: &mut AppState, session: &mut Session) -> Result<()> {
+async fn handle_key_events(state: &mut AppState) -> Result<()> {
     let timeout = Duration::from_millis(50);
     if event::poll(timeout)? {
         match event::read()? {
             Event::Key(key_event) => {
                 match key_event.code {
                     KeyCode::Esc => {
-                        session.save()?;
+                        state.session.save()?;
                         state.exit = true;
                     }
-                    KeyCode::Enter=> {
+                    KeyCode::Enter => {
                         if key_event.modifiers.is_empty() {
-                            state.submit();
+                            state.submit()?;
                         }
                     }
                     _ => {}
@@ -177,6 +270,6 @@ fn handle_key_events(state: &mut AppState, session: &mut Session) -> Result<()> 
             _ => {}
         }
     }
-
+ 
     Ok(())
 }

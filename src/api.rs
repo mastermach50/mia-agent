@@ -78,7 +78,7 @@ pub struct PartialMessage {
     pub content: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct History {
     pub messages: Vec<Message>,
 }
