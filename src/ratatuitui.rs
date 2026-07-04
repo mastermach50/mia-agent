@@ -1,22 +1,33 @@
 use std::time::Duration;
 
-use crossterm::{event::{self, KeyCode, Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags}, execute};
-use ratatui::{Frame, layout::{Constraint, Layout}, style::Stylize, text::{Line, Span, Text}, widgets::{Paragraph, Wrap}};
-use ratatui_textarea::TextArea;
 use anyhow::Result;
+use crossterm::{
+    event::{
+        self, Event, KeyCode, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+        PushKeyboardEnhancementFlags,
+    },
+    execute,
+};
+use ratatui::{
+    Frame,
+    layout::{Constraint, Layout},
+    style::Stylize,
+    text::{Line, Span, Text},
+    widgets::{Paragraph, Wrap},
+};
+use ratatui_textarea::TextArea;
 
 use crate::{api::Message, sessions::Session};
 
 pub async fn run(new_session: bool) -> Result<()> {
- 
     let mut state = AppState {
         session: Session::default(),
         input: TextArea::default(),
         messages: Vec::new(),
         partial_message: String::new(),
-        exit: false
+        exit: false,
     };
-    
+
     let session = if new_session {
         state.on_system_message("Started new session.".to_string());
         Session::new("user", "tui", "tui")
@@ -31,31 +42,23 @@ pub async fn run(new_session: bool) -> Result<()> {
     };
 
     state.session = session;
-    
+
     let mut terminal = ratatui::init();
     execute!(
         std::io::stdout(),
-        PushKeyboardEnhancementFlags(
-            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-        ),
-        PushKeyboardEnhancementFlags(
-            KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
-        )
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES),
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES)
     )?;
- 
+
     while !state.exit {
         terminal.draw(|f| state.draw(f))?;
         handle_key_events(&mut state).await?;
     }
- 
+
     ratatui::restore();
-    execute!(
-        std::io::stdout(),
-        PopKeyboardEnhancementFlags
-    )?;
+    execute!(std::io::stdout(), PopKeyboardEnhancementFlags)?;
     Ok(())
 }
-
 
 struct AppState {
     session: Session,
@@ -65,13 +68,13 @@ struct AppState {
     messages: Vec<RenderAwareTUIMessage>,
     partial_message: String,
 
-    exit: bool
+    exit: bool,
 }
 
 struct RenderAwareTUIMessage {
     message: TUIMessage,
     cached_text: Text<'static>,
-    rendered: bool
+    rendered: bool,
 }
 
 enum TUIMessage {
@@ -85,14 +88,14 @@ enum TUIMessage {
         icon: String,
         name: String,
         shorthand: String,
-    }
+    },
 }
 
 #[derive(Clone, Copy)]
 enum Role {
     User,
     Assistant,
-    System
+    System,
 }
 
 impl AppState {
@@ -104,7 +107,10 @@ impl AppState {
 
         // Calculate the height required by the input based on its contents
         let input_width = area.width as usize;
-        let input_height = self.input.lines().iter()
+        let input_height = self
+            .input
+            .lines()
+            .iter()
             .map(|l| {
                 let len = l.chars().count().max(1);
                 ((len + input_width - 1) / input_width) as u16
@@ -117,7 +123,7 @@ impl AppState {
             .constraints(vec![
                 Constraint::Min(1),
                 Constraint::Length(1),
-                Constraint::Length(input_height)
+                Constraint::Length(input_height),
             ])
             .split(area);
 
@@ -129,33 +135,36 @@ impl AppState {
         for ra_message in &self.messages {
             display_lines.extend(ra_message.cached_text.lines.clone());
         }
-        let messages_paragraph = Paragraph::new(display_lines)
-            .wrap(Wrap { trim: false }); 
+        let messages_paragraph = Paragraph::new(display_lines).wrap(Wrap { trim: false });
 
         frame.render_widget(messages_paragraph, chunks[0]);
     }
-    
+
     /// Take in the messages and then prerender it and store it in the cache.
     /// Only needs to render uncached messsages
     fn pre_render_messages(&mut self, frame: &mut Frame) {
         let area_width = frame.area().width as usize;
 
         for ra_message in &mut self.messages {
-            if ra_message.rendered{
+            if ra_message.rendered {
                 continue;
             }
-            
+
             match &mut ra_message.message {
-                TUIMessage::TextMessage { role, reasoning, content } => {
+                TUIMessage::TextMessage {
+                    role,
+                    reasoning,
+                    content,
+                } => {
                     let sender = match role {
                         Role::User => "User".green(),
                         Role::Assistant => "Mia".cyan(),
-                        Role::System => "System".yellow()
+                        Role::System => "System".yellow(),
                     };
 
                     let short_line = reasoning.is_empty()
-                    && !content.contains("\n")
-                    && content.chars().count() < (area_width - sender.width() - 10);
+                        && !content.contains("\n")
+                        && content.chars().count() < (area_width - sender.width() - 10);
 
                     if short_line {
                         ra_message.cached_text.push_line(Line::from(vec![
@@ -166,10 +175,9 @@ impl AppState {
                         ra_message.rendered = true;
                         continue;
                     } else {
-                        ra_message.cached_text.push_line(Line::from(vec![
-                            sender,
-                            " ◣".into(),
-                        ]));
+                        ra_message
+                            .cached_text
+                            .push_line(Line::from(vec![sender, " ◣".into()]));
                     }
 
                     if !reasoning.is_empty() {
@@ -177,21 +185,26 @@ impl AppState {
                         let wrapped = textwrap::wrap(reasoning, text_width);
 
                         for line in wrapped {
-                            ra_message.cached_text.push_line(Line::from(vec![
-                                "| ".into(),
-                                line.into_owned().into()
-                            ]));
+                            ra_message
+                                .cached_text
+                                .push_line(Line::from(vec!["| ".into(), line.into_owned().into()]));
                         }
                     }
                     if !content.is_empty() {
                         for line in content.split("\n") {
-                            ra_message.cached_text.push_line(Line::from(line.to_string()));
+                            ra_message
+                                .cached_text
+                                .push_line(Line::from(line.to_string()));
                         }
                     }
 
                     ra_message.rendered = true;
                 }
-                TUIMessage::ToolCallNotifier { icon, name, shorthand } => {
+                TUIMessage::ToolCallNotifier {
+                    icon,
+                    name,
+                    shorthand,
+                } => {
                     ra_message.cached_text.push_line(Line::from(vec![
                         "Mia".cyan(),
                         " > ".into(),
@@ -210,21 +223,19 @@ impl AppState {
         if !self.input.is_empty() {
             let lines = self.input.lines();
             let text = lines.join("\n");
- 
-            self.messages.push(
-                RenderAwareTUIMessage {
-                    message: TUIMessage::TextMessage {
-                        role: Role::User,
-                        reasoning: String::new(),
-                        content: text.clone()
-                    },
-                    cached_text: Text::default(),
-                    rendered: false
-                }
-            );
- 
+
+            self.messages.push(RenderAwareTUIMessage {
+                message: TUIMessage::TextMessage {
+                    role: Role::User,
+                    reasoning: String::new(),
+                    content: text.clone(),
+                },
+                cached_text: Text::default(),
+                rendered: false,
+            });
+
             self.session.history.add_message(Message::new("user", text));
- 
+
             self.input.clear();
         }
 
@@ -232,17 +243,15 @@ impl AppState {
     }
 
     fn on_system_message(&mut self, message: String) {
-        self.messages.push(
-            RenderAwareTUIMessage {
+        self.messages.push(RenderAwareTUIMessage {
             message: TUIMessage::TextMessage {
                 role: Role::System,
                 reasoning: String::new(),
-                content: message
+                content: message,
             },
             cached_text: Text::default(),
-            rendered: false
-            }
-        );
+            rendered: false,
+        });
     }
 }
 
@@ -270,6 +279,6 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
             _ => {}
         }
     }
- 
+
     Ok(())
 }

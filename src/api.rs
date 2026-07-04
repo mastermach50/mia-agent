@@ -130,7 +130,7 @@ pub async fn completion(
         "stream": stream
     });
     if provider == Providers::Openrouter {
-        payload["session_id"] = json!{ session_id }
+        payload["session_id"] = json! { session_id }
     }
 
     // Generate the request url

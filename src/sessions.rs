@@ -40,6 +40,7 @@ pub struct PartialSession {
     #[tabled(rename = "Channel")]
     pub channel: String,
     #[tabled(skip)]
+    #[allow(unused)]
     pub created: DateTime<Local>,
     #[tabled(rename = "Modified")]
     pub modified: DateTime<Local>,
@@ -96,7 +97,7 @@ impl Session {
     pub fn load_last_session(owner: &str, platform: &str, channel: &str) -> Result<Self> {
         let last_session = list_sessions(false)?
             .into_iter()
-            .filter(|s| s.owner == owner && s.platform == platform &&s.channel == channel)
+            .filter(|s| s.owner == owner && s.platform == platform && s.channel == channel)
             .max_by_key(|s| s.id.clone());
 
         if let Some(session) = last_session {
