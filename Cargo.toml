@@ -14,6 +14,7 @@ name = "mia"
 path = "src/main.rs"
 
 [dependencies]
+ansi-to-tui = "8.0.1"
 anyhow = "1.0.102"
 async-trait = "0.1.89"
 bytesize = "2.4.0"

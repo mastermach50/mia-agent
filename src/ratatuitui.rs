@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use ansi_to_tui::IntoText;
 use anyhow::Result;
 use crossterm::{
     event::{
@@ -17,14 +18,19 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
 use ratatui_textarea::TextArea;
+use termimad::MadSkin;
 use tokio::sync::mpsc::{self, UnboundedSender};
 
 use crate::{
-    agent_loop, agent_tools::ToolRegistry, api::{Message, PartialMessage}, config::AppConfig, sessions::Session
+    agent_loop,
+    agent_tools::ToolRegistry,
+    api::{History, Message, PartialMessage},
+    config::AppConfig,
+    sessions::Session,
 };
 
 pub async fn run(new_session: bool) -> Result<()> {
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<MessageEvent>();
+    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<AppEvents>();
 
     let mut state = AppState {
         event_tx: event_tx,
@@ -33,6 +39,7 @@ pub async fn run(new_session: bool) -> Result<()> {
         status: "".to_string(),
         model: AppConfig::global().model.name.clone(),
         messages: Vec::new(),
+        partial_message: None,
         scroll_offset: 0,
         auto_scroll: true,
         exit: false,
@@ -44,7 +51,7 @@ pub async fn run(new_session: bool) -> Result<()> {
     } else {
         if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
             for message in &session.history.messages {
-                let rendered_message = state.render_message(message)?;
+                let rendered_message = render_message(message)?;
                 state.messages.push(rendered_message);
             }
             state.send_harness_message("Loaded last session.")?;
@@ -76,7 +83,7 @@ pub async fn run(new_session: bool) -> Result<()> {
 }
 
 struct AppState {
-    event_tx: UnboundedSender<MessageEvent>,
+    event_tx: UnboundedSender<AppEvents>,
 
     session: Session,
 
@@ -86,17 +93,19 @@ struct AppState {
     model: String,
 
     messages: Vec<Text<'static>>,
+    partial_message: Option<Message>,
     scroll_offset: u16,
     auto_scroll: bool,
 
     exit: bool,
 }
 
-enum MessageEvent {
+enum AppEvents {
     AssistantMessage(Message),
     PartialAssistantMessage(PartialMessage),
     StatusUpdate(String),
     SystemMessage(String),
+    HistoryUpdate(History),
 }
 
 impl AppState {
@@ -149,6 +158,11 @@ impl AppState {
         for message in &self.messages {
             display_lines.extend(message.lines.clone());
         }
+        if let Some(partial_message) = &self.partial_message {
+            let rendered_message =
+                render_message(partial_message).expect("Failed to render partial message");
+            display_lines.extend(rendered_message.lines.clone());
+        }
 
         let visible_height = chunks[0].height;
         let total_lines = wrapped_line_count(&display_lines, chunks[0].width as usize);
@@ -171,61 +185,6 @@ impl AppState {
         frame.render_widget(messages_paragraph, chunks[0]);
     }
 
-    /// Render out a single Message into Text
-    /// The rendered message is not wrapped to the width of the terminal
-    fn render_message(&mut self, message: &Message) -> Result<Text<'static>> {
-        // Ignore actual system messages
-        if message.role == "system" {
-            return Ok(Text::default());
-        }
-
-        let mut text = Text::default();
-
-        let sender = match message.role.as_str() {
-            "user" => "User".green(),
-            "assistant" => "Mia".cyan(),
-            "harness" => "System".yellow(),
-            _ => {
-                error!("Unknown role: {}", message.role);
-                anyhow::bail!("Unknown role: {}", message.role);
-            }
-        };
-
-        text.push_line(Line::from(vec![sender, " ◣".into()]));
-
-        if let Some(reasoning) = &message.reasoning {
-            for line in reasoning.split("\n") {
-                text.push_line(line.to_string().gray());
-            }
-        }
-
-        if let Some(content) = &message.content {
-            for line in content.split("\n") {
-                text.push_line(line.to_string());
-            }
-        }
-
-        if let Some(tool_calls) = &message.tool_calls {
-            for tool_call in tool_calls {
-                text.push_line(Line::from(vec![
-                    "Mia".cyan(),
-                    " > ".into(),
-                    ToolRegistry::tool_icon(&tool_call.function.name)
-                        .to_string()
-                        .into(),
-                    tool_call.function.name.clone().into(),
-                    ToolRegistry::tool_short(
-                        &tool_call.function.name,
-                        &tool_call.function.arguments,
-                    )
-                    .into(),
-                ]));
-            }
-        }
-
-        Ok(text)
-    }
-
     /// Take in the current contents of the input and make it into a new message
     async fn submit(&mut self) -> Result<()> {
         // Ignore if empty
@@ -237,7 +196,7 @@ impl AppState {
         let text = lines.join("\n");
 
         let message = Message::new("user", text);
-        let rendered_message = self.render_message(&message)?;
+        let rendered_message = render_message(&message)?;
         self.messages.push(rendered_message);
         self.session.history.add_message(message);
         self.session.save()?;
@@ -250,27 +209,34 @@ impl AppState {
         let tx2 = self.event_tx.clone();
         let tx3 = self.event_tx.clone();
         let tx4 = self.event_tx.clone();
+        let tx5 = self.event_tx.clone();
         let history = self.session.history.clone(); // Fix history clone
-        tokio::spawn( async move {
-            agent_loop::run_agent(
+        tokio::spawn(async move {
+            let history = agent_loop::run_agent(
                 history,
                 &session_id,
                 stream,
                 move |msg: &Message| {
-                    tx1.send(MessageEvent::AssistantMessage(msg.clone())).unwrap();
+                    tx1.send(AppEvents::AssistantMessage(msg.clone()))
+                        .unwrap();
                 },
                 move |msg: &PartialMessage| {
-                    tx2.send(MessageEvent::PartialAssistantMessage(msg.clone())).unwrap();
+                    tx2.send(AppEvents::PartialAssistantMessage(msg.clone()))
+                        .unwrap();
                 },
                 move |kind: &str| {
-                    tx3.send(MessageEvent::StatusUpdate(kind.to_string())).unwrap();
+                    tx3.send(AppEvents::StatusUpdate(kind.to_string()))
+                        .unwrap();
                 },
                 move |msg: &str| {
-                    tx4.send(MessageEvent::SystemMessage(msg.to_string())).unwrap();
-                }
-            ).await
-        }
-        );
+                    tx4.send(AppEvents::SystemMessage(msg.to_string()))
+                        .unwrap();
+                },
+            )
+            .await.unwrap();
+
+            tx5.send(AppEvents::HistoryUpdate(history))
+        });
 
         Ok(())
     }
@@ -278,37 +244,145 @@ impl AppState {
     /// Send messages about the state of the agent
     fn send_harness_message(&mut self, message: &str) -> Result<()> {
         let message = Message::new("harness", message);
-        let rendered_message = self.render_message(&message)?;
+        let rendered_message = render_message(&message)?;
         self.messages.push(rendered_message);
 
         Ok(())
     }
 
     /// Handle message events
-    fn handle_event(&mut self, event: MessageEvent) -> Result<()> {
+    fn handle_event(&mut self, event: AppEvents) -> Result<()> {
         match event {
-            MessageEvent::AssistantMessage(msg) => {
-                let rendered_message = self.render_message(&msg)?;
+            AppEvents::AssistantMessage(msg) => {
+                // Clear the partial message
+                self.partial_message = None;
+
+                // Render and display the message
+                let rendered_message = render_message(&msg)?;
                 self.messages.push(rendered_message);
+
+                // Append the message to the session history and save it
                 self.session.history.add_message(msg);
                 self.session.save()?;
+
+                // Clear any previous status
                 self.status.clear();
             }
-            MessageEvent::PartialAssistantMessage(msg) => {
-                let _ = msg; // TODO implement partial messages
+            AppEvents::PartialAssistantMessage(msg) => {
+                if (msg.reasoning_chunk_index == 0 && msg.content_chunk_index == -1)
+                    || (msg.reasoning_chunk_index == -1 && msg.content_chunk_index == 0)
+                {
+                    self.partial_message = Some(Message {
+                        role: msg.role.clone(),
+                        reasoning: Some(String::new()),
+                        content: Some(String::new()),
+                        tool_calls: None,
+                        tool_call_id: None,
+                    });
+                }
+
+                if let Some(reasoning) = &msg.reasoning
+                    && let Some(partial_message) = &mut self.partial_message
+                    && let Some(partial_reasoning) = &mut partial_message.reasoning
+                {
+                    partial_reasoning.push_str(reasoning);
+                }
+
+                if let Some(content) = &msg.content
+                    && let Some(partial_message) = &mut self.partial_message
+                    && let Some(partial_content) = &mut partial_message.content
+                {
+                    partial_content.push_str(content);
+                }
             }
-            MessageEvent::StatusUpdate(kind) => {
+            AppEvents::StatusUpdate(kind) => {
                 self.status = kind;
             }
-            MessageEvent::SystemMessage(msg) => {
-                let rendered_message = self.render_message(&Message::new("harness", msg))?;
+            AppEvents::SystemMessage(msg) => {
+                let rendered_message = render_message(&Message::new("harness", msg))?;
                 self.messages.push(rendered_message);
                 self.status.clear();
+            }
+            AppEvents::HistoryUpdate(history) => {
+                self.session.history = history;
+                self.session.save()?;
             }
         }
 
         Ok(())
     }
+}
+
+/// Render out a single Message into Text
+/// The rendered message is not wrapped to the width of the terminal
+fn render_message(message: &Message) -> Result<Text<'static>> {
+    // Ignore actual system and tool response messages
+    if message.role == "system" || message.role == "tool" {
+        return Ok(Text::default());
+    }
+
+    let mut text = Text::default();
+
+    let sender = match message.role.as_str() {
+        "user" => "User".green(),
+        "assistant" => "Mia".cyan(),
+        "harness" => "System".yellow(),
+        _ => {
+            error!("Unknown role: {}", message.role);
+            anyhow::bail!("Unknown role: {}", message.role);
+        }
+    };
+
+    let short_message = message.reasoning.is_none()
+    && message.content.is_some()
+    && message.content.as_ref().unwrap().chars().count() < 100;
+
+    if short_message {
+        text.push_line(Line::from(vec![
+            sender,
+            " > ".into(),
+            message.content.as_ref().unwrap().to_string().into(),
+        ]));
+        return Ok(text);
+    }
+
+    text.push_line(Line::from(vec![sender, " ◣".into()]));
+
+    if let Some(reasoning) = &message.reasoning
+        && !reasoning.is_empty()
+    {
+        for line in reasoning.split("\n") {
+            text.push_line(line.to_string().dark_gray().italic());
+        }
+    }
+
+    if let Some(content) = &message.content
+        && !content.is_empty()
+    {
+        let skin = MadSkin::default_dark();
+        let formatted = skin.text(content, None);
+        let ansi_string = formatted.to_string();
+        text.extend(ansi_string.into_text()?);
+    }
+
+    if let Some(tool_calls) = &message.tool_calls {
+        for tool_call in tool_calls {
+            text.push_line(Line::from(vec![
+                "Mia".cyan(),
+                " > ".into(),
+                ToolRegistry::tool_icon(&tool_call.function.name)
+                    .to_string()
+                    .into(),
+                " ".into(),
+                tool_call.function.name.clone().into(),
+                " ".into(),
+                ToolRegistry::tool_short(&tool_call.function.name, &tool_call.function.arguments)
+                    .into(),
+            ]));
+        }
+    }
+
+    Ok(text)
 }
 
 /// Used to find the wrapped line count of given lines
