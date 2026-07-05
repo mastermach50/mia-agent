@@ -13,17 +13,14 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Layout},
     style::Stylize,
-    text::{self, Line, Text},
+    text::{Line, Text},
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
 use ratatui_textarea::TextArea;
 use tokio::sync::mpsc::{self, UnboundedSender};
 
 use crate::{
-    agent_tools::ToolRegistry,
-    api::{Message, PartialMessage},
-    config::AppConfig,
-    sessions::Session,
+    agent_loop, agent_tools::ToolRegistry, api::{Message, PartialMessage}, config::AppConfig, sessions::Session
 };
 
 pub async fn run(new_session: bool) -> Result<()> {
@@ -99,7 +96,7 @@ enum MessageEvent {
     AssistantMessage(Message),
     PartialAssistantMessage(PartialMessage),
     StatusUpdate(String),
-    SystemMessage(Message),
+    SystemMessage(String),
 }
 
 impl AppState {
@@ -143,10 +140,8 @@ impl AppState {
         let status_bar = Block::new()
             .border_type(border_type)
             .borders(Borders::TOP)
-            .title(Line::from(vec![self.status.clone().yellow()]))
-            .title_alignment(Alignment::Left)
-            .title(Line::from(vec![self.model.clone().yellow()]))
-            .title_alignment(Alignment::Right);
+            .title(Line::from(vec![self.status.clone().yellow()]).alignment(Alignment::Left))
+            .title(Line::from(vec![self.model.clone().yellow()]).alignment(Alignment::Right));
         frame.render_widget(status_bar, chunks[1]);
 
         // Render chat
@@ -232,7 +227,7 @@ impl AppState {
     }
 
     /// Take in the current contents of the input and make it into a new message
-    fn submit(&mut self) -> Result<()> {
+    async fn submit(&mut self) -> Result<()> {
         // Ignore if empty
         if self.input.is_empty() {
             return Ok(());
@@ -248,6 +243,34 @@ impl AppState {
         self.session.save()?;
 
         self.input.clear();
+
+        let stream = AppConfig::global().tui.streaming;
+        let session_id = self.session.get_extended_session_id();
+        let tx1 = self.event_tx.clone();
+        let tx2 = self.event_tx.clone();
+        let tx3 = self.event_tx.clone();
+        let tx4 = self.event_tx.clone();
+        let history = self.session.history.clone(); // Fix history clone
+        tokio::spawn( async move {
+            agent_loop::run_agent(
+                history,
+                &session_id,
+                stream,
+                move |msg: &Message| {
+                    tx1.send(MessageEvent::AssistantMessage(msg.clone())).unwrap();
+                },
+                move |msg: &PartialMessage| {
+                    tx2.send(MessageEvent::PartialAssistantMessage(msg.clone())).unwrap();
+                },
+                move |kind: &str| {
+                    tx3.send(MessageEvent::StatusUpdate(kind.to_string())).unwrap();
+                },
+                move |msg: &str| {
+                    tx4.send(MessageEvent::SystemMessage(msg.to_string())).unwrap();
+                }
+            ).await
+        }
+        );
 
         Ok(())
     }
@@ -271,12 +294,14 @@ impl AppState {
                 self.session.save()?;
                 self.status.clear();
             }
-            MessageEvent::PartialAssistantMessage(msg) => {}
+            MessageEvent::PartialAssistantMessage(msg) => {
+                let _ = msg; // TODO implement partial messages
+            }
             MessageEvent::StatusUpdate(kind) => {
                 self.status = kind;
             }
             MessageEvent::SystemMessage(msg) => {
-                let rendered_message = self.render_message(&msg)?;
+                let rendered_message = self.render_message(&Message::new("harness", msg))?;
                 self.messages.push(rendered_message);
                 self.status.clear();
             }
@@ -317,7 +342,7 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
                     }
                     KeyCode::Enter => {
                         if key_event.modifiers.is_empty() {
-                            state.submit()?;
+                            state.submit().await?;
                         }
                     }
                     KeyCode::Up => {
