@@ -26,7 +26,7 @@ use crate::{
     agent_tools::ToolRegistry,
     api::{History, Message, PartialMessage},
     config::AppConfig,
-    sessions::Session,
+    sessions::Session, system_prompt::get_tui_system_prompt,
 };
 
 pub async fn run(new_session: bool) -> Result<()> {
@@ -48,6 +48,7 @@ pub async fn run(new_session: bool) -> Result<()> {
     if new_session {
         state.send_harness_message("Started new session.")?;
         state.session = Session::new("user", "tui", "tui");
+        state.session.history.set_system_prompt(get_tui_system_prompt(None)?);
     } else {
         if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
             for message in &session.history.messages {
@@ -56,9 +57,11 @@ pub async fn run(new_session: bool) -> Result<()> {
             }
             state.send_harness_message("Loaded last session.")?;
             state.session = session;
+            
         } else {
             state.send_harness_message("No previous session found, starting new one.")?;
-            state.session = Session::new("user", "tui", "tui")
+            state.session = Session::new("user", "tui", "tui");
+            state.session.history.set_system_prompt(get_tui_system_prompt(None)?);
         }
     };
 
