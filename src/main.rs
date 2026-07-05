@@ -88,6 +88,9 @@ async fn main() -> Result<()> {
         Some(cli::MainSubCommands::Session { sub_command }) => match sub_command {
             Some(cli::SessionSubCommands::List) => {
                 let sessions = list_sessions(true)?;
+                if sessions.is_empty() {
+                    println!("No sessions found.");
+                }
                 let table = Table::builder(sessions);
                 println!("{}", table.build().with(Style::rounded()));
             }

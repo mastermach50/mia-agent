@@ -8,40 +8,55 @@ use crossterm::{
     },
     execute,
 };
+use log::error;
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout},
+    layout::{Alignment, Constraint, Layout},
     style::Stylize,
-    text::{Line, Span, Text},
-    widgets::{Paragraph, Wrap},
+    text::{self, Line, Text},
+    widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
 use ratatui_textarea::TextArea;
+use tokio::sync::mpsc::{self, UnboundedSender};
 
-use crate::{api::Message, sessions::Session};
+use crate::{
+    agent_tools::ToolRegistry,
+    api::{Message, PartialMessage},
+    config::AppConfig,
+    sessions::Session,
+};
 
 pub async fn run(new_session: bool) -> Result<()> {
+    let (event_tx, mut event_rx) = mpsc::unbounded_channel::<MessageEvent>();
+
     let mut state = AppState {
+        event_tx: event_tx,
         session: Session::default(),
         input: TextArea::default(),
+        status: "".to_string(),
+        model: AppConfig::global().model.name.clone(),
         messages: Vec::new(),
-        partial_message: String::new(),
+        scroll_offset: 0,
+        auto_scroll: true,
         exit: false,
     };
 
-    let session = if new_session {
-        state.on_system_message("Started new session.".to_string());
-        Session::new("user", "tui", "tui")
+    if new_session {
+        state.send_harness_message("Started new session.")?;
+        state.session = Session::new("user", "tui", "tui");
     } else {
         if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
-            state.on_system_message("Loaded last session.".to_string());
-            session
+            for message in &session.history.messages {
+                let rendered_message = state.render_message(message)?;
+                state.messages.push(rendered_message);
+            }
+            state.send_harness_message("Loaded last session.")?;
+            state.session = session;
         } else {
-            state.on_system_message("No previous session found, starting new one.".to_string());
-            Session::new("user", "tui", "tui")
+            state.send_harness_message("No previous session found, starting new one.")?;
+            state.session = Session::new("user", "tui", "tui")
         }
     };
-
-    state.session = session;
 
     let mut terminal = ratatui::init();
     execute!(
@@ -53,6 +68,9 @@ pub async fn run(new_session: bool) -> Result<()> {
     while !state.exit {
         terminal.draw(|f| state.draw(f))?;
         handle_key_events(&mut state).await?;
+        while let Ok(event) = event_rx.try_recv() {
+            state.handle_event(event)?;
+        }
     }
 
     ratatui::restore();
@@ -61,41 +79,27 @@ pub async fn run(new_session: bool) -> Result<()> {
 }
 
 struct AppState {
+    event_tx: UnboundedSender<MessageEvent>,
+
     session: Session,
 
     input: TextArea<'static>,
 
-    messages: Vec<RenderAwareTUIMessage>,
-    partial_message: String,
+    status: String,
+    model: String,
+
+    messages: Vec<Text<'static>>,
+    scroll_offset: u16,
+    auto_scroll: bool,
 
     exit: bool,
 }
 
-struct RenderAwareTUIMessage {
-    message: TUIMessage,
-    cached_text: Text<'static>,
-    rendered: bool,
-}
-
-enum TUIMessage {
-    TextMessage {
-        role: Role,
-        reasoning: String,
-        content: String,
-    },
-
-    ToolCallNotifier {
-        icon: String,
-        name: String,
-        shorthand: String,
-    },
-}
-
-#[derive(Clone, Copy)]
-enum Role {
-    User,
-    Assistant,
-    System,
+enum MessageEvent {
+    AssistantMessage(Message),
+    PartialAssistantMessage(PartialMessage),
+    StatusUpdate(String),
+    SystemMessage(Message),
 }
 
 impl AppState {
@@ -127,132 +131,178 @@ impl AppState {
             ])
             .split(area);
 
+        // Render input box
         frame.render_widget(&self.input, chunks[2]);
 
-        self.pre_render_messages(frame);
+        // Render status bar
+        let border_type = if self.auto_scroll {
+            BorderType::Plain
+        } else {
+            BorderType::LightDoubleDashed
+        };
+        let status_bar = Block::new()
+            .border_type(border_type)
+            .borders(Borders::TOP)
+            .title(Line::from(vec![self.status.clone().yellow()]))
+            .title_alignment(Alignment::Left)
+            .title(Line::from(vec![self.model.clone().yellow()]))
+            .title_alignment(Alignment::Right);
+        frame.render_widget(status_bar, chunks[1]);
 
+        // Render chat
         let mut display_lines = Vec::new();
-        for ra_message in &self.messages {
-            display_lines.extend(ra_message.cached_text.lines.clone());
+        for message in &self.messages {
+            display_lines.extend(message.lines.clone());
         }
-        let messages_paragraph = Paragraph::new(display_lines).wrap(Wrap { trim: false });
+
+        let visible_height = chunks[0].height;
+        let total_lines = wrapped_line_count(&display_lines, chunks[0].width as usize);
+        let max_scroll = total_lines.saturating_sub(visible_height);
+        if !self.auto_scroll && self.scroll_offset >= max_scroll {
+            self.auto_scroll = true;
+        }
+
+        if self.auto_scroll {
+            self.scroll_offset = max_scroll;
+        } else {
+            // Just in case of terminal resize
+            self.scroll_offset = self.scroll_offset.min(max_scroll);
+        }
+
+        let messages_paragraph = Paragraph::new(display_lines)
+            .wrap(Wrap { trim: false })
+            .scroll((self.scroll_offset, 0));
 
         frame.render_widget(messages_paragraph, chunks[0]);
     }
 
-    /// Take in the messages and then prerender it and store it in the cache.
-    /// Only needs to render uncached messsages
-    fn pre_render_messages(&mut self, frame: &mut Frame) {
-        let area_width = frame.area().width as usize;
+    /// Render out a single Message into Text
+    /// The rendered message is not wrapped to the width of the terminal
+    fn render_message(&mut self, message: &Message) -> Result<Text<'static>> {
+        // Ignore actual system messages
+        if message.role == "system" {
+            return Ok(Text::default());
+        }
 
-        for ra_message in &mut self.messages {
-            if ra_message.rendered {
-                continue;
+        let mut text = Text::default();
+
+        let sender = match message.role.as_str() {
+            "user" => "User".green(),
+            "assistant" => "Mia".cyan(),
+            "harness" => "System".yellow(),
+            _ => {
+                error!("Unknown role: {}", message.role);
+                anyhow::bail!("Unknown role: {}", message.role);
             }
+        };
 
-            match &mut ra_message.message {
-                TUIMessage::TextMessage {
-                    role,
-                    reasoning,
-                    content,
-                } => {
-                    let sender = match role {
-                        Role::User => "User".green(),
-                        Role::Assistant => "Mia".cyan(),
-                        Role::System => "System".yellow(),
-                    };
+        text.push_line(Line::from(vec![sender, " ◣".into()]));
 
-                    let short_line = reasoning.is_empty()
-                        && !content.contains("\n")
-                        && content.chars().count() < (area_width - sender.width() - 10);
-
-                    if short_line {
-                        ra_message.cached_text.push_line(Line::from(vec![
-                            sender,
-                            " > ".into(),
-                            content.clone().into(),
-                        ]));
-                        ra_message.rendered = true;
-                        continue;
-                    } else {
-                        ra_message
-                            .cached_text
-                            .push_line(Line::from(vec![sender, " ◣".into()]));
-                    }
-
-                    if !reasoning.is_empty() {
-                        let text_width = (frame.area().width - 2) as usize;
-                        let wrapped = textwrap::wrap(reasoning, text_width);
-
-                        for line in wrapped {
-                            ra_message
-                                .cached_text
-                                .push_line(Line::from(vec!["| ".into(), line.into_owned().into()]));
-                        }
-                    }
-                    if !content.is_empty() {
-                        for line in content.split("\n") {
-                            ra_message
-                                .cached_text
-                                .push_line(Line::from(line.to_string()));
-                        }
-                    }
-
-                    ra_message.rendered = true;
-                }
-                TUIMessage::ToolCallNotifier {
-                    icon,
-                    name,
-                    shorthand,
-                } => {
-                    ra_message.cached_text.push_line(Line::from(vec![
-                        "Mia".cyan(),
-                        " > ".into(),
-                        icon.to_string().into(),
-                        name.to_string().into(),
-                        shorthand.to_string().into(),
-                    ]));
-                    ra_message.rendered = true;
-                }
+        if let Some(reasoning) = &message.reasoning {
+            for line in reasoning.split("\n") {
+                text.push_line(line.to_string().gray());
             }
         }
+
+        if let Some(content) = &message.content {
+            for line in content.split("\n") {
+                text.push_line(line.to_string());
+            }
+        }
+
+        if let Some(tool_calls) = &message.tool_calls {
+            for tool_call in tool_calls {
+                text.push_line(Line::from(vec![
+                    "Mia".cyan(),
+                    " > ".into(),
+                    ToolRegistry::tool_icon(&tool_call.function.name)
+                        .to_string()
+                        .into(),
+                    tool_call.function.name.clone().into(),
+                    ToolRegistry::tool_short(
+                        &tool_call.function.name,
+                        &tool_call.function.arguments,
+                    )
+                    .into(),
+                ]));
+            }
+        }
+
+        Ok(text)
     }
 
     /// Take in the current contents of the input and make it into a new message
     fn submit(&mut self) -> Result<()> {
-        if !self.input.is_empty() {
-            let lines = self.input.lines();
-            let text = lines.join("\n");
-
-            self.messages.push(RenderAwareTUIMessage {
-                message: TUIMessage::TextMessage {
-                    role: Role::User,
-                    reasoning: String::new(),
-                    content: text.clone(),
-                },
-                cached_text: Text::default(),
-                rendered: false,
-            });
-
-            self.session.history.add_message(Message::new("user", text));
-
-            self.input.clear();
+        // Ignore if empty
+        if self.input.is_empty() {
+            return Ok(());
         }
+
+        let lines = self.input.lines();
+        let text = lines.join("\n");
+
+        let message = Message::new("user", text);
+        let rendered_message = self.render_message(&message)?;
+        self.messages.push(rendered_message);
+        self.session.history.add_message(message);
+        self.session.save()?;
+
+        self.input.clear();
 
         Ok(())
     }
 
-    fn on_system_message(&mut self, message: String) {
-        self.messages.push(RenderAwareTUIMessage {
-            message: TUIMessage::TextMessage {
-                role: Role::System,
-                reasoning: String::new(),
-                content: message,
-            },
-            cached_text: Text::default(),
-            rendered: false,
-        });
+    /// Send messages about the state of the agent
+    fn send_harness_message(&mut self, message: &str) -> Result<()> {
+        let message = Message::new("harness", message);
+        let rendered_message = self.render_message(&message)?;
+        self.messages.push(rendered_message);
+
+        Ok(())
     }
+
+    /// Handle message events
+    fn handle_event(&mut self, event: MessageEvent) -> Result<()> {
+        match event {
+            MessageEvent::AssistantMessage(msg) => {
+                let rendered_message = self.render_message(&msg)?;
+                self.messages.push(rendered_message);
+                self.session.history.add_message(msg);
+                self.session.save()?;
+                self.status.clear();
+            }
+            MessageEvent::PartialAssistantMessage(msg) => {}
+            MessageEvent::StatusUpdate(kind) => {
+                self.status = kind;
+            }
+            MessageEvent::SystemMessage(msg) => {
+                let rendered_message = self.render_message(&msg)?;
+                self.messages.push(rendered_message);
+                self.status.clear();
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Used to find the wrapped line count of given lines
+fn wrapped_line_count(lines: &[Line], width: usize) -> u16 {
+    if width == 0 {
+        return lines.len() as u16;
+    }
+
+    lines
+        .iter()
+        .map(|line| {
+            let content: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+            if content.is_empty() {
+                1
+            } else {
+                textwrap::wrap(&content, width).len().max(1)
+            }
+        })
+        .sum::<usize>() as u16
 }
 
 async fn handle_key_events(state: &mut AppState) -> Result<()> {
@@ -270,9 +320,30 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
                             state.submit()?;
                         }
                     }
+                    KeyCode::Up => {
+                        state.scroll_offset = state.scroll_offset.saturating_sub(1);
+                        state.auto_scroll = false;
+                    }
+                    KeyCode::Down => {
+                        state.scroll_offset = state.scroll_offset.saturating_add(1);
+                    }
+                    KeyCode::PageUp => {
+                        state.scroll_offset = state.scroll_offset.saturating_sub(10);
+                        state.auto_scroll = false;
+                    }
+                    KeyCode::PageDown => {
+                        state.scroll_offset = state.scroll_offset.saturating_add(10);
+                    }
                     _ => {}
                 }
-                if !(key_event.code == KeyCode::Enter && key_event.modifiers.is_empty()) {
+                let is_scroll_key = matches!(
+                    key_event.code,
+                    KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
+                );
+
+                if !(key_event.code == KeyCode::Enter && key_event.modifiers.is_empty())
+                    && !is_scroll_key
+                {
                     state.input.input(key_event);
                 }
             }

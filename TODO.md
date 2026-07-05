@@ -7,4 +7,4 @@
 - Fix cerebras model listing not working
 - Fix reasoning effort not supported error for groq
 - Implement session to handle saving and title generation
-- Pass session id in chat completion requests.
+- Implement ratatui scrollbar
