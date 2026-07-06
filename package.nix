@@ -5,11 +5,12 @@
   lib,
   makeWrapper,
   python3,
+  pandoc,
   ripgrep,
   tree,
 }:
 let
-  runtimeDeps = [ tree python3 bash ripgrep fd ];
+  runtimeDeps = [ tree python3 bash ripgrep fd pandoc ];
 
   commonArgs = {
     src = craneLib.cleanCargoSource ./.;

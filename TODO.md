@@ -11,3 +11,4 @@
 - Add seperators between each agent turn in ratatuitui
 - Fix paste in ratatui
 - Add MCP support
+- Add skills support

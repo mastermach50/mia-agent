@@ -1,3 +1,7 @@
+## v0.1.6
+### Added
+- New `doc_convert` tool.
+
 ## v0.1.5
 ### Added
 - More LLM providers
