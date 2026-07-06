@@ -8,3 +8,6 @@
 - Fix reasoning effort not supported error for groq
 - Implement session to handle saving and title generation
 - Implement ratatui scrollbar
+- Add seperators between each agent turn in ratatuitui
+- Fix paste in ratatui
+- Add MCP support

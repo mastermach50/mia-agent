@@ -66,6 +66,7 @@
           nativeBuildInputs = with madePkgs; [
             fenixComplete.toolchain
             fenixComplete.rust-analyzer
+            pkgs.lldb
             # mia-agent.package
           ];
 

@@ -214,7 +214,7 @@ pub fn on_partial_assistant_message(message: &PartialMessage) {
             stop_spinner();
             println!("{mia_colored} 💭");
         }
-        print!("{reasoning}");
+        print!("{}", reasoning.clone().dark_grey().to_string());
     }
 
     if let Some(content) = &message.content {
