@@ -1,7 +1,7 @@
 use indoc::indoc;
 use serde_json::json;
 
-use crate::agent_tools::Tool;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct WebSearch;
@@ -53,7 +53,7 @@ impl Tool for WebSearch {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let query = args["query"].as_str().expect("Query argument not found");
         let max_results = args["max_results"].as_u64().unwrap_or(5) as i32;
 

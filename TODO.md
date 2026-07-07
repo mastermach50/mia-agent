@@ -12,3 +12,15 @@
 - Fix paste in ratatui
 - Add MCP support
 - Add skills support
+- Terminate agent when handle is dropped
+- Implent token count view
+- Implement tui commands like the old tui
+- Improve tui permission asking ui
+- Setup custom colors
+
+
+█▀▄▀█
+█   █
+
+█▄ ▄█ █ ▄▀▄
+█ ▀ █ █ █▀█

@@ -1,9 +1,90 @@
 use anyhow::Result;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_tools::ToolRegistry;
 use crate::api::{History, Message, PartialMessage, completion};
 use crate::config::AppConfig;
+
+#[derive(Clone)]
+pub struct AgentHandle {
+    tx: UnboundedSender<AgentEvent>,
+}
+
+pub enum AgentEvent {
+    AssistantMessage(Message),
+    PartialAssistantMessage(PartialMessage),
+    AssistantStatusUpdate(String),
+    ToolCallResponseMessage(Message),
+    HarnessMessage(String),
+    HistoryUpdate(History),
+    PermissionRequest {
+        header: String,
+        content: String,
+        response: oneshot::Sender<bool>,
+    },
+}
+
+impl AgentHandle {
+    pub fn new() -> (UnboundedReceiver<AgentEvent>, Self) {
+        let (tx, rx) = mpsc::unbounded_channel::<AgentEvent>();
+        (rx, AgentHandle { tx })
+    }
+
+    fn assistant_msg(&self, msg: &Message) {
+        self.tx
+            .send(AgentEvent::AssistantMessage(msg.clone()))
+            .unwrap();
+    }
+
+    fn partial_assistant_msg(&self, msg: &PartialMessage) {
+        self.tx
+            .send(AgentEvent::PartialAssistantMessage(msg.clone()))
+            .unwrap();
+    }
+
+    fn assistant_status_update(&self, msg: impl ToString) {
+        self.tx
+            .send(AgentEvent::AssistantStatusUpdate(msg.to_string()))
+            .unwrap();
+    }
+
+    fn tool_call_response_msg(&self, msg: &Message) {
+        self.tx
+            .send(AgentEvent::ToolCallResponseMessage(msg.clone()))
+            .unwrap();
+    }
+
+    fn harness_msg(&self, msg: impl ToString) {
+        self.tx
+            .send(AgentEvent::HarnessMessage(msg.to_string()))
+            .unwrap();
+    }
+
+    fn update_history(&self, history: History) {
+        self.tx.send(AgentEvent::HistoryUpdate(history)).unwrap();
+    }
+
+    pub async fn ask_permission(
+        &self,
+        header: impl Into<String>,
+        content: impl Into<String>,
+    ) -> bool {
+        let (respond, rx) = oneshot::channel();
+        let sent = self.tx.send(AgentEvent::PermissionRequest {
+            header: header.into(),
+            content: content.into(),
+            response: respond,
+        });
+
+        if sent.is_err() {
+            return false;
+        }
+
+        rx.await.unwrap_or(false)
+    }
+}
 
 /// Takes in a message history that includes the next prompt from the user and returns
 /// a new history that includes the assistant's response and any tools calls processed
@@ -11,11 +92,8 @@ pub async fn run_agent(
     history: History,
     session_id: &str,
     stream: bool,
-    on_assistant_message: impl Fn(&Message),
-    on_partial_assistant_message: impl Fn(&PartialMessage),
-    on_assistant_status_update: impl Fn(&str),
-    on_system_message: impl Fn(&str),
-) -> Result<History> {
+    handle: AgentHandle,
+) -> Result<()> {
     // Make history mutable
     let mut history = history;
 
@@ -26,7 +104,7 @@ pub async fn run_agent(
     // Max number of iterations is configurable
     for iterations in 1..=AppConfig::global().agent.max_iterations {
         // Initially mark the assistant as waiting
-        on_assistant_status_update("Waiting");
+        handle.assistant_status_update("Waiting");
 
         // Check if the request is cancelled
         if cancel.is_cancelled() {
@@ -39,13 +117,10 @@ pub async fn run_agent(
                 || iterations == 3
                 || iterations == AppConfig::global().agent.max_iterations)
         {
-            on_assistant_message(&Message::new(
-                "assistant",
-                format!(
-                    "🔁 Iteration {}/{}",
-                    iterations,
-                    AppConfig::global().agent.max_iterations
-                ),
+            handle.harness_msg(format!(
+                "🔁 Iteration {}/{}",
+                iterations,
+                AppConfig::global().agent.max_iterations
             ));
         }
 
@@ -58,26 +133,26 @@ pub async fn run_agent(
                 &session_id,
                 stream,
                 &cancel,
-                &on_assistant_status_update,
-                &on_partial_assistant_message
+                |kind: &str| handle.assistant_status_update(kind),
+                |msg: &PartialMessage| handle.partial_assistant_msg(msg),
             ) => {
                 match res {
                     Ok(message) => message,
                     Err(err) => {
-                        on_system_message(&format!("Assistant returned error:\n\t{err}"));
+                        handle.harness_msg(format!("Assistant returned error:\n\t{err}"));
                         break;
                     }
                 }
             },
             _ = tokio::signal::ctrl_c() => {
-                on_system_message("Assistant turn cancelled.");
+                handle.harness_msg("Assistant turn cancelled.");
                 cancel.cancel();
                 break;
             }
         };
 
         // Forward the assistant's message
-        on_assistant_message(&assistant_msg);
+        handle.assistant_msg(&assistant_msg);
 
         // Append the assistant's message to the history
         history.add_message(assistant_msg.clone());
@@ -89,19 +164,23 @@ pub async fn run_agent(
                 let tool_name = tool_call.function.name.clone();
                 let tool_args = tool_call.function.arguments.clone();
                 let content = tokio::select! {
-                    content = ToolRegistry::call(&tool_name, &tool_args) => {
+                    content = ToolRegistry::call(
+                        &handle,
+                        &tool_name,
+                        &tool_args
+                    ) => {
                         content
                     },
                     _ = tokio::signal::ctrl_c() => {
-                        on_system_message("Assistant turn cancelled during tool call.");
+                        handle.harness_msg("Assistant turn cancelled during tool call.");
                         cancel.cancel();
                         break;
                     }
                 };
-                history.add_message(Message::new_tool_call_response(
-                    tool_call.id.clone(),
-                    content.to_string(),
-                ));
+                let tc_response =
+                    Message::new_tool_call_response(tool_call.id.clone(), content.to_string());
+                handle.tool_call_response_msg(&tc_response);
+                history.add_message(tc_response);
             }
             continue;
         }
@@ -111,5 +190,7 @@ pub async fn run_agent(
     }
 
     // Return the updated history
-    Ok(history)
+    handle.update_history(history);
+
+    Ok(())
 }

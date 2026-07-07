@@ -1,11 +1,11 @@
 use serde_json::json;
 use std::process::Command;
 use std::process::Stdio;
-use termimad::crossterm::style::Stylize;
 
+use crate::agent_loop::AgentHandle;
 use crate::{
     agent_tools::Tool,
-    utils::{ask_permission, highlight_text, stdio_capture_and_print},
+    utils::{highlight_text, stdio_capture_and_print},
 };
 
 #[cfg(unix)]
@@ -59,12 +59,15 @@ impl Tool for ExecPython {
         })
     }
     // TODO refactor this and the shell code
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let code = args["code"].as_str().expect("Code argument not found");
 
         let colored_code = highlight_text("something.py", code);
 
-        if ask_permission("Execute Python?".red(), &colored_code) {
+        if handle
+            .ask_permission("Execute Python?", &colored_code)
+            .await
+        {
             let mut child_process = Command::new(PYTHON_CMD);
             child_process.arg("-c").arg(code);
 

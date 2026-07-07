@@ -1,9 +1,7 @@
 use indoc::indoc;
 use serde_json::json;
 
-use crate::
-    agent_tools::Tool
-;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct DocConvert;
@@ -71,14 +69,14 @@ impl Tool for DocConvert {
         })
     }
 
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let input_path = match args["input_path"].as_str() {
             Some(p) => p,
             None => {
                 return json!({
                     "status": "error",
                     "message": "input_path argument not found"
-                })
+                });
             }
         };
         let output_path = match args["output_path"].as_str() {
@@ -87,7 +85,7 @@ impl Tool for DocConvert {
                 return json!({
                     "status": "error",
                     "message": "output_path argument not found"
-                })
+                });
             }
         };
 
@@ -100,7 +98,12 @@ impl Tool for DocConvert {
         if let Some(to_format) = args["to_format"].as_str() {
             cmd.arg("--to").arg(to_format);
         }
-        let allowed_flags = ["--standalone", "--toc", "--number-sections", "--self-contained"];
+        let allowed_flags = [
+            "--standalone",
+            "--toc",
+            "--number-sections",
+            "--self-contained",
+        ];
         if let Some(extra_args) = args["extra_args"].as_array() {
             for arg in extra_args {
                 if let Some(a) = arg.as_str() {
@@ -121,7 +124,7 @@ impl Tool for DocConvert {
                 return json!({
                     "status": "error",
                     "message": format!("Failed to execute pandoc: {e}")
-                })
+                });
             }
         };
 

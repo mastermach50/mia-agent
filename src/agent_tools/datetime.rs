@@ -2,7 +2,7 @@ use chrono::Local;
 use indoc::indoc;
 use serde_json::json;
 
-use crate::agent_tools::Tool;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct DateTime;
@@ -15,7 +15,7 @@ impl Tool for DateTime {
         "📅".to_string()
     }
     fn short(&self, _args: serde_json::Value) -> String {
-        String::new()
+        Local::now().to_rfc2822()
     }
     fn availability(&self) -> Result<(), String> {
         Ok(())
@@ -38,7 +38,7 @@ impl Tool for DateTime {
             }
         })
     }
-    async fn execute(&self, _args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, _args: serde_json::Value) -> serde_json::Value {
         let current = Local::now().to_rfc2822();
         json!({
             "status": "success",
