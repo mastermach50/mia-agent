@@ -9,14 +9,9 @@ use crossterm::{
     },
     execute,
 };
-use indoc::{formatdoc, indoc};
 use log::error;
 use ratatui::{
-    Frame,
-    layout::{Alignment, Constraint, Layout},
-    style::Stylize,
-    text::{Line, Span, Text},
-    widgets::{Block, BorderType, Borders, Paragraph, Wrap},
+    Frame, layout::{Alignment, Constraint, Layout}, style::Stylize, text::{Line, Span, Text}, widgets::{Block, BorderType, Borders, Paragraph, Wrap}
 };
 use ratatui_textarea::TextArea;
 use termimad::MadSkin;
@@ -34,8 +29,9 @@ use crate::{
 pub async fn run(new_session: bool) -> Result<()> {
     let (mut event_rx, mut state) = AppState::new();
 
+    state.messages.push(get_logo());
+
     if new_session {
-        state.messages.push(get_logo());
         state.send_harness_message("Started new session.")?;
         state.session = Session::new("user", "tui", "tui");
         state
@@ -68,6 +64,10 @@ pub async fn run(new_session: bool) -> Result<()> {
     )?;
 
     while !state.exit {
+        if state.redraw {
+            terminal.clear()?;
+            state.redraw = false;
+        }
         terminal.draw(|f| state.draw(f))?;
         handle_key_events(&mut state).await?;
         while let Ok(event) = event_rx.try_recv() {
@@ -96,6 +96,7 @@ struct AppState {
     scroll_offset: u16,
     auto_scroll: bool,
 
+    redraw: bool,
     exit: bool,
 }
 
@@ -118,6 +119,7 @@ impl AppState {
             scroll_offset: 0,
             auto_scroll: true,
 
+            redraw: false,
             exit: false,
         };
 
@@ -217,6 +219,7 @@ impl AppState {
             } else {
                 response.send(false).unwrap();
             }
+            self.messages.pop();
             self.permission_request = None;
             self.status.clear();
             self.input_placeholder = "Type Something...".to_string();
@@ -320,15 +323,15 @@ impl AppState {
                 content,
                 response,
             } => {
-                let formatted_content = formatdoc! {"
-                {0}
-                ---
-                {1}
-                ---
-                {0}
-                ", header.red().to_string(), content};
-                let rendered_message = render_message(&Message::new("harness", formatted_content))?;
-                self.messages.push(rendered_message);
+                let mut text = Text::default();
+
+                text.push_line(Line::from(header.clone().red().bold()));
+                text.push_line("---");
+                text.extend(content.into_text().unwrap());
+                text.push_line("---");
+                text.push_line(Line::from(header.clone().red().bold()));
+
+                self.messages.push(text);
                 self.permission_request = Some(response);
                 self.status = "Waiting for permission...".to_string();
                 self.input_placeholder = "y/n".to_string()
@@ -377,8 +380,13 @@ fn render_message(message: &Message) -> Result<Text<'static>> {
     if let Some(reasoning) = &message.reasoning
         && !reasoning.is_empty()
     {
-        for line in reasoning.split("\n") {
-            text.push_line(line.to_string().dark_gray().italic());
+        if AppConfig::global().tui.show_reasoning {
+            for line in reasoning.split("\n") {
+                text.push_line(line.to_string().dark_gray().italic());
+            }
+        } else {
+            // Why is this not appearing
+            text.push_line("Thoughts...".dark_gray().italic());
         }
     }
 
@@ -394,8 +402,7 @@ fn render_message(message: &Message) -> Result<Text<'static>> {
     if let Some(tool_calls) = &message.tool_calls {
         for tool_call in tool_calls {
             text.push_line(Line::from(vec![
-                "Mia".cyan(),
-                " > ".into(),
+                "[ ".into(),
                 ToolRegistry::tool_icon(&tool_call.function.name)
                     .to_string()
                     .into(),
@@ -404,6 +411,7 @@ fn render_message(message: &Message) -> Result<Text<'static>> {
                 ": ".into(),
                 ToolRegistry::tool_short(&tool_call.function.name, &tool_call.function.arguments)
                     .into(),
+                " ]".into(),
             ]));
         }
     }
@@ -445,6 +453,9 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
                             state.submit().await?;
                         }
                     }
+                    KeyCode::F(5) => {
+                        
+                    }
                     KeyCode::Up => {
                         state.scroll_offset = state.scroll_offset.saturating_sub(1);
                         state.auto_scroll = false;
@@ -480,13 +491,15 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
 }
 
 fn get_logo() -> Text<'static> {
-    let logo = indoc! {"
+    // The left and top padding are part of the design
+    let logo = "
+
     ██╷     ██╷ ██╷   ██╷
     ████╷ ████│ ██│ ██┌─██╷
     ██┌─██┌─██│ ██│ ██████│
     ██│ └─┘ ██│ ██│ ██┌─██│
     └─┘     └─┘ └─┘ └─┘ └─┘
-    "};
+    ";
 
     let mut out = Text::default();
     for line in logo.split('\n') {

@@ -47,6 +47,7 @@ pub fn get_system_prompt() -> Result<String> {
 
     # Tool Discipline
     Destructive operations — file writes, overwrites, shell execution — trigger a built-in confirmation prompt shown to the user. Do not add your own pre-warnings; trust the confirmation system.
+    If the user denies a request then don't try to do the same thing another way, instead stop and wait for the user to decide what to do.
     When a task requires multiple lookups, plan what you need before calling tools so you gather information systematically rather than reactively.
     If you are unsure whether a path exists or what it contains, check before acting.
 

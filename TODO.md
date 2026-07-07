@@ -17,10 +17,4 @@
 - Implement tui commands like the old tui
 - Improve tui permission asking ui
 - Setup custom colors
-
-
-█▀▄▀█
-█   █
-
-█▄ ▄█ █ ▄▀▄
-█ ▀ █ █ █▀█
+- Implement stdio passthrough for shell tools

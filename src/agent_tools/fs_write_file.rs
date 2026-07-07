@@ -1,7 +1,6 @@
 use indoc::indoc;
 use serde_json::json;
 use std::fs;
-use termimad::crossterm::style::Stylize;
 
 use crate::{
     agent_loop::AgentHandle,
@@ -64,7 +63,7 @@ impl Tool for FSWriteFile {
 
         let colored_content = utils::highlight_text(path, content);
 
-        let header = format!("{} {}", "Write to".red(), path.yellow());
+        let header = format!("Write to {}", path);
         if handle.ask_permission(header, &colored_content).await {
             match fs::write(path, content) {
                 Ok(_) => {
