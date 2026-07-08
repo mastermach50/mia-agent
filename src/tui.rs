@@ -80,6 +80,8 @@ pub async fn run(new_session: bool) -> Result<()> {
         }
     }
 
+    state.session.save()?;
+
     ratatui::restore();
     execute!(std::io::stdout(), PopKeyboardEnhancementFlags)
         .context("Failed to pop keyboard enhancement flags")?;
@@ -92,6 +94,7 @@ struct AppState {
 
     input: TextArea<'static>,
     input_placeholder: String,
+    help_message: String,
 
     permission_request: Option<oneshot::Sender<bool>>,
     yolo: bool,
@@ -112,12 +115,25 @@ struct AppState {
 impl AppState {
     fn new() -> (UnboundedReceiver<AgentEvent>, Self) {
         let (event_rx, handle) = AgentHandle::new();
+        let help_message = indoc::indoc! {"
+        Commands:
+            /help         Show this help message
+            /exit /bye    Exit the tui
+            /new          Create a new session
+            /model        Show model information
+            /yolo         Toggle yolo mode (accept all permission requests)
+        
+        Keybinds:
+            <Esc>  Quit
+        "}
+        .to_string();
         let new = Self {
             agent_handle: handle,
             session: Session::default(),
 
             input: TextArea::default(),
             input_placeholder: "Type Something...".to_string(),
+            help_message,
 
             permission_request: None,
             yolo: false,
@@ -178,9 +194,10 @@ impl AppState {
         };
         let mut status_bar = Block::new().border_type(border_type).borders(Borders::TOP);
 
-        status_bar = status_bar
-            .title(Line::from(vec![self.status.clone().yellow()]).alignment(Alignment::Left));
-
+        if !self.status.is_empty() {
+            status_bar = status_bar
+                .title(Line::from(vec![self.status.clone().yellow()]).alignment(Alignment::Left));
+        }
         if self.yolo {
             status_bar =
                 status_bar.title(Line::from("[yolo]".red().bold()).alignment(Alignment::Left));
@@ -250,11 +267,49 @@ impl AppState {
         // Handle commands
         if text.trim().starts_with("/") {
             match text.trim() {
+                "/exit" | "/bye" => {
+                    self.exit = true;
+                }
+                "/new" => {
+                    self.session = Session::new("user", "tui", "tui");
+                    self.messages.clear();
+                    self.messages.push(get_logo());
+                    self.session
+                        .history
+                        .set_system_prompt(get_tui_system_prompt(None)?);
+                    for message in &self.session.history.messages {
+                        let rendered_message = render_message(message)?;
+                        self.messages.push(rendered_message);
+                    }
+                    self.send_harness_message("New session started, history cleared.")?;
+                }
+                "/model" => {
+                    let mut text = String::new();
+                    let model_config = AppConfig::global().model.clone();
+                    text.push_str(&format!("Model     : {}\n", model_config.name));
+                    text.push_str(&format!("Provider  : {}\n", model_config.provider));
+                    text.push_str(&format!("Base URL  : {}\n", model_config.base_url));
+                    text.push_str(&format!("Reasoning : {}\n", model_config.reasoning));
+                    self.send_harness_message(&text)?;
+                }
                 "/yolo" => {
                     self.yolo = !self.yolo;
+                    self.send_harness_message(&format!(
+                        "Yolo mode {}",
+                        if self.yolo { "enabled" } else { "disabled" }
+                    ))?;
+                }
+                "/" | "/help" => {
+                    let help_message = self.help_message.clone();
+                    self.send_harness_message(&help_message)?;
                 }
                 _ => {
-                    self.send_harness_message("Invalid command")?;
+                    // Show invalid command message but respect C style comments
+                    if text.starts_with('/') && !text.starts_with("//") {
+                        self.send_harness_message(
+                            "Invalid command, use /help for a list of commands.",
+                        )?;
+                    }
                 }
             }
             self.input.clear();
@@ -393,7 +448,7 @@ fn render_message(message: &Message) -> Result<Text<'static>> {
     let mut text = Text::default();
 
     let sender = match message.role.as_str() {
-        "user" => "User".green(),
+        "user" => AppConfig::global().tui.username.clone().green(),
         "assistant" => "Mia".cyan(),
         "harness" => "Harness".yellow(),
         _ => {
@@ -425,7 +480,6 @@ fn render_message(message: &Message) -> Result<Text<'static>> {
                 text.push_line(line.to_string().dark_gray().italic());
             }
         } else {
-            // Why is this not appearing
             text.push_line("Thoughts...".dark_gray().italic());
         }
     }
@@ -518,12 +572,14 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
                 if !(key_event.code == KeyCode::Enter && key_event.modifiers.is_empty())
                     && !is_scroll_key
                 {
-                    let commands = ["/yolo"];
+                    let commands = ["/", "/help", "/exit", "/bye", "/new", "/model", "/yolo"];
 
                     state.input.input(key_event);
                     let text = state.input.lines().join("\n");
                     if commands.contains(&text.trim()) {
                         state.input.set_style(Style::new().green());
+                    } else {
+                        state.input.set_style(Style::default());
                     }
                 }
             }
@@ -552,7 +608,7 @@ fn get_logo() -> Text<'static> {
             let colored_char: Span<'static> = if ['█', '▄', '▀'].contains(&ch) {
                 ch.to_string().magenta()
             } else if ['─', '│', '┘', '└', '┌', '┐', '╷', '╶'].contains(&ch) {
-                ch.to_string().magenta()
+                ch.to_string().light_green()
             } else {
                 ch.to_string().into()
             };
