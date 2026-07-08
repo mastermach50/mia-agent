@@ -13,7 +13,7 @@ use log::error;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Layout},
-    style::Stylize,
+    style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
@@ -92,13 +92,16 @@ struct AppState {
 
     input: TextArea<'static>,
     input_placeholder: String,
+
     permission_request: Option<oneshot::Sender<bool>>,
+    yolo: bool,
 
     status: String,
     model: String,
 
     messages: Vec<Text<'static>>,
     partial_message: Option<Message>,
+
     scroll_offset: u16,
     auto_scroll: bool,
 
@@ -115,13 +118,16 @@ impl AppState {
 
             input: TextArea::default(),
             input_placeholder: "Type Something...".to_string(),
+
             permission_request: None,
+            yolo: false,
 
             status: "".to_string(),
             model: AppConfig::global().model.name.clone(),
 
             messages: Vec::new(),
             partial_message: None,
+
             scroll_offset: 0,
             auto_scroll: true,
 
@@ -170,10 +176,17 @@ impl AppState {
         } else {
             BorderType::LightDoubleDashed
         };
-        let status_bar = Block::new()
-            .border_type(border_type)
-            .borders(Borders::TOP)
-            .title(Line::from(vec![self.status.clone().yellow()]).alignment(Alignment::Left))
+        let mut status_bar = Block::new().border_type(border_type).borders(Borders::TOP);
+
+        status_bar = status_bar
+            .title(Line::from(vec![self.status.clone().yellow()]).alignment(Alignment::Left));
+
+        if self.yolo {
+            status_bar =
+                status_bar.title(Line::from("[yolo]".red().bold()).alignment(Alignment::Left));
+        }
+
+        status_bar = status_bar
             .title(Line::from(vec![self.model.clone().yellow()]).alignment(Alignment::Right));
         frame.render_widget(status_bar, chunks[1]);
 
@@ -219,6 +232,7 @@ impl AppState {
         let lines = self.input.lines();
         let text = lines.join("\n");
 
+        // Process permission requests
         if let Some(response) = self.permission_request.take() {
             if text == "yes" || text == "y" {
                 response.send(true).unwrap();
@@ -230,6 +244,21 @@ impl AppState {
             self.status.clear();
             self.input_placeholder = "Type Something...".to_string();
             self.input.clear();
+            return Ok(());
+        };
+
+        // Handle commands
+        if text.trim().starts_with("/") {
+            match text.trim() {
+                "/yolo" => {
+                    self.yolo = !self.yolo;
+                }
+                _ => {
+                    self.send_harness_message("Invalid command")?;
+                }
+            }
+            self.input.clear();
+            self.input.set_style(Style::default());
             return Ok(());
         }
 
@@ -329,6 +358,11 @@ impl AppState {
                 content,
                 response,
             } => {
+                if self.yolo {
+                    response.send(true).unwrap();
+                    return Ok(());
+                };
+
                 let mut text = Text::default();
 
                 text.push_line(Line::from(header.clone().red().bold()));
@@ -484,7 +518,13 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
                 if !(key_event.code == KeyCode::Enter && key_event.modifiers.is_empty())
                     && !is_scroll_key
                 {
+                    let commands = ["/yolo"];
+
                     state.input.input(key_event);
+                    let text = state.input.lines().join("\n");
+                    if commands.contains(&text.trim()) {
+                        state.input.set_style(Style::new().green());
+                    }
                 }
             }
             _ => {}
