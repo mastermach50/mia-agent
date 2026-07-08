@@ -1,4 +1,5 @@
 use anyhow::Context;
+use log::trace;
 use std::{
     cmp::max,
     io::{Read, Write, stdout},
@@ -188,6 +189,8 @@ pub fn start_spinner(kind: &str) {
         }
     });
     *SPINNER.lock().unwrap() = Some(handle);
+
+    trace!("TUI spinner started");
 }
 
 /// Stop showing the thinking spinner
@@ -197,4 +200,6 @@ pub fn stop_spinner() {
         print!("\r{}\r", " ".repeat(20));
         stdout().flush().unwrap();
     }
+
+    trace!("TUI spinner stopped");
 }

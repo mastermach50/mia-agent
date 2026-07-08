@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::trace;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
@@ -29,6 +30,9 @@ pub enum AgentEvent {
 impl AgentHandle {
     pub fn new() -> (UnboundedReceiver<AgentEvent>, Self) {
         let (tx, rx) = mpsc::unbounded_channel::<AgentEvent>();
+
+        trace!("Agent handle created");
+
         (rx, AgentHandle { tx })
     }
 
@@ -36,34 +40,46 @@ impl AgentHandle {
         self.tx
             .send(AgentEvent::AssistantMessage(msg.clone()))
             .unwrap();
+
+        trace!("Assistant message sent");
     }
 
     fn partial_assistant_msg(&self, msg: &PartialMessage) {
         self.tx
             .send(AgentEvent::PartialAssistantMessage(msg.clone()))
             .unwrap();
+
+        // trace!("Partial assistant message sent")
     }
 
     fn assistant_status_update(&self, msg: impl ToString) {
         self.tx
             .send(AgentEvent::AssistantStatusUpdate(msg.to_string()))
             .unwrap();
+
+        trace!("Assistant status update sent ({})", msg.to_string());
     }
 
     fn tool_call_response_msg(&self, msg: &Message) {
         self.tx
             .send(AgentEvent::ToolCallResponseMessage(msg.clone()))
             .unwrap();
+
+        trace!("Tool call response message sent");
     }
 
     fn harness_msg(&self, msg: impl ToString) {
         self.tx
             .send(AgentEvent::HarnessMessage(msg.to_string()))
             .unwrap();
+
+        trace!("Harness message sent ({})", msg.to_string());
     }
 
     fn update_history(&self, history: History) {
         self.tx.send(AgentEvent::HistoryUpdate(history)).unwrap();
+
+        trace!("History update message sent");
     }
 
     pub async fn ask_permission(

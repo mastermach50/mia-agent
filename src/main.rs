@@ -115,6 +115,7 @@ async fn main() -> Result<()> {
             }
         },
         Some(cli::MainSubCommands::Setup) => {
+            info!("Starting agent setup...");
             setup::setup().await?;
         }
         Some(cli::MainSubCommands::Tools) => {

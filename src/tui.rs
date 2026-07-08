@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use ansi_to_tui::IntoText;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use crossterm::{
     event::{
         self, Event, KeyCode, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
@@ -11,7 +11,11 @@ use crossterm::{
 };
 use log::error;
 use ratatui::{
-    Frame, layout::{Alignment, Constraint, Layout}, style::Stylize, text::{Line, Span, Text}, widgets::{Block, BorderType, Borders, Paragraph, Wrap}
+    Frame,
+    layout::{Alignment, Constraint, Layout},
+    style::Stylize,
+    text::{Line, Span, Text},
+    widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
 use ratatui_textarea::TextArea;
 use termimad::MadSkin;
@@ -56,12 +60,13 @@ pub async fn run(new_session: bool) -> Result<()> {
         }
     };
 
-    let mut terminal = ratatui::init();
     execute!(
         std::io::stdout(),
         PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES),
         PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES)
-    )?;
+    )
+    .context("Failed to push keyboard enhancement flags")?;
+    let mut terminal = ratatui::init();
 
     while !state.exit {
         if state.redraw {
@@ -76,7 +81,8 @@ pub async fn run(new_session: bool) -> Result<()> {
     }
 
     ratatui::restore();
-    execute!(std::io::stdout(), PopKeyboardEnhancementFlags)?;
+    execute!(std::io::stdout(), PopKeyboardEnhancementFlags)
+        .context("Failed to pop keyboard enhancement flags")?;
     Ok(())
 }
 
@@ -453,9 +459,7 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
                             state.submit().await?;
                         }
                     }
-                    KeyCode::F(5) => {
-                        
-                    }
+                    KeyCode::F(5) => {}
                     KeyCode::Up => {
                         state.scroll_offset = state.scroll_offset.saturating_sub(1);
                         state.auto_scroll = false;

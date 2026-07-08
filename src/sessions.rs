@@ -67,6 +67,8 @@ impl Session {
             panic!("Session ID is too long");
         }
 
+        debug!("New session created");
+
         session
     }
 
@@ -79,7 +81,11 @@ impl Session {
             &filepath,
             serde_json::to_string_pretty(self).context("Failed to serialize session")?,
         )
-        .context("Failed to save session file")
+        .context("Failed to save session file")?;
+
+        debug!("Saved session to {:?}", filepath);
+
+        Ok(())
     }
 
     pub fn load(id: &str) -> Result<Self> {
@@ -87,9 +93,11 @@ impl Session {
             .sessions_dir
             .join(id.to_owned() + ".json");
         let session: Session = serde_json::from_str(
-            &fs::read_to_string(session_file).context("Failed to read session file")?,
+            &fs::read_to_string(&session_file).context("Failed to read session file")?,
         )
         .context("Failed to deserialize session")?;
+
+        debug!("Loaded session from {:?}", session_file);
 
         Ok(session)
     }
