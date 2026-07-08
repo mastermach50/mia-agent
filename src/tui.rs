@@ -47,6 +47,8 @@ pub async fn run(new_session: bool) -> Result<()> {
     )
     .context("Failed to push keyboard enhancement flags")?;
 
+    state.term_width = terminal.get_frame().area().width as usize;
+
     if new_session {
         state.session = Session::new("user", "tui", "tui");
         state
@@ -57,7 +59,8 @@ pub async fn run(new_session: bool) -> Result<()> {
         state.send_harness_message("Started new session.")?;
     } else {
         if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
-            state.messages = render_full_chat(&session.history, Some(state.term_width))?;
+            (state.messages, state.prompt_tokens, state.completion_tokens, state.total_tokens) =
+                render_full_chat(&session.history, Some(state.term_width))?;
             state.session = session;
             state.send_harness_message("Loaded last session.")?;
         } else {
@@ -72,13 +75,12 @@ pub async fn run(new_session: bool) -> Result<()> {
     };
 
     while !state.exit {
-        state.term_width = terminal.get_frame().area().width as usize;
         if state.redraw {
             terminal.clear()?;
             state.redraw = false;
         }
         terminal.draw(|f| state.draw(f))?;
-        state.handle_key_events().await?;
+        state.handle_input_events().await?;
         state.handle_agent_events()?;
     }
 
@@ -111,6 +113,9 @@ struct AppState {
 
     messages: Vec<Text<'static>>,
     partial_message: Option<Message>,
+    prompt_tokens: u64,
+    completion_tokens: u64,
+    total_tokens: u64,
 
     scroll_offset: u16,
     auto_scroll: bool,
@@ -153,6 +158,9 @@ impl AppState {
 
             messages: Vec::new(),
             partial_message: None,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
 
             scroll_offset: 0,
             auto_scroll: true,
@@ -209,6 +217,13 @@ impl AppState {
         if self.yolo {
             status_bar =
                 status_bar.title(Line::from("[yolo]".red().bold()).alignment(Alignment::Left));
+        }
+
+        if self.completion_tokens > 0 && self.prompt_tokens > 0 {
+            status_bar = status_bar.title(
+                Line::from(format!("({}|{}|{})", self.completion_tokens, self.prompt_tokens, self.total_tokens).yellow())
+                    .alignment(Alignment::Right)
+            );
         }
 
         status_bar = status_bar
@@ -361,7 +376,7 @@ impl AppState {
         Ok(())
     }
 
-    async fn handle_key_events(&mut self) -> Result<()> {
+    async fn handle_input_events(&mut self) -> Result<()> {
         let timeout = Duration::from_millis(50);
         if event::poll(timeout)? {
             match event::read()? {
@@ -429,6 +444,9 @@ impl AppState {
                 Event::Paste(text) => {
                     self.input.insert_str(&text);
                 }
+                Event::Resize(cols, _rows) => {
+                    self.term_width = cols as usize;
+                }
                 _ => {}
             }
         }
@@ -448,6 +466,13 @@ impl AppState {
                     let rendered_message = render_message(&msg, Some(self.term_width))?;
                     self.messages.push(rendered_message);
 
+                    // Calculate token usage
+                    if let Some(usage) = &msg.usage {
+                        self.prompt_tokens = usage.prompt_tokens;
+                        self.completion_tokens += usage.completion_tokens;
+                        self.total_tokens = usage.total_tokens;
+                    }
+
                     // Append the message to the session history and save it
                     self.session.history.add_message(msg);
                     self.session.save()?;
@@ -466,6 +491,7 @@ impl AppState {
                             content: Some(String::new()),
                             tool_calls: None,
                             tool_call_id: None,
+                            usage: None,
                         });
                     }
 
@@ -516,18 +542,12 @@ impl AppState {
 
                     let mut text = Text::default();
 
-                    text.push_line(Line::from(vec![
-                        "╭─".into(),
-                        header.clone().red().bold()
-                    ]));
+                    text.push_line(Line::from(vec!["╭─".into(), header.clone().red().bold()]));
                     for mut line in content.into_text()?.lines {
                         line.spans.insert(0, "│ ".into());
                         text.push_line(line);
                     }
-                    text.push_line(Line::from(vec![
-                        "╰─".into(),
-                        header.clone().red().bold()
-                    ]));
+                    text.push_line(Line::from(vec!["╰─".into(), header.clone().red().bold()]));
 
                     self.messages.push(text);
                     self.permission_request = Some(response);
@@ -541,14 +561,28 @@ impl AppState {
 }
 
 /// Render all the messages
-fn render_full_chat(history: &History, term_width: Option<usize>) -> Result<Vec<Text<'static>>> {
+/// Returns the rendered messages vec and the completion and prompt tokens
+fn render_full_chat(
+    history: &History,
+    term_width: Option<usize>,
+) -> Result<(Vec<Text<'static>>, u64, u64, u64)> {
     let mut chat = Vec::new();
+    let mut prompt_tokens = 0;
+    let mut completion_tokens = 0;
+    let mut total_tokens = 0;
+
     chat.push(get_logo());
     for message in &history.messages {
         let rendered_message = render_message(&message, term_width)?;
         chat.push(rendered_message);
+
+        if let Some(usage) = &message.usage {
+            prompt_tokens = usage.prompt_tokens;
+            completion_tokens += usage.completion_tokens;
+            total_tokens = usage.total_tokens;
+        }
     }
-    Ok(chat)
+    Ok((chat, prompt_tokens, completion_tokens, total_tokens))
 }
 
 /// Render out a single Message into Text
