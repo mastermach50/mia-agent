@@ -5,12 +5,13 @@ use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_tools::ToolRegistry;
-use crate::api::{History, Message, PartialMessage, completion};
+use crate::api::{Completion, History, Message, PartialMessage, completion};
 use crate::config::AppConfig;
 
 #[derive(Clone)]
 pub struct AgentHandle {
     tx: UnboundedSender<AgentEvent>,
+    pub cancel: CancellationToken,
 }
 
 pub enum AgentEvent {
@@ -30,10 +31,11 @@ pub enum AgentEvent {
 impl AgentHandle {
     pub fn new() -> (UnboundedReceiver<AgentEvent>, Self) {
         let (tx, rx) = mpsc::unbounded_channel::<AgentEvent>();
+        let cancel = CancellationToken::new();
 
         trace!("Agent handle created");
 
-        (rx, AgentHandle { tx })
+        (rx, AgentHandle { tx, cancel })
     }
 
     fn assistant_msg(&self, msg: &Message) {
@@ -113,17 +115,13 @@ pub async fn run_agent(
     // Make history mutable
     let mut history = history;
 
-    // Setup a Ctrl-C listener to cancel the request
-    // When a Ctrl-C is received the cancellation token is set to "cancelled"
-    let cancel = CancellationToken::new();
-
     // Max number of iterations is configurable
     for iterations in 1..=AppConfig::global().agent.max_iterations {
         // Initially mark the assistant as waiting
         handle.assistant_status_update("Waiting");
 
         // Check if the request is cancelled
-        if cancel.is_cancelled() {
+        if handle.cancel.is_cancelled() {
             break;
         }
 
@@ -143,26 +141,26 @@ pub async fn run_agent(
         // Get the next message from the assistant and append it to the history
         // Pass over the cancellation token and thinking notifier too
         // Also accept Ctrl-C signal and break out of loop if it arises
-        let assistant_msg = tokio::select! {
-            res = completion(
-                &history,
-                &session_id,
-                stream,
-                &cancel,
-                |kind: &str| handle.assistant_status_update(kind),
-                |msg: &PartialMessage| handle.partial_assistant_msg(msg),
-            ) => {
-                match res {
-                    Ok(message) => message,
-                    Err(err) => {
-                        handle.harness_msg(format!("Assistant returned error:\n\t{err}"));
-                        break;
-                    }
+        let assistant_msg = match completion(
+            &history,
+            &session_id,
+            stream,
+            &handle.cancel,
+            |kind: &str| handle.assistant_status_update(kind),
+            |msg: &PartialMessage| handle.partial_assistant_msg(msg),
+        )
+        .await
+        {
+            Ok(completion) => {
+                if let Completion::Completed(msg) = completion {
+                    msg
+                } else {
+                    handle.harness_msg("Assistant turn cancelled.");
+                    break;
                 }
-            },
-            _ = tokio::signal::ctrl_c() => {
-                handle.harness_msg("Assistant turn cancelled.");
-                cancel.cancel();
+            }
+            Err(err) => {
+                handle.harness_msg(format!("Assistant returned error:\n\t{err}"));
                 break;
             }
         };
@@ -187,9 +185,8 @@ pub async fn run_agent(
                     ) => {
                         content
                     },
-                    _ = tokio::signal::ctrl_c() => {
+                    _ = handle.cancel.cancelled() => {
                         handle.harness_msg("Assistant turn cancelled during tool call.");
-                        cancel.cancel();
                         break;
                     }
                 };

@@ -4,7 +4,7 @@ use ansi_to_tui::IntoText;
 use anyhow::{Context, Result};
 use crossterm::{
     event::{
-        self, Event, KeyCode, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+        self, Event, KeyCode, KeyModifiers, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
         PushKeyboardEnhancementFlags,
     },
     execute,
@@ -20,6 +20,7 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 use termimad::MadSkin;
 use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     agent_loop::{self, AgentEvent, AgentHandle},
@@ -31,7 +32,7 @@ use crate::{
 };
 
 pub async fn run(new_session: bool) -> Result<()> {
-    let (mut event_rx, mut state) = AppState::new();
+    let mut state = AppState::new();
 
     state.messages.push(get_logo());
 
@@ -75,7 +76,7 @@ pub async fn run(new_session: bool) -> Result<()> {
         }
         terminal.draw(|f| state.draw(f))?;
         handle_key_events(&mut state).await?;
-        while let Ok(event) = event_rx.try_recv() {
+        while let Ok(event) = state.event_rx.try_recv() {
             state.handle_agent_event(event)?;
         }
     }
@@ -90,6 +91,7 @@ pub async fn run(new_session: bool) -> Result<()> {
 
 struct AppState {
     agent_handle: AgentHandle,
+    event_rx: UnboundedReceiver<AgentEvent>,
     session: Session,
 
     input: TextArea<'static>,
@@ -113,8 +115,8 @@ struct AppState {
 }
 
 impl AppState {
-    fn new() -> (UnboundedReceiver<AgentEvent>, Self) {
-        let (event_rx, handle) = AgentHandle::new();
+    fn new() -> Self {
+        let (event_rx, agent_handle) = AgentHandle::new();
         let help_message = indoc::indoc! {"
         Commands:
             /help         Show this help message
@@ -127,8 +129,10 @@ impl AppState {
             <Esc>  Quit
         "}
         .to_string();
-        let new = Self {
-            agent_handle: handle,
+        
+        Self {
+            agent_handle,
+            event_rx,
             session: Session::default(),
 
             input: TextArea::default(),
@@ -149,9 +153,7 @@ impl AppState {
 
             redraw: false,
             exit: false,
-        };
-
-        (event_rx, new)
+        }
     }
 
     /// Draw the frame from the current state
@@ -316,7 +318,11 @@ impl AppState {
             self.input.set_style(Style::default());
             return Ok(());
         }
+        
+        // Cancel any running agent turn
+        self.agent_handle.cancel.cancel();
 
+        // Display the user message, add it to history and save session
         let message = Message::new("user", text);
         let rendered_message = render_message(&message)?;
         self.messages.push(rendered_message);
@@ -325,9 +331,11 @@ impl AppState {
 
         self.input.clear();
 
+        // Run the agent
         let stream = AppConfig::global().tui.streaming;
         let session_id = self.session.get_extended_session_id();
         let history = self.session.history.clone(); // Fix history clone
+        self.agent_handle.cancel = CancellationToken::new();
         let handle = self.agent_handle.clone();
         tokio::spawn(async move {
             agent_loop::run_agent(history, &session_id, stream, handle)
@@ -364,6 +372,7 @@ impl AppState {
 
                 // Clear any previous status
                 self.status.clear();
+                self.input_placeholder = "Type Something...".to_string();
             }
             AgentEvent::PartialAssistantMessage(msg) => {
                 if (msg.reasoning_chunk_index == 0 && msg.content_chunk_index == -1)
@@ -394,6 +403,10 @@ impl AppState {
             }
             AgentEvent::AssistantStatusUpdate(kind) => {
                 self.status = kind;
+
+                if !self.status.is_empty() {
+                    self.input_placeholder = "Executing, <Ctrl-C> to cancel".to_string();
+                }
             }
             AgentEvent::ToolCallResponseMessage(msg) => {
                 self.session.history.add_message(msg);
@@ -547,7 +560,19 @@ async fn handle_key_events(state: &mut AppState) -> Result<()> {
                             state.submit().await?;
                         }
                     }
-                    KeyCode::F(5) => {}
+                    KeyCode::F(5) => {
+                        state.redraw = true;
+                    }
+                    KeyCode::Char('c') => {
+                        if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+                            state.agent_handle.cancel.cancel();
+                            state.partial_message = None;
+                            state.status.clear();
+                            state.input_placeholder = "Type Something...".to_string();
+                            state.permission_request = None;
+                            state.session.save()?;
+                        }
+                    }
                     KeyCode::Up => {
                         state.scroll_offset = state.scroll_offset.saturating_sub(1);
                         state.auto_scroll = false;

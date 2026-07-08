@@ -105,6 +105,11 @@ impl History {
     }
 }
 
+pub enum Completion {
+    Completed(Message),
+    Cancelled,
+}
+
 pub async fn completion(
     history: &History,
     session_id: &str,
@@ -112,7 +117,7 @@ pub async fn completion(
     cancel: &CancellationToken,
     on_status_update: impl Fn(&str),
     on_partial_message: impl Fn(&PartialMessage),
-) -> Result<Message> {
+) -> Result<Completion> {
     // Get the http client, with the default headers required to identify this as mia agent
     let client = Client::builder()
         .default_headers(get_default_headers())
@@ -142,7 +147,7 @@ pub async fn completion(
             res.context("Failed to send streaming chat completion request")?
         },
         _ = cancel.cancelled() => {
-            anyhow::bail!("Request cancelled")
+            return Ok(Completion::Cancelled);
         }
     };
 
@@ -170,7 +175,7 @@ pub async fn completion(
                 res.context("Failed to read response body")?
             },
             _ = cancel.cancelled() => {
-                anyhow::bail!("Request cancelled")
+                return Ok(Completion::Cancelled);
             }
         };
 
@@ -180,7 +185,7 @@ pub async fn completion(
         let message: Message = serde_json::from_value(content["choices"][0]["message"].clone())
             .context("Failed to decode assistant message")?;
 
-        return Ok(message);
+        return Ok(Completion::Completed(message));
     }
 
     // Define some variables to accumulate the streamed data
@@ -201,7 +206,7 @@ pub async fn completion(
         // Check for cancellation before processing
         let chunk = tokio::select! {
             chunk = byte_stream.next() => chunk,
-            _ = cancel.cancelled() => anyhow::bail!("Stream Cancelled")
+            _ = cancel.cancelled() => return Ok(Completion::Cancelled),
         };
 
         // Break if chuck is None
@@ -332,7 +337,7 @@ pub async fn completion(
         Some(sort_buffer.into_iter().map(|(_, tc)| tc).collect())
     };
 
-    Ok(Message {
+    let message = Message {
         role: "assistant".to_string(),
         reasoning: if full_reasoning.is_empty() {
             None
@@ -346,7 +351,9 @@ pub async fn completion(
         },
         tool_calls: full_tool_calls,
         tool_call_id: None,
-    })
+    };
+
+    Ok(Completion::Completed(message))
 }
 
 #[derive(Serialize, Deserialize)]
