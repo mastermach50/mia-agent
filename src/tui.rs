@@ -4,14 +4,15 @@ use ansi_to_tui::IntoText;
 use anyhow::{Context, Result};
 use crossterm::{
     event::{
-        self, Event, KeyCode, KeyModifiers, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
-        PushKeyboardEnhancementFlags,
+        self, DisableBracketedPaste, EnableBracketedPaste, Event, KeyCode, KeyModifiers,
+        KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
 };
 use log::error;
 use ratatui::{
-    Frame, layout::{Alignment, Constraint, Layout},
+    Frame,
+    layout::{Alignment, Constraint, Layout},
     style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
@@ -35,13 +36,16 @@ pub async fn run(new_session: bool) -> Result<()> {
     // Create a new app state
     let mut state = AppState::new();
 
+    let mut terminal = ratatui::init();
     execute!(
         std::io::stdout(),
-        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES),
-        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES)
+        EnableBracketedPaste,
+        PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+        )
     )
     .context("Failed to push keyboard enhancement flags")?;
-    let mut terminal = ratatui::init();
 
     if new_session {
         state.session = Session::new("user", "tui", "tui");
@@ -49,6 +53,7 @@ pub async fn run(new_session: bool) -> Result<()> {
             .session
             .history
             .set_system_prompt(tui_system_prompt(Some(&state.help_message))?);
+        state.messages.push(get_logo());
         state.send_harness_message("Started new session.")?;
     } else {
         if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
@@ -61,6 +66,7 @@ pub async fn run(new_session: bool) -> Result<()> {
                 .session
                 .history
                 .set_system_prompt(tui_system_prompt(Some(&state.help_message))?);
+            state.messages.push(get_logo());
             state.send_harness_message("No previous session found, started new one.")?;
         }
     };
@@ -77,10 +83,13 @@ pub async fn run(new_session: bool) -> Result<()> {
     }
 
     state.session.save()?;
-
+    execute!(
+        std::io::stdout(),
+        DisableBracketedPaste,
+        PopKeyboardEnhancementFlags
+    )
+    .context("Failed to pop keyboard enhancement flags")?;
     ratatui::restore();
-    execute!(std::io::stdout(), PopKeyboardEnhancementFlags)
-        .context("Failed to pop keyboard enhancement flags")?;
     Ok(())
 }
 
@@ -212,8 +221,8 @@ impl AppState {
             display_lines.extend(message.lines.clone());
         }
         if let Some(partial_message) = &self.partial_message {
-            let rendered_message =
-                render_message(partial_message, Some(self.term_width)).expect("Failed to render partial message");
+            let rendered_message = render_message(partial_message, Some(self.term_width))
+                .expect("Failed to render partial message");
             display_lines.extend(rendered_message.lines.clone());
         }
 
@@ -396,14 +405,16 @@ impl AppState {
                         }
                         _ => {}
                     }
+
                     let is_scroll_key = matches!(
                         key_event.code,
                         KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
                     );
 
-                    if !(key_event.code == KeyCode::Enter && key_event.modifiers.is_empty())
-                        && !is_scroll_key
-                    {
+                    let is_action_keybind =
+                        key_event.code == KeyCode::Enter && key_event.modifiers.is_empty();
+
+                    if !is_action_keybind && !is_scroll_key {
                         let commands = ["/", "/help", "/exit", "/bye", "/new", "/model", "/yolo"];
 
                         self.input.input(key_event);
@@ -414,6 +425,9 @@ impl AppState {
                             self.input.set_style(Style::default());
                         }
                     }
+                }
+                Event::Paste(text) => {
+                    self.input.insert_str(&text);
                 }
                 _ => {}
             }
@@ -481,10 +495,8 @@ impl AppState {
                     self.session.save()?;
                 }
                 AgentEvent::HarnessMessage(msg) => {
-                    let rendered_message = render_message(
-                        &Message::new("harness", msg),
-                        Some(self.term_width),
-                    )?;
+                    let rendered_message =
+                        render_message(&Message::new("harness", msg), Some(self.term_width))?;
                     self.messages.push(rendered_message);
                     self.status.clear();
                 }
@@ -504,11 +516,18 @@ impl AppState {
 
                     let mut text = Text::default();
 
-                    text.push_line(Line::from(header.clone().red().bold()));
-                    text.push_line("---");
-                    text.extend(content.into_text().unwrap());
-                    text.push_line("---");
-                    text.push_line(Line::from(header.clone().red().bold()));
+                    text.push_line(Line::from(vec![
+                        "╭─".into(),
+                        header.clone().red().bold()
+                    ]));
+                    for mut line in content.into_text()?.lines {
+                        line.spans.insert(0, "│ ".into());
+                        text.push_line(line);
+                    }
+                    text.push_line(Line::from(vec![
+                        "╰─".into(),
+                        header.clone().red().bold()
+                    ]));
 
                     self.messages.push(text);
                     self.permission_request = Some(response);
@@ -554,6 +573,7 @@ fn render_message(message: &Message, term_width: Option<usize>) -> Result<Text<'
 
     let short_message = message.reasoning.is_none()
         && message.content.is_some()
+        && !message.content.as_ref().unwrap().contains("\n")
         && message.content.as_ref().unwrap().chars().count() < 100;
 
     if short_message {
