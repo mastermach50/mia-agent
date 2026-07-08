@@ -59,8 +59,12 @@ pub async fn run(new_session: bool) -> Result<()> {
         state.send_harness_message("Started new session.")?;
     } else {
         if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
-            (state.messages, state.prompt_tokens, state.completion_tokens, state.total_tokens) =
-                render_full_chat(&session.history, Some(state.term_width))?;
+            (
+                state.messages,
+                state.prompt_tokens,
+                state.completion_tokens,
+                state.total_tokens,
+            ) = render_full_chat(&session.history, Some(state.term_width))?;
             state.session = session;
             state.send_harness_message("Loaded last session.")?;
         } else {
@@ -221,8 +225,14 @@ impl AppState {
 
         if self.completion_tokens > 0 && self.prompt_tokens > 0 {
             status_bar = status_bar.title(
-                Line::from(format!("({}|{}|{})", self.completion_tokens, self.prompt_tokens, self.total_tokens).yellow())
-                    .alignment(Alignment::Right)
+                Line::from(
+                    format!(
+                        "({}|{}|{})",
+                        self.completion_tokens, self.prompt_tokens, self.total_tokens
+                    )
+                    .yellow(),
+                )
+                .alignment(Alignment::Right),
             );
         }
 

@@ -45,7 +45,7 @@ pub struct Message {
     pub reasoning: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCall>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -201,10 +201,7 @@ pub async fn completion(
         // Decode the usage as option
         let usage = serde_json::from_value::<TokenUsage>(content["usage"].clone()).ok();
 
-        let message = Message {
-            usage,
-            ..message
-        };
+        let message = Message { usage, ..message };
 
         return Ok(Completion::Completed(message));
     }
@@ -472,7 +469,10 @@ fn get_default_headers() -> HeaderMap {
 
     if AppConfig::global().model.provider == "openrouter" {
         headers.insert("X-OpenRouter-Title", "Mia Agent".parse().unwrap());
-        headers.insert("X-OpenRouter-Categories", "cli-agent,personal-agent".parse().unwrap());
+        headers.insert(
+            "X-OpenRouter-Categories",
+            "cli-agent,personal-agent".parse().unwrap(),
+        );
     }
 
     headers
