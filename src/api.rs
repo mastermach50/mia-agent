@@ -30,6 +30,13 @@ pub struct FunctionCall {
     pub arguments: String, // The arguments are a JSON string that may or may not be valid
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct TokenUsage {
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub total_tokens: u64,
+}
+
 /// A message structure that can hold any type of message from any role
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Message {
@@ -38,10 +45,14 @@ pub struct Message {
     pub reasoning: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCall>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<TokenUsage>,
 }
 
 impl Message {
@@ -52,6 +63,7 @@ impl Message {
             content: Some(content.into()),
             tool_calls: None,
             tool_call_id: None,
+            usage: None,
         }
     }
     pub fn new_tool_call_response(
@@ -64,6 +76,7 @@ impl Message {
             content: Some(content.into()),
             tool_calls: None,
             tool_call_id: Some(tool_call_id.into()),
+            usage: None,
         }
     }
 }
@@ -91,10 +104,10 @@ impl History {
     }
 
     pub fn set_system_prompt(&mut self, prompt: String) {
-        if let Some(message) = self.messages.first() {
-            if message.role == "system" {
-                self.messages[0] = Message::new("system", prompt);
-            }
+        if let Some(message) = self.messages.first()
+            && message.role == "system"
+        {
+            self.messages[0] = Message::new("system", prompt);
         } else {
             self.messages.insert(0, Message::new("system", prompt));
         }
@@ -105,6 +118,11 @@ impl History {
     }
 }
 
+pub enum Completion {
+    Completed(Message),
+    Cancelled,
+}
+
 pub async fn completion(
     history: &History,
     session_id: &str,
@@ -112,7 +130,7 @@ pub async fn completion(
     cancel: &CancellationToken,
     on_status_update: impl Fn(&str),
     on_partial_message: impl Fn(&PartialMessage),
-) -> Result<Message> {
+) -> Result<Completion> {
     // Get the http client, with the default headers required to identify this as mia agent
     let client = Client::builder()
         .default_headers(get_default_headers())
@@ -142,7 +160,7 @@ pub async fn completion(
             res.context("Failed to send streaming chat completion request")?
         },
         _ = cancel.cancelled() => {
-            anyhow::bail!("Request cancelled")
+            return Ok(Completion::Cancelled);
         }
     };
 
@@ -170,7 +188,7 @@ pub async fn completion(
                 res.context("Failed to read response body")?
             },
             _ = cancel.cancelled() => {
-                anyhow::bail!("Request cancelled")
+                return Ok(Completion::Cancelled);
             }
         };
 
@@ -180,13 +198,19 @@ pub async fn completion(
         let message: Message = serde_json::from_value(content["choices"][0]["message"].clone())
             .context("Failed to decode assistant message")?;
 
-        return Ok(message);
+        // Decode the usage as option
+        let usage = serde_json::from_value::<TokenUsage>(content["usage"].clone()).ok();
+
+        let message = Message { usage, ..message };
+
+        return Ok(Completion::Completed(message));
     }
 
     // Define some variables to accumulate the streamed data
     let mut full_content = String::new();
     let mut full_reasoning = String::new();
     let mut tool_calls_map: HashMap<usize, ToolCall> = HashMap::new();
+    let mut usage: Option<TokenUsage> = None;
 
     // Get the bytestream, and a buffer for leftover content
     let mut byte_stream = response.bytes_stream();
@@ -201,7 +225,7 @@ pub async fn completion(
         // Check for cancellation before processing
         let chunk = tokio::select! {
             chunk = byte_stream.next() => chunk,
-            _ = cancel.cancelled() => anyhow::bail!("Stream Cancelled")
+            _ = cancel.cancelled() => return Ok(Completion::Cancelled),
         };
 
         // Break if chuck is None
@@ -247,6 +271,13 @@ pub async fn completion(
                 continue;
             };
 
+            // grab the usage if it exists
+            if chunk_json["usage"].is_object() {
+                if let Ok(u) = serde_json::from_value::<TokenUsage>(chunk_json["usage"].clone()) {
+                    usage = Some(u);
+                }
+            }
+
             // Get the delta section of the streamed data
             let delta = &chunk_json["choices"][0]["delta"];
 
@@ -271,6 +302,7 @@ pub async fn completion(
                     content: None,
                 });
             }
+
             // If there is some content then append it to the full content
             // and do any processing necessary
             if let Some(content) = delta["content"].as_str().filter(|s| !s.is_empty()) {
@@ -332,7 +364,7 @@ pub async fn completion(
         Some(sort_buffer.into_iter().map(|(_, tc)| tc).collect())
     };
 
-    Ok(Message {
+    let message = Message {
         role: "assistant".to_string(),
         reasoning: if full_reasoning.is_empty() {
             None
@@ -346,7 +378,10 @@ pub async fn completion(
         },
         tool_calls: full_tool_calls,
         tool_call_id: None,
-    })
+        usage,
+    };
+
+    Ok(Completion::Completed(message))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -434,6 +469,10 @@ fn get_default_headers() -> HeaderMap {
 
     if AppConfig::global().model.provider == "openrouter" {
         headers.insert("X-OpenRouter-Title", "Mia Agent".parse().unwrap());
+        headers.insert(
+            "X-OpenRouter-Categories",
+            "cli-agent,personal-agent".parse().unwrap(),
+        );
     }
 
     headers

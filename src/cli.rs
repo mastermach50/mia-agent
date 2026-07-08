@@ -33,16 +33,16 @@ pub enum MainSubCommands {
     /// List all agent tools and their status
     Tools,
 
-    /// Run in interactive mode
+    /// Run the interactive tui
     Tui {
         /// Start a new session
         #[arg(short, long)]
         new: bool,
     },
 
-    /// Run the new ratatui based TUI
-    #[command(hide(true))] // Hidden while still in development
-    Ratatui {
+    /// Run the old, direct stdio tui
+    #[command(hide(true))]
+    OldTui {
         /// Start a new session
         #[arg(short, long)]
         new: bool,

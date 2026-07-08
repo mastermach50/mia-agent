@@ -2,7 +2,7 @@ use indoc::indoc;
 use serde_json::json;
 use std::fs;
 
-use crate::agent_tools::Tool;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct FSReadFile;
@@ -46,7 +46,7 @@ impl Tool for FSReadFile {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().expect("Path argument not found");
 
         match fs::read_to_string(path) {

@@ -6,7 +6,7 @@ use serde_json::json;
 use std::{fs, io};
 use tabled::grid::records::vec_records::Cell;
 
-use crate::agent_tools::Tool;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct FSListDir;
@@ -48,7 +48,7 @@ impl Tool for FSListDir {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().unwrap_or(".");
 
         match fs::read_dir(path) {
@@ -164,15 +164,4 @@ fn owner_group_string(metadata: &fs::Metadata) -> (String, String) {
 #[cfg(windows)]
 fn owner_group_string(_metadata: &fs::Metadata) -> (String, String) {
     ("-".to_string(), "-".to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_fs_list_dir() {
-        let out = FSListDir.execute(json!({})).await;
-        println!("{}", serde_json::to_string_pretty(&out).unwrap())
-    }
 }

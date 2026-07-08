@@ -2,7 +2,7 @@ use indoc::indoc;
 use serde_json::json;
 use std::{fs, iter};
 
-use crate::agent_tools::Tool;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct Memory;
@@ -19,13 +19,13 @@ impl Tool for Memory {
         let operation = args["operation"].as_str().unwrap_or_default();
         let content = args["content"].as_str().unwrap_or_default();
         let operator = if operation == "insert" {
-            "+"
+            "+="
         } else if operation == "delete" {
-            "-"
+            "-="
         } else {
             "?"
         };
-        format!("{} {}{}", memory_type, operator, content)
+        format!("{} {} {}", memory_type, operator, content)
     }
     fn availability(&self) -> Result<(), String> {
         Ok(())
@@ -67,7 +67,7 @@ impl Tool for Memory {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let memory_type = args["memory_type"]
             .as_str()
             .expect("Memory type argument not found");

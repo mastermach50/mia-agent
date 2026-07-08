@@ -14,25 +14,25 @@ mod agent_tools;
 mod api;
 mod cli;
 mod config;
+mod legacy_tui;
 mod sessions;
 mod setup;
 mod system_prompt;
-mod tui;
 mod utils;
 
-mod ratatuitui;
+mod tui;
 
 use agent_tools::ToolRegistry;
 use cli::Cli;
 use config::AppConfig;
 use log::{info, trace};
-use uuid::Uuid;
+// use uuid::Uuid;
 
 use crate::{
-    api::History,
+    // api::History,
     sessions::list_sessions,
     setup::Providers,
-    system_prompt::get_tui_system_prompt,
+    // system_prompt::get_tui_system_prompt,
     utils::{format_number, parse_human_number},
 };
 
@@ -54,22 +54,22 @@ async fn main() -> Result<()> {
     // Print config
     trace!("Model: {:?}", AppConfig::global().model);
 
-    if let Some(command) = cli.command {
-        let mut history = History::new();
-        history.set_system_prompt(get_tui_system_prompt(None)?);
-        history.add_message(api::Message::new("user", &command));
-        let session_id = format!("mia-agent_{}", Uuid::now_v7().to_string());
-        agent_loop::run_agent(
-            history,
-            &session_id,
-            AppConfig::global().tui.streaming,
-            tui::on_assistant_message,
-            tui::on_partial_assistant_message,
-            tui::on_assistant_status_update,
-            tui::on_system_message,
-        )
-        .await?;
-    }
+    // if let Some(command) = cli.command {
+    //     let mut history = History::new();
+    //     history.set_system_prompt(get_tui_system_prompt(None)?);
+    //     history.add_message(api::Message::new("user", &command));
+    //     let session_id = format!("mia-agent_{}", Uuid::now_v7().to_string());
+    //     agent_loop::run_agent(
+    //         history,
+    //         &session_id,
+    //         AppConfig::global().tui.streaming,
+    //         tui::on_assistant_message,
+    //         tui::on_partial_assistant_message,
+    //         tui::on_assistant_status_update,
+    //         tui::on_system_message,
+    //     )
+    //     .await?;
+    // }
 
     match cli.sub_command {
         Some(cli::MainSubCommands::Model { sub_command }) => match sub_command {
@@ -115,6 +115,7 @@ async fn main() -> Result<()> {
             }
         },
         Some(cli::MainSubCommands::Setup) => {
+            info!("Starting agent setup...");
             setup::setup().await?;
         }
         Some(cli::MainSubCommands::Tools) => {
@@ -137,9 +138,9 @@ async fn main() -> Result<()> {
             info!("Starting TUI...");
             tui::run(new).await?;
         }
-        Some(cli::MainSubCommands::Ratatui { new }) => {
-            info!("Starting Ratatui...");
-            ratatuitui::run(new).await?;
+        Some(cli::MainSubCommands::OldTui { new }) => {
+            info!("Starting Legacy TUI...");
+            legacy_tui::run(new).await?;
         }
         None => {
             println!("No command provided. Use --help for usage.");

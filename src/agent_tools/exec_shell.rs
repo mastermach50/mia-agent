@@ -2,12 +2,9 @@ use indoc::indoc;
 use serde_json::json;
 use std::process::Command;
 use std::process::Stdio;
-use termimad::crossterm::style::Stylize;
 
-use crate::{
-    agent_tools::Tool,
-    utils::{ask_permission, stdio_capture_and_print},
-};
+use crate::agent_loop::AgentHandle;
+use crate::{agent_tools::Tool, utils::stdio_capture_and_print};
 
 #[derive(Debug)]
 pub struct ExecShell;
@@ -59,12 +56,12 @@ impl Tool for ExecShell {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let command = args["command"]
             .as_str()
             .expect("Command argument not found");
 
-        if ask_permission("Execute?".red(), command) {
+        if handle.ask_permission("Execute?", command).await {
             #[cfg(unix)]
             let mut child_process = Command::new("bash");
             #[cfg(unix)]

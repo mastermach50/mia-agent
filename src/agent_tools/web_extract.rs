@@ -1,7 +1,7 @@
 use indoc::indoc;
 use serde_json::json;
 
-use crate::agent_tools::Tool;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct WebExtract;
@@ -46,7 +46,7 @@ impl Tool for WebExtract {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let url = args["url"].as_str().expect("URL argument not found");
 
         let api_key = match std::env::var("TAVILY_API_KEY") {

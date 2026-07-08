@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::Local;
+use log::{debug, trace};
 use std::fs;
 
 use crate::config::AppConfig;
@@ -18,14 +19,19 @@ pub fn get_system_prompt() -> Result<String> {
             You are Mia, a personal AI agent running on the user's machine.
             You have tools — use them to accomplish tasks rather than describing what you would do.
             "},
-        )?;
+        )
+        .context("Failed to create soul file")?;
     };
-    let soul = fs::read_to_string(&AppConfig::internal().soul_file)?;
+    let soul =
+        fs::read_to_string(&AppConfig::internal().soul_file).context("Failed to read soul file")?;
     system_prompt.push_str(&soul);
     system_prompt.push('\n');
 
     // Context
-    let executable = std::env::current_exe()?.into_string().unwrap();
+    let executable = std::env::current_exe()
+        .context("Failed to get current exe")?
+        .into_string()
+        .unwrap();
     let config_folder = AppConfig::internal().mia_dir.to_string_lossy();
     let model_name = AppConfig::global().model.name.clone();
     system_prompt.push_str(&indoc::formatdoc! {"
@@ -47,6 +53,7 @@ pub fn get_system_prompt() -> Result<String> {
 
     # Tool Discipline
     Destructive operations — file writes, overwrites, shell execution — trigger a built-in confirmation prompt shown to the user. Do not add your own pre-warnings; trust the confirmation system.
+    If the user denies a request then don't try to do the same thing another way, instead stop and wait for the user to decide what to do.
     When a task requires multiple lookups, plan what you need before calling tools so you gather information systematically rather than reactively.
     If you are unsure whether a path exists or what it contains, check before acting.
 
@@ -58,7 +65,10 @@ pub fn get_system_prompt() -> Result<String> {
     "});
     system_prompt.push('\n');
     let os_name = os_info::get().to_string();
-    let cwd = std::env::current_dir()?.into_string().unwrap();
+    let cwd = std::env::current_dir()
+        .context("Failed to get current dir")?
+        .into_string()
+        .unwrap();
     let date_and_hour = Local::now().format("%a, %d %b %Y %I%p %z");
     system_prompt.push_str(&indoc::formatdoc! {"
     # Environment
@@ -71,13 +81,23 @@ pub fn get_system_prompt() -> Result<String> {
 
     // Memory
     let user_memory_file = AppConfig::internal().user_memory_file.clone();
-    let user_memory = fs::read_to_string(&user_memory_file)?
+    if !user_memory_file.exists() {
+        fs::File::create(&user_memory_file).context("Failed to create user memory file")?;
+        debug!("Created user memory file {:?}", user_memory_file);
+    }
+    let user_memory = fs::read_to_string(&user_memory_file)
+        .context("Failed to read user memory file")?
         .lines()
         .filter(|&f| f != "§")
         .collect::<Vec<&str>>()
         .join("\n");
     let system_memory_file = AppConfig::internal().system_memory_file.clone();
-    let system_memory = fs::read_to_string(&system_memory_file)?
+    if !system_memory_file.exists() {
+        fs::File::create(&system_memory_file).context("Failed to create system memory file")?;
+        debug!("Created system memory file {:?}", system_memory_file);
+    }
+    let system_memory = fs::read_to_string(&system_memory_file)
+        .context("Failed to read system memory file")?
         .lines()
         .filter(|&f| f != "§")
         .collect::<Vec<&str>>()
@@ -99,10 +119,12 @@ pub fn get_system_prompt() -> Result<String> {
     ", user_memory_file = user_memory_file.to_string_lossy(), system_memory_file=system_memory_file.to_string_lossy()});
     system_prompt.push('\n');
 
+    trace!("Retrieved system prompt");
+
     Ok(system_prompt)
 }
 
-pub fn get_tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
+pub fn tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
     let mut system_prompt = get_system_prompt()?;
     system_prompt.push_str(&format!(
         "You are in a terminal TUI session with {}.",

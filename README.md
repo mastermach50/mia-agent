@@ -1,3 +1,7 @@
+<img width="2000" height="500" alt="Banner" src="./images/Banner.png" />
+
+
+
 # Mia Agent
 ![Build Status](https://github.com/mastermach50/mia-agent/actions/workflows/draft-release.yml/badge.svg)
 

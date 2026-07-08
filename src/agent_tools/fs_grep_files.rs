@@ -1,7 +1,7 @@
 use indoc::indoc;
 use serde_json::json;
 
-use crate::agent_tools::Tool;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct FSGrepFiles;
@@ -16,7 +16,7 @@ impl Tool for FSGrepFiles {
     fn short(&self, args: serde_json::Value) -> String {
         let pattern = args["pattern"]
             .as_str()
-            .unwrap_or("(no pattern provided)")
+            .unwrap_or("(no pattern)")
             .to_string();
         let path = args["path"].as_str().unwrap_or(".").to_string();
         let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
@@ -62,7 +62,7 @@ impl Tool for FSGrepFiles {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().unwrap_or(".");
         let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
         if let Some(pattern) = args["pattern"].as_str() {

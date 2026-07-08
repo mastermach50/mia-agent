@@ -162,7 +162,7 @@ impl AppConfig {
         }
         let env_file = Self::internal().env_file.clone();
         if !env_file.exists() {
-            fs::write(&env_file, "")?;
+            fs::File::create(&env_file).context("Failed to create .env file")?;
             info!("Created default .env file at {:?}", env_file);
         }
         let config_file = Self::internal().config_file.clone();
@@ -210,7 +210,7 @@ impl AppConfig {
             if provider != Providers::Local {
                 let api_key_name = provider.api_key_name().unwrap();
                 if env::var(api_key_name).is_err() {
-                    anyhow::bail!("{api_key_name} not set in .env");
+                    warn!("{api_key_name} not set in .env");
                 }
             }
         } else {

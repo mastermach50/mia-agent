@@ -1,6 +1,9 @@
-## v0.1.6
+## v0.2.0
 ### Added
-- New `doc_convert` tool.
+- New ratatui based tui is the default tui.
+    - The old tui can still be accessed using a hidden command `mia old-tui`
+- new `/yolo` command in tui to always respond yes to permission requests.
+- New `doc_convert` tool that allows the agent access to pandoc.
 
 ## v0.1.5
 ### Added

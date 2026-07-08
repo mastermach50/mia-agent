@@ -1,4 +1,5 @@
 use anyhow::Context;
+use log::trace;
 use std::{
     cmp::max,
     io::{Read, Write, stdout},
@@ -24,7 +25,7 @@ pub fn generate_think_lines(thinking: &str) -> String {
     left_gap.to_string() + &wrap(thinking, width).join(&("\n".to_owned() + left_gap))
 }
 
-pub fn ask_permission(prompt: impl ToString, content: &str) -> bool {
+pub fn stdio_ask_permission(prompt: impl ToString, content: &str) -> bool {
     let term_width = termwidth();
     let max_content_width = term_width - 4;
 
@@ -114,7 +115,7 @@ pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
                 break;
             }
             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                print!("{}", text);
+                // print!("{}", text); TODO replace with chunked passing
                 std::io::Write::flush(&mut std::io::stdout()).unwrap(); // Force instant print
                 stdout_captured.push_str(text);
             }
@@ -128,7 +129,7 @@ pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
                 break;
             }
             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                eprint!("{}", text);
+                // eprint!("{}", text); TODO replace with chunked passing
                 std::io::Write::flush(&mut std::io::stderr()).unwrap();
                 stderr_captured.push_str(text);
             }
@@ -188,6 +189,8 @@ pub fn start_spinner(kind: &str) {
         }
     });
     *SPINNER.lock().unwrap() = Some(handle);
+
+    trace!("TUI spinner started");
 }
 
 /// Stop showing the thinking spinner
@@ -197,4 +200,6 @@ pub fn stop_spinner() {
         print!("\r{}\r", " ".repeat(20));
         stdout().flush().unwrap();
     }
+
+    trace!("TUI spinner stopped");
 }

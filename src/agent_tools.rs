@@ -3,6 +3,8 @@ use log::{trace, warn};
 use serde_json::{self, json};
 use std::{collections::HashMap, sync::OnceLock};
 
+use crate::agent_loop::AgentHandle;
+
 mod datetime;
 mod doc_convert;
 mod exec_python;
@@ -31,7 +33,7 @@ trait Tool: Send + Sync + std::fmt::Debug {
     // OpenAI compatible tool schema
     fn schema(&self) -> serde_json::Value;
     // Execute the tool logic
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value;
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value;
 }
 
 #[derive(Debug)]
@@ -94,10 +96,10 @@ impl ToolRegistry {
     }
 
     /// Call a tool by its function name
-    pub async fn call(name: &str, args: &str) -> serde_json::Value {
+    pub async fn call(handle: &AgentHandle, name: &str, args: &str) -> serde_json::Value {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
             match Self::global().get(name) {
-                Some(tool_entry) => tool_entry.tool.execute(args).await,
+                Some(tool_entry) => tool_entry.tool.execute(handle, args).await,
                 None => {
                     warn!("Unregistered tool requested");
                     json!({

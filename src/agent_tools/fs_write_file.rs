@@ -1,11 +1,11 @@
 use indoc::indoc;
 use serde_json::json;
 use std::fs;
-use termimad::crossterm::style::Stylize;
 
 use crate::{
+    agent_loop::AgentHandle,
     agent_tools::Tool,
-    utils::{self, ask_permission},
+    utils::{self},
 };
 
 #[derive(Debug)]
@@ -19,7 +19,9 @@ impl Tool for FSWriteFile {
         "✍️".to_string()
     }
     fn short(&self, args: serde_json::Value) -> String {
-        args["path"].as_str().unwrap_or_default().to_string()
+        let path = args["path"].as_str().unwrap_or_default().to_string();
+        let content_len = args["content"].as_str().unwrap_or_default().len();
+        format!("{} ({} bytes)", path, content_len)
     }
     fn availability(&self) -> Result<(), String> {
         Ok(())
@@ -53,7 +55,7 @@ impl Tool for FSWriteFile {
             }
         })
     }
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let path = args["path"].as_str().expect("Path argument not found");
         let content = args["content"]
             .as_str()
@@ -61,8 +63,8 @@ impl Tool for FSWriteFile {
 
         let colored_content = utils::highlight_text(path, content);
 
-        let header = format!("{} {}", "Write to".red(), path.yellow());
-        if ask_permission(header, &colored_content) {
+        let header = format!("Write to {}", path);
+        if handle.ask_permission(header, &colored_content).await {
             match fs::write(path, content) {
                 Ok(_) => {
                     json!({

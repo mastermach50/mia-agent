@@ -1,9 +1,7 @@
 use indoc::indoc;
 use serde_json::json;
 
-use crate::
-    agent_tools::Tool
-;
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct DocConvert;
@@ -16,14 +14,24 @@ impl Tool for DocConvert {
         "📃".to_string()
     }
     fn short(&self, args: serde_json::Value) -> String {
-        let src = args["src_path"].as_str().unwrap_or_default().to_string();
-        let dest = args["dest_path"].as_str().unwrap_or_default().to_string();
+        let src = args["input_path"].as_str().unwrap_or_default().to_string();
+        let dest = args["output_path"].as_str().unwrap_or_default().to_string();
         format!("{src} -> {dest}")
     }
     fn availability(&self) -> Result<(), String> {
-        return which::which("pandoc")
-            .map(|_| ())
-            .map_err(|_| "pandoc not found".to_string());
+        let mut items = Vec::new();
+        if which::which("pandoc").is_err() {
+            items.push("pandoc");
+        }
+        if which::which("miktex").is_err() {
+            items.push("miktex");
+        }
+
+        if items.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("{} not found", items.join(", ")))
+        }
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
@@ -71,14 +79,14 @@ impl Tool for DocConvert {
         })
     }
 
-    async fn execute(&self, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let input_path = match args["input_path"].as_str() {
             Some(p) => p,
             None => {
                 return json!({
                     "status": "error",
                     "message": "input_path argument not found"
-                })
+                });
             }
         };
         let output_path = match args["output_path"].as_str() {
@@ -87,7 +95,7 @@ impl Tool for DocConvert {
                 return json!({
                     "status": "error",
                     "message": "output_path argument not found"
-                })
+                });
             }
         };
 
@@ -100,7 +108,12 @@ impl Tool for DocConvert {
         if let Some(to_format) = args["to_format"].as_str() {
             cmd.arg("--to").arg(to_format);
         }
-        let allowed_flags = ["--standalone", "--toc", "--number-sections", "--self-contained"];
+        let allowed_flags = [
+            "--standalone",
+            "--toc",
+            "--number-sections",
+            "--self-contained",
+        ];
         if let Some(extra_args) = args["extra_args"].as_array() {
             for arg in extra_args {
                 if let Some(a) = arg.as_str() {
@@ -121,7 +134,7 @@ impl Tool for DocConvert {
                 return json!({
                     "status": "error",
                     "message": format!("Failed to execute pandoc: {e}")
-                })
+                });
             }
         };
 
