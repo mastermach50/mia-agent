@@ -11,8 +11,7 @@ use crossterm::{
 };
 use log::error;
 use ratatui::{
-    Frame,
-    layout::{Alignment, Constraint, Layout},
+    Frame, layout::{Alignment, Constraint, Layout},
     style::{Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
@@ -25,41 +24,16 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     agent_loop::{self, AgentEvent, AgentHandle},
     agent_tools::ToolRegistry,
-    api::Message,
+    api::{History, Message},
     config::AppConfig,
     sessions::Session,
-    system_prompt::get_tui_system_prompt,
+    system_prompt::tui_system_prompt,
 };
 
+/// Entry point for starting the TUI
 pub async fn run(new_session: bool) -> Result<()> {
+    // Create a new app state
     let mut state = AppState::new();
-
-    state.messages.push(get_logo());
-
-    if new_session {
-        state.send_harness_message("Started new session.")?;
-        state.session = Session::new("user", "tui", "tui");
-        state
-            .session
-            .history
-            .set_system_prompt(get_tui_system_prompt(None)?);
-    } else {
-        if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
-            for message in &session.history.messages {
-                let rendered_message = render_message(message)?;
-                state.messages.push(rendered_message);
-            }
-            state.send_harness_message("Loaded last session.")?;
-            state.session = session;
-        } else {
-            state.send_harness_message("No previous session found, starting new one.")?;
-            state.session = Session::new("user", "tui", "tui");
-            state
-                .session
-                .history
-                .set_system_prompt(get_tui_system_prompt(None)?);
-        }
-    };
 
     execute!(
         std::io::stdout(),
@@ -69,16 +43,37 @@ pub async fn run(new_session: bool) -> Result<()> {
     .context("Failed to push keyboard enhancement flags")?;
     let mut terminal = ratatui::init();
 
+    if new_session {
+        state.session = Session::new("user", "tui", "tui");
+        state
+            .session
+            .history
+            .set_system_prompt(tui_system_prompt(Some(&state.help_message))?);
+        state.send_harness_message("Started new session.")?;
+    } else {
+        if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
+            state.messages = render_full_chat(&session.history, Some(state.term_width))?;
+            state.session = session;
+            state.send_harness_message("Loaded last session.")?;
+        } else {
+            state.session = Session::new("user", "tui", "tui");
+            state
+                .session
+                .history
+                .set_system_prompt(tui_system_prompt(Some(&state.help_message))?);
+            state.send_harness_message("No previous session found, started new one.")?;
+        }
+    };
+
     while !state.exit {
+        state.term_width = terminal.get_frame().area().width as usize;
         if state.redraw {
             terminal.clear()?;
             state.redraw = false;
         }
         terminal.draw(|f| state.draw(f))?;
-        handle_key_events(&mut state).await?;
-        while let Ok(event) = state.event_rx.try_recv() {
-            state.handle_agent_event(event)?;
-        }
+        state.handle_key_events().await?;
+        state.handle_agent_events()?;
     }
 
     state.session.save()?;
@@ -93,6 +88,7 @@ struct AppState {
     agent_handle: AgentHandle,
     event_rx: UnboundedReceiver<AgentEvent>,
     session: Session,
+    term_width: usize,
 
     input: TextArea<'static>,
     input_placeholder: String,
@@ -129,11 +125,12 @@ impl AppState {
             <Esc>  Quit
         "}
         .to_string();
-        
+
         Self {
             agent_handle,
             event_rx,
             session: Session::default(),
+            term_width: 0,
 
             input: TextArea::default(),
             input_placeholder: "Type Something...".to_string(),
@@ -216,7 +213,7 @@ impl AppState {
         }
         if let Some(partial_message) = &self.partial_message {
             let rendered_message =
-                render_message(partial_message).expect("Failed to render partial message");
+                render_message(partial_message, Some(self.term_width)).expect("Failed to render partial message");
             display_lines.extend(rendered_message.lines.clone());
         }
 
@@ -242,7 +239,7 @@ impl AppState {
     }
 
     /// Take in the current contents of the input and make it into a new message
-    async fn submit(&mut self) -> Result<()> {
+    fn submit(&mut self) -> Result<()> {
         // Ignore if empty
         if self.input.is_empty() {
             return Ok(());
@@ -278,9 +275,9 @@ impl AppState {
                     self.messages.push(get_logo());
                     self.session
                         .history
-                        .set_system_prompt(get_tui_system_prompt(None)?);
+                        .set_system_prompt(tui_system_prompt(None)?);
                     for message in &self.session.history.messages {
-                        let rendered_message = render_message(message)?;
+                        let rendered_message = render_message(message, Some(self.term_width))?;
                         self.messages.push(rendered_message);
                     }
                     self.send_harness_message("New session started, history cleared.")?;
@@ -318,13 +315,13 @@ impl AppState {
             self.input.set_style(Style::default());
             return Ok(());
         }
-        
+
         // Cancel any running agent turn
         self.agent_handle.cancel.cancel();
 
         // Display the user message, add it to history and save session
         let message = Message::new("user", text);
-        let rendered_message = render_message(&message)?;
+        let rendered_message = render_message(&message, Some(self.term_width))?;
         self.messages.push(rendered_message);
         self.session.history.add_message(message);
         self.session.save()?;
@@ -349,110 +346,195 @@ impl AppState {
     /// Send messages about the state of the agent
     fn send_harness_message(&mut self, message: &str) -> Result<()> {
         let message = Message::new("harness", message);
-        let rendered_message = render_message(&message)?;
+        let rendered_message = render_message(&message, Some(self.term_width))?;
         self.messages.push(rendered_message);
 
         Ok(())
     }
 
-    /// Handle message events
-    fn handle_agent_event(&mut self, event: AgentEvent) -> Result<()> {
-        match event {
-            AgentEvent::AssistantMessage(msg) => {
-                // Clear the partial message
-                self.partial_message = None;
+    async fn handle_key_events(&mut self) -> Result<()> {
+        let timeout = Duration::from_millis(50);
+        if event::poll(timeout)? {
+            match event::read()? {
+                Event::Key(key_event) => {
+                    match key_event.code {
+                        KeyCode::Esc => {
+                            self.session.save()?;
+                            self.exit = true;
+                        }
+                        KeyCode::Enter => {
+                            if key_event.modifiers.is_empty() {
+                                self.submit()?;
+                            }
+                        }
+                        KeyCode::F(5) => {
+                            self.redraw = true;
+                        }
+                        KeyCode::Char('c') => {
+                            if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+                                self.agent_handle.cancel.cancel();
+                                self.partial_message = None;
+                                self.status.clear();
+                                self.input_placeholder = "Type Something...".to_string();
+                                self.permission_request = None;
+                                self.session.save()?;
+                            }
+                        }
+                        KeyCode::Up => {
+                            self.scroll_offset = self.scroll_offset.saturating_sub(1);
+                            self.auto_scroll = false;
+                        }
+                        KeyCode::Down => {
+                            self.scroll_offset = self.scroll_offset.saturating_add(1);
+                        }
+                        KeyCode::PageUp => {
+                            self.scroll_offset = self.scroll_offset.saturating_sub(10);
+                            self.auto_scroll = false;
+                        }
+                        KeyCode::PageDown => {
+                            self.scroll_offset = self.scroll_offset.saturating_add(10);
+                        }
+                        _ => {}
+                    }
+                    let is_scroll_key = matches!(
+                        key_event.code,
+                        KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
+                    );
 
-                // Render and display the message
-                let rendered_message = render_message(&msg)?;
-                self.messages.push(rendered_message);
+                    if !(key_event.code == KeyCode::Enter && key_event.modifiers.is_empty())
+                        && !is_scroll_key
+                    {
+                        let commands = ["/", "/help", "/exit", "/bye", "/new", "/model", "/yolo"];
 
-                // Append the message to the session history and save it
-                self.session.history.add_message(msg);
-                self.session.save()?;
-
-                // Clear any previous status
-                self.status.clear();
-                self.input_placeholder = "Type Something...".to_string();
-            }
-            AgentEvent::PartialAssistantMessage(msg) => {
-                if (msg.reasoning_chunk_index == 0 && msg.content_chunk_index == -1)
-                    || (msg.reasoning_chunk_index == -1 && msg.content_chunk_index == 0)
-                {
-                    self.partial_message = Some(Message {
-                        role: msg.role.clone(),
-                        reasoning: Some(String::new()),
-                        content: Some(String::new()),
-                        tool_calls: None,
-                        tool_call_id: None,
-                    });
+                        self.input.input(key_event);
+                        let text = self.input.lines().join("\n");
+                        if commands.contains(&text.trim()) {
+                            self.input.set_style(Style::new().green());
+                        } else {
+                            self.input.set_style(Style::default());
+                        }
+                    }
                 }
-
-                if let Some(reasoning) = &msg.reasoning
-                    && let Some(partial_message) = &mut self.partial_message
-                    && let Some(partial_reasoning) = &mut partial_message.reasoning
-                {
-                    partial_reasoning.push_str(reasoning);
-                }
-
-                if let Some(content) = &msg.content
-                    && let Some(partial_message) = &mut self.partial_message
-                    && let Some(partial_content) = &mut partial_message.content
-                {
-                    partial_content.push_str(content);
-                }
-            }
-            AgentEvent::AssistantStatusUpdate(kind) => {
-                self.status = kind;
-
-                if !self.status.is_empty() {
-                    self.input_placeholder = "Executing, <Ctrl-C> to cancel".to_string();
-                }
-            }
-            AgentEvent::ToolCallResponseMessage(msg) => {
-                self.session.history.add_message(msg);
-                self.session.save()?;
-            }
-            AgentEvent::HarnessMessage(msg) => {
-                let rendered_message = render_message(&Message::new("harness", msg))?;
-                self.messages.push(rendered_message);
-                self.status.clear();
-            }
-            AgentEvent::HistoryUpdate(history) => {
-                self.session.history = history;
-                self.session.save()?;
-            }
-            AgentEvent::PermissionRequest {
-                header,
-                content,
-                response,
-            } => {
-                if self.yolo {
-                    response.send(true).unwrap();
-                    return Ok(());
-                };
-
-                let mut text = Text::default();
-
-                text.push_line(Line::from(header.clone().red().bold()));
-                text.push_line("---");
-                text.extend(content.into_text().unwrap());
-                text.push_line("---");
-                text.push_line(Line::from(header.clone().red().bold()));
-
-                self.messages.push(text);
-                self.permission_request = Some(response);
-                self.status = "Waiting for permission...".to_string();
-                self.input_placeholder = "y/n".to_string()
+                _ => {}
             }
         }
 
         Ok(())
     }
+
+    /// Handle message events
+    fn handle_agent_events(&mut self) -> Result<()> {
+        while let Ok(event) = self.event_rx.try_recv() {
+            match event {
+                AgentEvent::AssistantMessage(msg) => {
+                    // Clear the partial message
+                    self.partial_message = None;
+
+                    // Render and display the message
+                    let rendered_message = render_message(&msg, Some(self.term_width))?;
+                    self.messages.push(rendered_message);
+
+                    // Append the message to the session history and save it
+                    self.session.history.add_message(msg);
+                    self.session.save()?;
+
+                    // Clear any previous status
+                    self.status.clear();
+                    self.input_placeholder = "Type Something...".to_string();
+                }
+                AgentEvent::PartialAssistantMessage(msg) => {
+                    if (msg.reasoning_chunk_index == 0 && msg.content_chunk_index == -1)
+                        || (msg.reasoning_chunk_index == -1 && msg.content_chunk_index == 0)
+                    {
+                        self.partial_message = Some(Message {
+                            role: msg.role.clone(),
+                            reasoning: Some(String::new()),
+                            content: Some(String::new()),
+                            tool_calls: None,
+                            tool_call_id: None,
+                        });
+                    }
+
+                    if let Some(reasoning) = &msg.reasoning
+                        && let Some(partial_message) = &mut self.partial_message
+                        && let Some(partial_reasoning) = &mut partial_message.reasoning
+                    {
+                        partial_reasoning.push_str(reasoning);
+                    }
+
+                    if let Some(content) = &msg.content
+                        && let Some(partial_message) = &mut self.partial_message
+                        && let Some(partial_content) = &mut partial_message.content
+                    {
+                        partial_content.push_str(content);
+                    }
+                }
+                AgentEvent::AssistantStatusUpdate(kind) => {
+                    self.status = kind;
+
+                    if !self.status.is_empty() {
+                        self.input_placeholder = "Executing, <Ctrl-C> to cancel".to_string();
+                    }
+                }
+                AgentEvent::ToolCallResponseMessage(msg) => {
+                    self.session.history.add_message(msg);
+                    self.session.save()?;
+                }
+                AgentEvent::HarnessMessage(msg) => {
+                    let rendered_message = render_message(
+                        &Message::new("harness", msg),
+                        Some(self.term_width),
+                    )?;
+                    self.messages.push(rendered_message);
+                    self.status.clear();
+                }
+                AgentEvent::HistoryUpdate(history) => {
+                    self.session.history = history;
+                    self.session.save()?;
+                }
+                AgentEvent::PermissionRequest {
+                    header,
+                    content,
+                    response,
+                } => {
+                    if self.yolo {
+                        response.send(true).unwrap();
+                        return Ok(());
+                    };
+
+                    let mut text = Text::default();
+
+                    text.push_line(Line::from(header.clone().red().bold()));
+                    text.push_line("---");
+                    text.extend(content.into_text().unwrap());
+                    text.push_line("---");
+                    text.push_line(Line::from(header.clone().red().bold()));
+
+                    self.messages.push(text);
+                    self.permission_request = Some(response);
+                    self.status = "Waiting for permission...".to_string();
+                    self.input_placeholder = "y/n".to_string()
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Render all the messages
+fn render_full_chat(history: &History, term_width: Option<usize>) -> Result<Vec<Text<'static>>> {
+    let mut chat = Vec::new();
+    chat.push(get_logo());
+    for message in &history.messages {
+        let rendered_message = render_message(&message, term_width)?;
+        chat.push(rendered_message);
+    }
+    Ok(chat)
 }
 
 /// Render out a single Message into Text
 /// The rendered message is not wrapped to the width of the terminal
-fn render_message(message: &Message) -> Result<Text<'static>> {
+fn render_message(message: &Message, term_width: Option<usize>) -> Result<Text<'static>> {
     // Ignore actual system and tool response messages
     if message.role == "system" || message.role == "tool" {
         return Ok(Text::default());
@@ -501,7 +583,7 @@ fn render_message(message: &Message) -> Result<Text<'static>> {
         && !content.is_empty()
     {
         let skin = MadSkin::default_dark();
-        let formatted = skin.text(content, None);
+        let formatted = skin.text(content, term_width);
         let ansi_string = formatted.to_string();
         text.extend(ansi_string.into_text()?);
     }
@@ -543,76 +625,6 @@ fn wrapped_line_count(lines: &[Line], width: usize) -> u16 {
             }
         })
         .sum::<usize>() as u16
-}
-
-async fn handle_key_events(state: &mut AppState) -> Result<()> {
-    let timeout = Duration::from_millis(50);
-    if event::poll(timeout)? {
-        match event::read()? {
-            Event::Key(key_event) => {
-                match key_event.code {
-                    KeyCode::Esc => {
-                        state.session.save()?;
-                        state.exit = true;
-                    }
-                    KeyCode::Enter => {
-                        if key_event.modifiers.is_empty() {
-                            state.submit().await?;
-                        }
-                    }
-                    KeyCode::F(5) => {
-                        state.redraw = true;
-                    }
-                    KeyCode::Char('c') => {
-                        if key_event.modifiers.contains(KeyModifiers::CONTROL) {
-                            state.agent_handle.cancel.cancel();
-                            state.partial_message = None;
-                            state.status.clear();
-                            state.input_placeholder = "Type Something...".to_string();
-                            state.permission_request = None;
-                            state.session.save()?;
-                        }
-                    }
-                    KeyCode::Up => {
-                        state.scroll_offset = state.scroll_offset.saturating_sub(1);
-                        state.auto_scroll = false;
-                    }
-                    KeyCode::Down => {
-                        state.scroll_offset = state.scroll_offset.saturating_add(1);
-                    }
-                    KeyCode::PageUp => {
-                        state.scroll_offset = state.scroll_offset.saturating_sub(10);
-                        state.auto_scroll = false;
-                    }
-                    KeyCode::PageDown => {
-                        state.scroll_offset = state.scroll_offset.saturating_add(10);
-                    }
-                    _ => {}
-                }
-                let is_scroll_key = matches!(
-                    key_event.code,
-                    KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
-                );
-
-                if !(key_event.code == KeyCode::Enter && key_event.modifiers.is_empty())
-                    && !is_scroll_key
-                {
-                    let commands = ["/", "/help", "/exit", "/bye", "/new", "/model", "/yolo"];
-
-                    state.input.input(key_event);
-                    let text = state.input.lines().join("\n");
-                    if commands.contains(&text.trim()) {
-                        state.input.set_style(Style::new().green());
-                    } else {
-                        state.input.set_style(Style::default());
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    Ok(())
 }
 
 fn get_logo() -> Text<'static> {

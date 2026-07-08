@@ -124,7 +124,7 @@ pub fn get_system_prompt() -> Result<String> {
     Ok(system_prompt)
 }
 
-pub fn get_tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
+pub fn tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
     let mut system_prompt = get_system_prompt()?;
     system_prompt.push_str(&format!(
         "You are in a terminal TUI session with {}.",

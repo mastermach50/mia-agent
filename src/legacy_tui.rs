@@ -11,7 +11,7 @@ use crate::agent_tools::ToolRegistry;
 use crate::api::{Message, PartialMessage};
 use crate::config::AppConfig;
 use crate::sessions::Session;
-use crate::system_prompt::get_tui_system_prompt;
+use crate::system_prompt::tui_system_prompt;
 use crate::utils::{generate_think_lines, start_spinner, stdio_ask_permission, stop_spinner};
 use custom_reedline::get_reedline;
 
@@ -74,7 +74,7 @@ pub async fn run(new_session: bool) -> Result<()> {
         // Update the system prompt every turn in case the user or system memory changed
         session
             .history
-            .set_system_prompt(get_tui_system_prompt(Some(help_message))?);
+            .set_system_prompt(tui_system_prompt(Some(help_message))?);
 
         // Handle inputs using reedline
         println!("{}", "─".repeat(textwrap::termwidth()));

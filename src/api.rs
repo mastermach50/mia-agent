@@ -91,10 +91,10 @@ impl History {
     }
 
     pub fn set_system_prompt(&mut self, prompt: String) {
-        if let Some(message) = self.messages.first() {
-            if message.role == "system" {
-                self.messages[0] = Message::new("system", prompt);
-            }
+        if let Some(message) = self.messages.first()
+            && message.role == "system"
+        {
+            self.messages[0] = Message::new("system", prompt);
         } else {
             self.messages.insert(0, Message::new("system", prompt));
         }

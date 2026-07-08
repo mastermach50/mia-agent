@@ -17,3 +17,7 @@
 - Improve tui permission asking ui
 - Setup custom colors
 - Implement stdio passthrough for shell tools
+
+
+# To think
+- Is it worth it to pass the term width to render message
