@@ -20,7 +20,6 @@ This project was inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
     - [Option C: Using nix flakes (NixOS/Linux)](#option-c-using-nix-flakes-nixoslinux)
 - [Configuration](#configuration)
 - [Usage](#usage)
-- [Configuration Options](#configuration-options)
 - [Development](#development)
 - [Contributing](#contributing)
 
@@ -145,28 +144,6 @@ The TUI supports certain commands. Use `/help` while in the TUI to see them.
 - `mia model show` - Show current model info
 - `mia sessions list` - List all sessions
 - `mia session clear` - Clear all sessions (prompts for confirmation)
-
-## Configuration Options
-
-The `~/.mia/config.toml` file contains the following options:
-
-```toml
-[model]
-provider = "openrouter"        # LLM provider: openrouter, google, groq, cerebras, local
-base_url = "https://openrouter.ai/api/v1"  # API base URL
-name = "openrouter/owl-alpha"  # Model name
-reasoning = "medium"           # Reasoning effort: low, medium, high
-
-[agent]
-max_iterations = 20            # Maximum agent iterations per request
-
-[tui]
-username = "user"              # Display name in TUI
-max_history = 1000             # Maximum conversation history
-show_reasoning = true           # Show reasoning output
-streaming = true               # Enable streaming responses
-show_spinner = true             # Show spinner during API calls
-```
 
 ## Development
 ### MSRV
