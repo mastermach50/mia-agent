@@ -230,13 +230,15 @@ impl AppState {
 
         if self.completion_tokens > 0 && self.prompt_tokens > 0 {
             status_bar = status_bar.title(
-                Line::from(
-                    format!(
-                        "({}|{}|{})",
-                        self.completion_tokens, self.prompt_tokens, self.total_tokens
-                    )
-                    .yellow(),
-                )
+                Line::from(vec![
+                    "(".yellow(),
+                    self.prompt_tokens.to_string().blue(),
+                    "|".yellow(),
+                    self.completion_tokens.to_string().blue(),
+                    "|".yellow(),
+                    self.total_tokens.to_string().blue(),
+                    ")".yellow(),
+                ])
                 .alignment(Alignment::Right),
             );
         }
