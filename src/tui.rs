@@ -671,13 +671,13 @@ fn render_message(message: &Message, term_width: Option<usize>) -> Result<Text<'
     if short_message {
         text.push_line(Line::from(vec![
             sender,
-            " > ".into(),
+            " ▶ ".into(),
             message.content.as_ref().unwrap().to_string().into(),
         ]));
         return Ok(text);
     }
 
-    text.push_line(Line::from(vec![sender, " ◣".into()]));
+    text.push_line(Line::from(vec![sender, " ▼".into()]));
 
     if let Some(reasoning) = &message.reasoning
         && !reasoning.is_empty()
