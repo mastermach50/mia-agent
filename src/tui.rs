@@ -104,6 +104,9 @@ pub async fn run(new_session: bool) -> Result<()> {
     Ok(())
 }
 
+const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+
 struct AppState {
     agent_handle: AgentHandle,
     event_rx: UnboundedReceiver<AgentEvent>,
@@ -117,6 +120,7 @@ struct AppState {
     permission_request: Option<oneshot::Sender<bool>>,
     yolo: bool,
 
+    spinner_idx: usize,
     status: String,
     model: String,
 
@@ -162,6 +166,7 @@ impl AppState {
             permission_request: None,
             yolo: false,
 
+            spinner_idx: 0,
             status: "".to_string(),
             model: AppConfig::global().model.name.clone(),
 
@@ -220,8 +225,13 @@ impl AppState {
         let mut status_bar = Block::new().border_type(border_type).borders(Borders::TOP);
 
         if !self.status.is_empty() {
+            self.spinner_idx = (self.spinner_idx + 1) % SPINNER_FRAMES.len();
             status_bar = status_bar
-                .title(Line::from(vec![self.status.clone().yellow()]).alignment(Alignment::Left));
+                .title(Line::from(vec![
+                    SPINNER_FRAMES[self.spinner_idx].cyan(),
+                    " ".into(),
+                    self.status.clone().yellow()
+                ]).alignment(Alignment::Left));
         }
         if self.yolo {
             status_bar =
@@ -394,7 +404,7 @@ impl AppState {
     }
 
     async fn handle_input_events(&mut self) -> Result<()> {
-        let timeout = Duration::from_millis(50);
+        let timeout = Duration::from_millis(25);
         if event::poll(timeout)? {
             match event::read()? {
                 Event::Key(key_event) => {
