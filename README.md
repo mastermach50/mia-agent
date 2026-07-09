@@ -7,7 +7,7 @@
 
 Mia is a coding and personal assistant AI agent designed to be unobtrusive, configurable and easy to use. Mia grows _with_ you.
 
-<img src="./images/mia.gif" height=500em>
+<img src="./images/mia-demo-v2.gif" height=500em>
 
 This project was inspired by [Hermes Agent](https://hermes-agent.nousresearch.com/). Although it borrows ideas from it, this is not a direct derivation or modification of the project.
 

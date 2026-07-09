@@ -594,8 +594,14 @@ impl AppState {
 
                     let mut text = Text::default();
 
+                    let wrapped = textwrap::wrap(&content, self.term_width - 2)
+                        .iter()
+                        .map(|i| i.to_string())
+                        .collect::<Vec<String>>()
+                        .join("\n");
+
                     text.push_line(Line::from(vec!["╭─".into(), header.clone().red().bold()]));
-                    for mut line in content.into_text()?.lines {
+                    for mut line in wrapped.into_text()?.lines {
                         line.spans.insert(0, "│ ".into());
                         text.push_line(line);
                     }
