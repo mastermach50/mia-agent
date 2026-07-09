@@ -9,7 +9,7 @@ use reqwest::{
     header::{AUTHORIZATION, HeaderMap, REFERER},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
 use crate::config::AppConfig;
@@ -116,6 +116,16 @@ impl History {
     pub fn add_message(&mut self, message: Message) {
         self.messages.push(message);
     }
+
+    // Return a new messages vec that has the usage section stripped out
+    // Certain providers like Groq will not process if the usage section is present
+    pub fn clean_messages(&self) -> Vec<Message> {
+        let mut cleaned_messages = self.messages.clone();
+        for message in &mut cleaned_messages {
+            message.usage = None;
+        }
+        cleaned_messages
+    }
 }
 
 pub enum Completion {
@@ -141,11 +151,14 @@ pub async fn completion(
 
     // Generate the payload
     let mut payload = json!({
-        "messages": history.messages,
+        "messages": history.clean_messages(),
         "model": AppConfig::global().model.name,
         "reasoning_effort": AppConfig::global().model.reasoning,
         "tools": ToolRegistry::schema(),
-        "stream": stream
+        "stream": stream,
+        "stream_options": {
+            "include_usage": true
+        }
     });
     if provider == Providers::Openrouter {
         payload["session_id"] = json! { session_id }
@@ -170,10 +183,11 @@ pub async fn completion(
     // If the status shows some errors then bail
     if !response.status().is_success() {
         let status = response.status();
-        let json = response.json::<serde_json::Value>().await?;
-        error!("API request failed with status {}", status);
-        error!("Response: {:?}", json);
-        anyhow::bail!("API request failed with status {}", status);
+        let json = response.json::<Value>().await?;
+        // Error log here causes ui glitches
+        // error!("API request failed with status {}", status);
+        // error!("Response: {:?}", json);
+        anyhow::bail!("API request failed ({}):\n{}", status, json["error"]["message"]);
     }
 
     // If the status is success then mark the assistant as thinking
@@ -266,7 +280,7 @@ pub async fn completion(
             }
 
             // If the data could not be parsed as json, skip processing
-            let Ok(chunk_json) = serde_json::from_str::<serde_json::Value>(data) else {
+            let Ok(chunk_json) = serde_json::from_str::<Value>(data) else {
                 warn!("Could not parse streamed data as JSON: {:?}", data);
                 continue;
             };
@@ -403,8 +417,8 @@ pub struct ModelArch {
 
 #[derive(Serialize, Deserialize)]
 pub struct ModelPricing {
-    pub completion: String,
-    pub prompt: String,
+    pub completion: Option<String>,
+    pub prompt: Option<String>,
 }
 
 /// Get list of available models from the API
@@ -415,6 +429,7 @@ pub async fn models(base_url: &str, api_key_name: Option<&str>) -> Result<Vec<Mo
 
     let params = [
         ("output_modalities", "text"),
+        ("input_modalities", "text"),
         ("sort", "pricing-low-to-high"),
     ];
 

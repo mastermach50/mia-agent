@@ -677,17 +677,19 @@ fn render_message(message: &Message, term_width: Option<usize>) -> Result<Text<'
         return Ok(text);
     }
 
-    text.push_line(Line::from(vec![sender, " ▼".into()]));
+    let thoughts = if message.reasoning.is_some() && !AppConfig::global().tui.show_reasoning {
+        "Thoughts...".dark_gray().italic()
+    } else {
+        "".into()
+    };
+    text.push_line(Line::from(vec![sender, " ▼ ".into(), thoughts]));
 
     if let Some(reasoning) = &message.reasoning
         && !reasoning.is_empty()
+        && AppConfig::global().tui.show_reasoning
     {
-        if AppConfig::global().tui.show_reasoning {
-            for line in reasoning.split("\n") {
-                text.push_line(line.to_string().dark_gray().italic());
-            }
-        } else {
-            text.push_line("Thoughts...".dark_gray().italic());
+        for line in reasoning.split("\n") {
+            text.push_line(line.to_string().dark_gray().italic());
         }
     }
 

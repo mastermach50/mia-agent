@@ -198,9 +198,10 @@ async fn list_models(args: cli::ModelListArgs) -> Result<()> {
             // Skip items that have price greater than max_price
             let max_price = args
                 .max_price
-                .unwrap_or(if args.free { 0.0 } else { f64::INFINITY });
+                .unwrap_or(if args.free { 0.0 } else { 9999999.99 });
             if let Some(pricing) = &model.pricing // Model has pricing info
-            && let Some(completion_price) = pricing.completion.parse::<Decimal>().ok()
+            && let Some(completion_price) = &pricing.completion
+            && let Some(completion_price) = completion_price.parse::<Decimal>().ok()
             {
                 // The price can be parsed properly
                 let completion_price_per_mil = completion_price * Decimal::from(1_000_000);
@@ -214,7 +215,7 @@ async fn list_models(args: cli::ModelListArgs) -> Result<()> {
             record.push(
                 model
                     .pricing
-                    .and_then(|p| p.completion.parse::<Decimal>().ok())
+                    .and_then(|p| p.completion.unwrap_or_default().parse::<Decimal>().ok())
                     .map(|p| {
                         if p == Decimal::from(-1) {
                             "".to_string()

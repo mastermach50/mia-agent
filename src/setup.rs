@@ -122,6 +122,14 @@ async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
         .with_starting_cursor(current_provider.index())
         .with_help_message("Select the LLM provider, can be running on device or remotely")
         .prompt()?;
+
+    // Only provide the current base url as default if the provider was already "local"
+    let default_base_url = if doc["model"]["provider"].as_str().unwrap() == "local" {
+        doc["model"]["base_url"].as_str().unwrap().to_string()
+    } else {
+        String::new()
+    };
+
     doc["model"]["provider"] = value(provider.name());
     match provider {
         Providers::Local => {
@@ -130,6 +138,8 @@ async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
                 .with_validator(required!())
                 .with_validator(http_validator)
                 .with_validator(min_length!(1))
+                .with_default(&default_base_url)
+                .with_help_message("Must include the api version at the end, if present. (Like /v1)")
                 .prompt()?;
             doc["model"]["base_url"] = value(base_url);
         }
@@ -176,8 +186,6 @@ async fn set_api_key(key: &str) -> Result<()> {
 }
 
 async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
-    let current_model_name = &AppConfig::global().model.name.clone();
-
     let base_url = doc["model"]["base_url"].as_str().unwrap();
     let provider_name = doc["model"]["provider"].as_str().unwrap();
     let provider = Providers::from_name(provider_name).unwrap();
@@ -200,9 +208,15 @@ async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
             .collect())
     };
 
+    let default_model_name = if provider_name == AppConfig::global().model.provider {
+        AppConfig::global().model.name.clone()
+    } else {
+        String::new()
+    };
+
     let model = Text::new("Model name:")
         .with_autocomplete(model_suggester)
-        .with_default(current_model_name)
+        .with_default(&default_model_name)
         .prompt()?;
     doc["model"]["name"] = value(model);
 
@@ -210,7 +224,15 @@ async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
 }
 
 async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
-    let levels = vec!["xhigh", "high", "medium", "low", "minimal", "none"];
+    let provider = Providers::from_name(doc["model"]["provider"].as_str().unwrap()).unwrap();
+
+    let levels = match provider {
+        Providers::Openrouter => vec!["xhigh", "high", "medium", "low", "minimal", "none"],
+        Providers::Groq => vec!["high","medium","low","default", "none"],
+        Providers::Cerebras => vec!["high", "medium", "low", "none"],
+        Providers::GoogleAIStudio => vec!["high", "medium", "low", "none"], // not verified
+        Providers::Local => vec!["max", "high", "medium", "low", "none"],
+    };
     let current_level = AppConfig::global().model.reasoning.clone();
     let starting_index = levels.iter().position(|i| i == &current_level).unwrap_or(0);
 

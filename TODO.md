@@ -1,6 +1,3 @@
-- Fix cerebras model listing not working
-- Fix reasoning effort not supported error for groq
-
 # Urgent
 - Improve tui render loop performance
 
