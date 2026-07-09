@@ -39,7 +39,7 @@ use crate::{
 #[tokio::main]
 async fn main() -> Result<()> {
     // Setup logging
-    let env = Env::new().filter_or("MIA_LOG", "info");
+    let env = Env::new().filter_or("MIA_LOG", "warn");
     env_logger::init_from_env(env);
 
     // Parse CLI args

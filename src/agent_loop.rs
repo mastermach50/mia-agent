@@ -38,6 +38,12 @@ impl AgentHandle {
         (rx, AgentHandle { tx, cancel })
     }
 
+    pub fn reset_cancellation(&mut self) {
+        self.cancel = CancellationToken::new();
+
+        trace!("Agent cancellation token reset");
+    }
+
     fn assistant_msg(&self, msg: &Message) {
         self.tx
             .send(AgentEvent::AssistantMessage(msg.clone()))

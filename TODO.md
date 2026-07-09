@@ -5,6 +5,7 @@
 - Improve tui render loop performance
 
 # Short Term
+- Re implement single prompt command
 - Implement stdio passthrough for shell tools
 - Improve tui permission asking ui
 - Implement session title generation

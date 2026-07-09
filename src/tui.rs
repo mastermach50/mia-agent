@@ -21,7 +21,6 @@ use ratatui_textarea::TextArea;
 use reedline::kitty_protocol_available;
 use termimad::MadSkin;
 use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
-use tokio_util::sync::CancellationToken;
 
 use crate::{
     agent_loop::{self, AgentEvent, AgentHandle},
@@ -106,33 +105,41 @@ pub async fn run(new_session: bool) -> Result<()> {
 
 const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-
 struct AppState {
+    // Shared values
     agent_handle: AgentHandle,
     event_rx: UnboundedReceiver<AgentEvent>,
-    session: Session,
     term_width: usize,
-
-    input: TextArea<'static>,
-    input_placeholder: String,
     help_message: String,
 
+    // Session
+    session: Session,
+
+    // Input
+    input: TextArea<'static>,
+    input_placeholder: String,
+
+    // Permissions
     permission_request: Option<oneshot::Sender<bool>>,
     yolo: bool,
 
+    // Status Bar
     spinner_idx: usize,
     status: String,
     model: String,
 
+    // Chat
     messages: Vec<Text<'static>>,
     partial_message: Option<Message>,
     prompt_tokens: u64,
     completion_tokens: u64,
     total_tokens: u64,
 
+    // Scroll
     scroll_offset: u16,
     auto_scroll: bool,
 
+    // Other
     redraw: bool,
     exit: bool,
 }
@@ -157,11 +164,11 @@ impl AppState {
             agent_handle,
             event_rx,
             session: Session::default(),
+            help_message,
             term_width: 0,
 
             input: TextArea::default(),
             input_placeholder: "Type Something...".to_string(),
-            help_message,
 
             permission_request: None,
             yolo: false,
@@ -182,6 +189,22 @@ impl AppState {
             redraw: false,
             exit: false,
         }
+    }
+
+    fn reset_messages(&mut self) {
+        self.messages.clear();
+        self.messages.push(get_logo());
+
+        self.partial_message = None;
+        self.prompt_tokens = 0;
+        self.completion_tokens = 0;
+        self.total_tokens = 0;
+    }
+
+    fn reset_input(&mut self) {
+        self.input.clear();
+        self.input.set_style(Style::default());
+        self.input_placeholder = "Type Something...".to_string();
     }
 
     /// Draw the frame from the current state
@@ -225,17 +248,17 @@ impl AppState {
         let mut status_bar = Block::new().border_type(border_type).borders(Borders::TOP);
 
         if !self.status.is_empty() {
-            let spinner = if AppConfig::global().tui.show_spinner && self.permission_request.is_none(){
-                self.spinner_idx = (self.spinner_idx + 1) % SPINNER_FRAMES.len();
-                format!("{} ", SPINNER_FRAMES[self.spinner_idx])
-            } else {
-                String::new()
-            };
-            status_bar = status_bar
-                .title(Line::from(vec![
-                    spinner.cyan(),
-                    self.status.clone().yellow()
-                ]).alignment(Alignment::Left));
+            let spinner =
+                if AppConfig::global().tui.show_spinner && self.permission_request.is_none() {
+                    self.spinner_idx = (self.spinner_idx + 1) % SPINNER_FRAMES.len();
+                    format!("{} ", SPINNER_FRAMES[self.spinner_idx])
+                } else {
+                    String::new()
+                };
+            status_bar = status_bar.title(
+                Line::from(vec![spinner.cyan(), self.status.clone().yellow()])
+                    .alignment(Alignment::Left),
+            );
         }
         if self.yolo {
             status_bar =
@@ -310,31 +333,28 @@ impl AppState {
             } else {
                 response.send(false).unwrap();
             }
+
             self.messages.pop();
             self.permission_request = None;
+
             self.status.clear();
-            self.input_placeholder = "Type Something...".to_string();
-            self.input.clear();
+            self.reset_input();
+
             return Ok(());
         };
 
         // Handle commands
-        if text.trim().starts_with("/") {
+        if text.trim().starts_with("/") && !text.trim().starts_with("//") {
             match text.trim() {
                 "/exit" | "/bye" => {
                     self.exit = true;
                 }
                 "/new" => {
                     self.session = Session::new("user", "tui", "tui");
-                    self.messages.clear();
-                    self.messages.push(get_logo());
                     self.session
                         .history
                         .set_system_prompt(tui_system_prompt(None)?);
-                    for message in &self.session.history.messages {
-                        let rendered_message = render_message(message, Some(self.term_width))?;
-                        self.messages.push(rendered_message);
-                    }
+                    self.reset_messages();
                     self.send_harness_message("New session started, history cleared.")?;
                 }
                 "/model" => {
@@ -358,16 +378,12 @@ impl AppState {
                     self.send_harness_message(&help_message)?;
                 }
                 _ => {
-                    // Show invalid command message but respect C style comments
-                    if text.starts_with('/') && !text.starts_with("//") {
-                        self.send_harness_message(
-                            "Invalid command, use /help for a list of commands.",
-                        )?;
-                    }
+                    self.send_harness_message(
+                        "Invalid command, use /help for a list of commands.",
+                    )?;
                 }
             }
-            self.input.clear();
-            self.input.set_style(Style::default());
+            self.reset_input();
             return Ok(());
         }
 
@@ -387,7 +403,7 @@ impl AppState {
         let stream = AppConfig::global().tui.streaming;
         let session_id = self.session.get_extended_session_id();
         let history = self.session.history.clone(); // Fix history clone
-        self.agent_handle.cancel = CancellationToken::new();
+        self.agent_handle.reset_cancellation();
         let handle = self.agent_handle.clone();
         tokio::spawn(async move {
             agent_loop::run_agent(history, &session_id, stream, handle)
@@ -427,11 +443,16 @@ impl AppState {
                         }
                         KeyCode::Char('c') => {
                             if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+                                // Stop runnint agent
                                 self.agent_handle.cancel.cancel();
                                 self.partial_message = None;
+
+                                // Clear input and status
                                 self.status.clear();
                                 self.input_placeholder = "Type Something...".to_string();
                                 self.permission_request = None;
+
+                                // Save the session
                                 self.session.save()?;
                             }
                         }
@@ -583,7 +604,7 @@ impl AppState {
                     self.messages.push(text);
                     self.permission_request = Some(response);
                     self.status = "Waiting For Permission".to_string();
-                    self.input_placeholder = "y/n".to_string()
+                    self.input_placeholder = "y/n | <Ctrl-C> to cancel".to_string()
                 }
             }
         }
