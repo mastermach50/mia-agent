@@ -2,8 +2,15 @@
 ### Added
 - __New ratatui based tui is the default tui__.
     - The old tui can still be accessed using a hidden command `mia old-tui`
-- new `/yolo` command in tui to always respond yes to permission requests.
+    - Token usage display.
+    - Session history redrawing.
+    - Full featured text input.
+    - new `/yolo` command in tui to always respond yes to permission requests.
 - New `doc_convert` tool that allows the agent access to pandoc.
+
+### Fixed
+- Issues with listing models during setup on some providers.
+- `mia model list` failing if no `--max-price` or `--free` was not provided.
 
 ## v0.1.5
 ### Added
