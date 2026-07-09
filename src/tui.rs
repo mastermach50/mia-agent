@@ -225,11 +225,15 @@ impl AppState {
         let mut status_bar = Block::new().border_type(border_type).borders(Borders::TOP);
 
         if !self.status.is_empty() {
-            self.spinner_idx = (self.spinner_idx + 1) % SPINNER_FRAMES.len();
+            let spinner = if AppConfig::global().tui.show_spinner && self.permission_request.is_none(){
+                self.spinner_idx = (self.spinner_idx + 1) % SPINNER_FRAMES.len();
+                format!("{} ", SPINNER_FRAMES[self.spinner_idx])
+            } else {
+                String::new()
+            };
             status_bar = status_bar
                 .title(Line::from(vec![
-                    SPINNER_FRAMES[self.spinner_idx].cyan(),
-                    " ".into(),
+                    spinner.cyan(),
                     self.status.clone().yellow()
                 ]).alignment(Alignment::Left));
         }
@@ -578,7 +582,7 @@ impl AppState {
 
                     self.messages.push(text);
                     self.permission_request = Some(response);
-                    self.status = "Waiting for permission...".to_string();
+                    self.status = "Waiting For Permission".to_string();
                     self.input_placeholder = "y/n".to_string()
                 }
             }

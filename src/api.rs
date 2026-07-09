@@ -327,6 +327,7 @@ pub async fn completion(
 
             // If there are any tool calls then accumulate it
             if let Some(tc_deltas) = delta["tool_calls"].as_array() {
+                on_status_update("Generating Tool Call");
                 for tc_delta in tc_deltas {
                     let index = tc_delta["index"].as_u64().unwrap_or(0) as usize;
                     let entry = tool_calls_map.entry(index).or_insert_with(|| ToolCall {

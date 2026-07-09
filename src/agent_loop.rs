@@ -136,6 +136,7 @@ pub async fn run_agent(
                 iterations,
                 AppConfig::global().agent.max_iterations
             ));
+            handle.assistant_status_update("Waiting");
         }
 
         // Get the next message from the assistant and append it to the history

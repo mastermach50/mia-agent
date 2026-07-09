@@ -9,7 +9,7 @@ Mia is a coding and personal assistant AI agent designed to be unobtrusive, conf
 
 <img src="./images/mia.gif" height=500em>
 
-This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.com/). Although it borrows ideas from it, this is not a direct derivation or modification of the project.
+This project was inspired by [Hermes Agent](https://hermes-agent.nousresearch.com/). Although it borrows ideas from it, this is not a direct derivation or modification of the project.
 
 ## Table of Contents   
 - [Principles](#principles)          
@@ -20,6 +20,7 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
     - [Option C: Using nix flakes (NixOS/Linux)](#option-c-using-nix-flakes-nixoslinux)
 - [Configuration](#configuration)
 - [Usage](#usage)
+- [Configuration Options](#configuration-options)
 - [Development](#development)
 - [Contributing](#contributing)
 
@@ -29,9 +30,9 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 - The agent should act as an additional tool to the user not as a replacement for everything they already use.
 
 ## Features
-- Minimal terminal UI
+- Minimal terminal UI powered by [ratatui](https://github.com/ratatui-org/ratatui)
 - Multi turn agent loop
-- Agent memory
+- Agent memory (persistent across sessions)
 - Session and prompt history
 - Full markdown rendering in terminal (thanks to [termimad](https://github.com/Canop/termimad))
 - OpenAI Compatible API access with support for multiple providers:
@@ -41,8 +42,9 @@ This project way inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
   - Cerebras
   - Local LLMs (Ollama, LMStudio, llama.cpp, etc.)
 - Web search and extract using [Tavily](https://tavily.com)
+- Document conversion using [pandoc](https://pandoc.org) (`doc_convert` tool)
 - Experimental streaming support
-- Experimental ratatui interface
+- Legacy reedline-based TUI available via `mia old-tui`
 
 ## Tools
 Currently Mia has the following tools:
@@ -55,11 +57,12 @@ Currently Mia has the following tools:
 | 🔍 | `fs_grep_files` | Search file contents | No |
 | 🧭 | `fs_search_dirs` | Search for files in a directory | No |
 | ✍️ | `fs_write_file` | Write content to a file | Yes |
-| 🧠 | `memory` | Manage memory about the user and the agent | No |
 | 🐍 | `exec_python` | Execute Python 3 code | Yes |
 | 🐚 | `exec_shell` | Run shell commands | Yes |
+| 🧠 | `memory` | Manage memory about the user and the agent | No |
 | 🪏 | `web_extract` | Extract content from a URL | No |
 | 🌐 | `web_search` | Search the web | No |
+| 📄 | `doc_convert` | Convert documents using pandoc | No |
 
 ## Installation
 ### Option A: Package Manager
@@ -105,13 +108,13 @@ Mia supports multiple LLM providers:
 
 1. Run `mia setup` to configure your agent interactively.
 
-2. For advanced configuration, you can manually edit the `~/.mia/.env` file on Linux or `C:\Users\\<username>\.mia\.env` on Windows to add your API key:
+2. For advanced configuration, you can manually edit the `~/.mia/.env` file on Linux or `C:\Users\<username>\.mia\.env` on Windows to add your API key:
 ```
 OPENROUTER_API_KEY=<your-openrouter-api-key>
 ```
 Or for other providers, set the appropriate environment variable.
 
-3. (Optional) Add your [Tavily API key](https://app.tavily.com/home) (can be obtained for free and has a reasonable number of free searches per month) to `.mia/.env` to enable the `web_search` tool.
+3. (Optional) Add your [Tavily API key](https://app.tavily.com/home) (can be obtained for free and has a reasonable number of free searches per month) to `.mia/.env` to enable the `web_search` and `web_extract` tools.
 ```
 TAVILY_API_KEY=<your-tavily-api-key>
 ```
@@ -131,14 +134,39 @@ Use `mia --help` to access the full cli help menu.
 The TUI supports certain commands. Use `/help` while in the TUI to see them.
 
 ### Available Commands
-- `mia tui` - Start the main terminal UI
-- `mia ratatui` - Start the experimental ratatui interface
+- `mia tui` - Start the main terminal UI (ratatui-based)
+- `mia old-tui` - Start the legacy reedline-based TUI (hidden command)
 - `mia setup` - Interactive setup wizard
 - `mia tools` - Check tool availability
 - `mia model list` - List available models
+- `mia model list --free` - List only free models (price filter)
+- `mia model list --min-context <number>` - Filter by minimum context length
+- `mia model list --max-price <price>` - Filter by maximum price per million tokens
 - `mia model show` - Show current model info
 - `mia sessions list` - List all sessions
 - `mia session clear` - Clear all sessions (prompts for confirmation)
+
+## Configuration Options
+
+The `~/.mia/config.toml` file contains the following options:
+
+```toml
+[model]
+provider = "openrouter"        # LLM provider: openrouter, google, groq, cerebras, local
+base_url = "https://openrouter.ai/api/v1"  # API base URL
+name = "openrouter/owl-alpha"  # Model name
+reasoning = "medium"           # Reasoning effort: low, medium, high
+
+[agent]
+max_iterations = 20            # Maximum agent iterations per request
+
+[tui]
+username = "user"              # Display name in TUI
+max_history = 1000             # Maximum conversation history
+show_reasoning = true           # Show reasoning output
+streaming = true               # Enable streaming responses
+show_spinner = true             # Show spinner during API calls
+```
 
 ## Development
 ### MSRV
