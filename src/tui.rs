@@ -18,6 +18,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
 use ratatui_textarea::TextArea;
+use reedline::kitty_protocol_available;
 use termimad::MadSkin;
 use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
 use tokio_util::sync::CancellationToken;
@@ -37,15 +38,19 @@ pub async fn run(new_session: bool) -> Result<()> {
     let mut state = AppState::new();
 
     let mut terminal = ratatui::init();
-    execute!(
-        std::io::stdout(),
-        EnableBracketedPaste,
-        PushKeyboardEnhancementFlags(
-            KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+    execute!(std::io::stdout(), EnableBracketedPaste)
+        .context("Failed to enable bracketed paste")?;
+
+    if kitty_protocol_available() {
+        execute!(
+            std::io::stdout(),
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+            )
         )
-    )
-    .context("Failed to push keyboard enhancement flags")?;
+        .context("Failed to push keyboard enhancement flags")?;
+    }
 
     state.term_width = terminal.get_frame().area().width as usize;
 
@@ -89,12 +94,12 @@ pub async fn run(new_session: bool) -> Result<()> {
     }
 
     state.session.save()?;
-    execute!(
-        std::io::stdout(),
-        DisableBracketedPaste,
-        PopKeyboardEnhancementFlags
-    )
-    .context("Failed to pop keyboard enhancement flags")?;
+    execute!(std::io::stdout(), DisableBracketedPaste)
+        .context("Failed to disable bracketed paste")?;
+    if kitty_protocol_available() {
+        execute!(std::io::stdout(), PopKeyboardEnhancementFlags)
+            .context("Failed to pop keyboard enhancement flags")?;
+    }
     ratatui::restore();
     Ok(())
 }
