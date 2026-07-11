@@ -219,7 +219,7 @@ pub fn on_partial_assistant_message(message: &PartialMessage) {
             stop_spinner();
             println!("{mia_colored} 💭");
         }
-        print!("{}", reasoning.clone().dark_grey().to_string());
+        print!("{}", reasoning.clone().dark_grey());
     }
 
     if let Some(content) = &message.content {
@@ -262,7 +262,7 @@ fn handle_agent_events(event_rx: &mut UnboundedReceiver<AgentEvent>, session: &m
                 AgentEvent::AssistantStatusUpdate(msg) => {
                     on_assistant_status_update(&msg);
                 }
-                AgentEvent::ToolCallResponseMessage(msg) => {
+                AgentEvent::ToolResponseMessage(msg) => {
                     session.history.add_message(msg);
                 }
                 AgentEvent::HarnessMessage(msg) => {
@@ -281,6 +281,19 @@ fn handle_agent_events(event_rx: &mut UnboundedReceiver<AgentEvent>, session: &m
                         .send(stdio_ask_permission(header, &content))
                         .unwrap();
                 }
+                AgentEvent::PartialToolOutput { stdout, stderr } => {
+                    if let Some(stdout) = stdout {
+                        print!("{}", stdout);
+                    }
+                    if let Some(stderr) = stderr {
+                        print!("{}", stderr);
+                    }
+                    std::io::stdout().flush().unwrap();
+                }
+                AgentEvent::ToolOutput {
+                    stdout: _,
+                    stderr: _,
+                } => {}
             }
         }
     }

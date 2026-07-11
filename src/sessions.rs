@@ -129,23 +129,23 @@ impl Session {
 
 pub fn list_sessions(keep_invalid: bool) -> Result<Vec<PartialSession>> {
     let sessions_dir = AppConfig::internal().sessions_dir.clone();
-    let mut valid_sessions = Vec::new();
+    let mut sessions = Vec::new();
 
-    for file in sessions_dir.read_dir()? {
-        if let Ok(file) = file {
-            if let Ok(session) = serde_json::from_reader::<BufReader<File>, PartialSession>(
-                File::open_buffered(file.path())?,
-            ) && session.version == SESSION_VERSION
-            {
-                valid_sessions.push(session);
-            } else if keep_invalid {
-                let mut invalid_session = PartialSession::default();
-                invalid_session.id =
-                    format!("INVALID SESSION: {}", file.file_name().to_string_lossy());
-                valid_sessions.push(invalid_session);
-            }
+    for file in sessions_dir.read_dir()?.flatten() {
+        if let Ok(session) = serde_json::from_reader::<BufReader<File>, PartialSession>(
+            File::open_buffered(file.path())?,
+        ) && session.version == SESSION_VERSION
+        {
+            sessions.push(session);
+        } else if keep_invalid {
+            let invalid_session = PartialSession {
+                id: format!("INVALID SESSION: {}", file.file_name().to_string_lossy()),
+                ..Default::default()
+            };
+
+            sessions.push(invalid_session);
         }
     }
 
-    Ok(valid_sessions)
+    Ok(sessions)
 }

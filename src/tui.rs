@@ -131,6 +131,7 @@ struct AppState {
     // Chat
     messages: Vec<Text<'static>>,
     partial_message: Option<Message>,
+    partial_tool_output: Option<String>,
     prompt_tokens: u64,
     completion_tokens: u64,
     total_tokens: u64,
@@ -179,6 +180,7 @@ impl AppState {
 
             messages: Vec::new(),
             partial_message: None,
+            partial_tool_output: None,
             prompt_tokens: 0,
             completion_tokens: 0,
             total_tokens: 0,
@@ -221,7 +223,7 @@ impl AppState {
             .iter()
             .map(|l| {
                 let len = l.chars().count().max(1);
-                ((len + input_width - 1) / input_width) as u16
+                len.div_ceil(input_width) as u16
             })
             .sum::<u16>()
             .max(1);
@@ -568,7 +570,7 @@ impl AppState {
                         self.input_placeholder = "Executing, <Ctrl-C> to cancel".to_string();
                     }
                 }
-                AgentEvent::ToolCallResponseMessage(msg) => {
+                AgentEvent::ToolResponseMessage(msg) => {
                     self.session.history.add_message(msg);
                     self.session.save()?;
                 }
@@ -612,6 +614,28 @@ impl AppState {
                     self.status = "Waiting For Permission".to_string();
                     self.input_placeholder = "y/n | <Ctrl-C> to cancel".to_string()
                 }
+                AgentEvent::PartialToolOutput { stdout, stderr } => {
+                    if self.partial_tool_output.is_none() {
+                        self.partial_tool_output = Some(String::new());
+                    }
+
+                    if let Some(stdout) = stdout {
+                        self.partial_tool_output.as_mut().unwrap().push_str(&stdout);
+                    }
+
+                    if let Some(stderr) = stderr {
+                        self.partial_tool_output.as_mut().unwrap().push_str(&stderr);
+                    }
+                }
+                AgentEvent::ToolOutput { stdout, stderr } => {
+                    self.partial_tool_output = None;
+
+                    let mut text = Text::default();
+                    text.extend(stdout.into_text().unwrap());
+                    text.extend(stderr.into_text().unwrap());
+
+                    self.messages.push(text);
+                }
             }
         }
         Ok(())
@@ -631,7 +655,7 @@ fn render_full_chat(
 
     chat.push(get_logo());
     for message in &history.messages {
-        let rendered_message = render_message(&message, term_width)?;
+        let rendered_message = render_message(message, term_width)?;
         chat.push(rendered_message);
 
         if let Some(usage) = &message.usage {

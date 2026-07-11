@@ -18,13 +18,21 @@ pub enum AgentEvent {
     AssistantMessage(Message),
     PartialAssistantMessage(PartialMessage),
     AssistantStatusUpdate(String),
-    ToolCallResponseMessage(Message),
+    ToolResponseMessage(Message),
     HarnessMessage(String),
     HistoryUpdate(History),
     PermissionRequest {
         header: String,
         content: String,
         response: oneshot::Sender<bool>,
+    },
+    PartialToolOutput {
+        stdout: Option<String>,
+        stderr: Option<String>,
+    },
+    ToolOutput {
+        stdout: String,
+        stderr: String,
     },
 }
 
@@ -68,9 +76,9 @@ impl AgentHandle {
         trace!("Assistant status update sent ({})", msg.to_string());
     }
 
-    fn tool_call_response_msg(&self, msg: &Message) {
+    fn tool_response_msg(&self, msg: &Message) {
         self.tx
-            .send(AgentEvent::ToolCallResponseMessage(msg.clone()))
+            .send(AgentEvent::ToolResponseMessage(msg.clone()))
             .unwrap();
 
         trace!("Tool call response message sent");
@@ -107,6 +115,25 @@ impl AgentHandle {
         }
 
         rx.await.unwrap_or(false)
+    }
+
+    pub fn partial_tool_output(&self, stdout: Option<String>, stderr: Option<String>) {
+        self.tx
+            .send(AgentEvent::PartialToolOutput { stdout, stderr })
+            .unwrap();
+
+        trace!("Partial tool output sent");
+    }
+
+    pub fn tool_output(&self, stdout: impl ToString, stderr: impl ToString) {
+        let stdout = stdout.to_string();
+        let stderr = stderr.to_string();
+
+        self.tx
+            .send(AgentEvent::ToolOutput { stdout, stderr })
+            .unwrap();
+
+        trace!("Tool output sent");
     }
 }
 
@@ -150,7 +177,7 @@ pub async fn run_agent(
         // Also accept Ctrl-C signal and break out of loop if it arises
         let assistant_msg = match completion(
             &history,
-            &session_id,
+            session_id,
             stream,
             &handle.cancel,
             |kind: &str| handle.assistant_status_update(kind),
@@ -200,7 +227,7 @@ pub async fn run_agent(
                 };
                 let tc_response =
                     Message::new_tool_call_response(tool_call.id.clone(), content.to_string());
-                handle.tool_call_response_msg(&tc_response);
+                handle.tool_response_msg(&tc_response);
                 history.add_message(tc_response);
             }
             continue;

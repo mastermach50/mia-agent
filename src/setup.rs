@@ -139,7 +139,9 @@ async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
                 .with_validator(http_validator)
                 .with_validator(min_length!(1))
                 .with_default(&default_base_url)
-                .with_help_message("Must include the api version at the end, if present. (Like /v1)")
+                .with_help_message(
+                    "Must include the api version at the end, if present. (Like /v1)",
+                )
                 .prompt()?;
             doc["model"]["base_url"] = value(base_url);
         }
@@ -228,7 +230,7 @@ async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
 
     let levels = match provider {
         Providers::Openrouter => vec!["xhigh", "high", "medium", "low", "minimal", "none"],
-        Providers::Groq => vec!["high","medium","low","default", "none"],
+        Providers::Groq => vec!["high", "medium", "low", "default", "none"],
         Providers::Cerebras => vec!["high", "medium", "low", "none"],
         Providers::GoogleAIStudio => vec!["high", "medium", "low", "none"], // not verified
         Providers::Local => vec!["max", "high", "medium", "low", "none"],

@@ -104,7 +104,11 @@ pub fn highlight_text(filename: &str, text: &str) -> String {
     colored_text
 }
 
-pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
+/// Used by tools that use the shell
+pub fn stdio_capture_and_send<T: Fn(Option<String>, Option<String>)>(
+    child: &mut Child,
+    partial: T,
+) -> (String, String) {
     let mut stdout_captured = String::new();
     let mut stderr_captured = String::new();
 
@@ -115,8 +119,7 @@ pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
                 break;
             }
             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                // print!("{}", text); TODO replace with chunked passing
-                std::io::Write::flush(&mut std::io::stdout()).unwrap(); // Force instant print
+                partial(Some(text.to_string()), None);
                 stdout_captured.push_str(text);
             }
         }
@@ -129,8 +132,7 @@ pub fn stdio_capture_and_print(child: &mut Child) -> (String, String) {
                 break;
             }
             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                // eprint!("{}", text); TODO replace with chunked passing
-                std::io::Write::flush(&mut std::io::stderr()).unwrap();
+                partial(None, Some(text.to_string()));
                 stderr_captured.push_str(text);
             }
         }

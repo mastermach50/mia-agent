@@ -4,7 +4,8 @@ use std::process::Command;
 use std::process::Stdio;
 
 use crate::agent_loop::AgentHandle;
-use crate::{agent_tools::Tool, utils::stdio_capture_and_print};
+use crate::agent_tools::Tool;
+use crate::utils::stdio_capture_and_send;
 
 #[derive(Debug)]
 pub struct ExecShell;
@@ -80,9 +81,14 @@ impl Tool for ExecShell {
                 .spawn()
                 .expect("Failed to start command");
 
-            let (stdout_captured, stderr_captured) = stdio_capture_and_print(&mut child);
+            let (stdout_captured, stderr_captured) =
+                stdio_capture_and_send(&mut child, |stdout, stderr| {
+                    handle.partial_tool_output(stdout, stderr)
+                });
 
             let status = child.wait().expect("Failed to wait on child process");
+
+            handle.tool_output(&stdout_captured, &stderr_captured);
 
             json!({
                 "status": if status.success() { "success" } else { "error" },

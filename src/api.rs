@@ -187,7 +187,11 @@ pub async fn completion(
         // Error log here causes ui glitches
         // error!("API request failed with status {}", status);
         // error!("Response: {:?}", json);
-        anyhow::bail!("API request failed ({}):\n{}", status, json["error"]["message"]);
+        anyhow::bail!(
+            "API request failed ({}):\n{}",
+            status,
+            json["error"]["message"]
+        );
     }
 
     // If the status is success then mark the assistant as thinking
@@ -286,10 +290,10 @@ pub async fn completion(
             };
 
             // grab the usage if it exists
-            if chunk_json["usage"].is_object() {
-                if let Ok(u) = serde_json::from_value::<TokenUsage>(chunk_json["usage"].clone()) {
-                    usage = Some(u);
-                }
+            if chunk_json["usage"].is_object()
+                && let Ok(u) = serde_json::from_value::<TokenUsage>(chunk_json["usage"].clone())
+            {
+                usage = Some(u);
             }
 
             // Get the delta section of the streamed data
@@ -310,9 +314,9 @@ pub async fn completion(
 
                 on_partial_message(&PartialMessage {
                     role: "assistant".to_string(),
-                    reasoning_chunk_index: reasoning_chunk_index,
+                    reasoning_chunk_index,
                     reasoning: Some(reasoning.to_string()),
-                    content_chunk_index: content_chunk_index,
+                    content_chunk_index,
                     content: None,
                 });
             }
@@ -332,9 +336,9 @@ pub async fn completion(
 
                 on_partial_message(&PartialMessage {
                     role: "assistant".to_string(),
-                    reasoning_chunk_index: reasoning_chunk_index,
+                    reasoning_chunk_index,
                     reasoning: None,
-                    content_chunk_index: content_chunk_index,
+                    content_chunk_index,
                     content: Some(content.to_string()),
                 });
             }
