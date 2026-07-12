@@ -28,8 +28,7 @@ impl Tool for FSWriteFile {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
-        Write text content to a file, creating it if it does not exist or fully overwriting it if it does.
-        Requires explicit user approval before writing.
+        Write text content to a file, creating it if it does not exist or fully overwriting if it does.
         Use for saving generated code, configs, and new files.
         This replaces the entire file — for targeted edits to existing files, prefer exec_shell with sed, awk, or a Python one-liner to avoid clobbering unchanged content.
         "};

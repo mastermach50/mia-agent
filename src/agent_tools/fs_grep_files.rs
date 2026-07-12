@@ -29,12 +29,10 @@ impl Tool for FSGrepFiles {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
-        Search file contents with ripgrep (rg).
+        Search file contents using ripgrep (rg).
         Applies smart-case matching, respects .gitignore, and skips hidden files by default.
         Use to find where a string, function, symbol, or pattern appears across files.
         Returns matching lines with file paths and line numbers.
-        Faster and more precise than grep through exec_shell for code searches.
-        Use fs_search_dirs to find files by name; use this to find files by content.
         "};
         json!({
             "type": "function",

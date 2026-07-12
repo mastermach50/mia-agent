@@ -22,9 +22,8 @@ impl Tool for DateTime {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
-        Return the current local date and time in RFC 2822 format.
-        Call this at the start of any time-sensitive task — scheduling, logging, timestamping, or when the user asks what time it is.
-        More accurate than the approximate datetime in the system prompt.
+        Get the current local date and time in RFC 2822 format.
+        Use this tool whenever accurate date or time is required.
         "};
         json!({
             "type": "function",

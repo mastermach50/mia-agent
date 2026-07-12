@@ -33,10 +33,10 @@ impl Tool for ExecShell {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
-        Execute an arbitrary command in bash (Unix) or PowerShell (Windows) and return stdout, stderr, and exit code.
-        Use for: installed CLIs, package managers, build tools, git, network utilities, and any system task not covered by a specialized tool.
+        Execute an arbitrary commands in bash (Unix) or PowerShell (Windows) and return stdout, stderr, and exit code.
+        Use this to do any task that is not possible using other existing tools.
         Commands run in the current working directory.
-        Prefer fs_* tools for file operations — this is the general-purpose fallback when no dedicated tool exists.
+        For any filesystem operations use the fs_* tools, use this only if no other tools can do the job.
         "};
 
         json!({

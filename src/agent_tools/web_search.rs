@@ -28,6 +28,8 @@ impl Tool for WebSearch {
         Search the web via Tavily and return top results with titles, URLs, and content snippets.
         Use for: current documentation, error message lookup, package discovery, and any question that may have changed since the model's training cutoff.
         Write specific queries — include version numbers, library names, or exact error text for better results.
+        Do not keyword stuff queries. To search for multiple things, reuse this tool multiple times.
+        Never append the year or any time related parameters to the query without using the datetime tool first.
         Follow up with web_extract on promising URLs to get their full content.
         "};
         json!({

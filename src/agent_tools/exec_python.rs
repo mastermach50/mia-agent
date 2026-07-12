@@ -33,22 +33,21 @@ impl Tool for ExecPython {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc::indoc! {"
-        Execute a Python 3 script and return stdout, stderr, and exit code.
-        Best for: numerical computation, data parsing (JSON/CSV/XML), string processing, generating formatted output, and tasks that benefit from Python's standard library without shell pipelines.
+        Executes Python 3 code snippet and returns stdout, stderr, and exit code.
+        Use this for tasks that require some scripting or deterministic output.
         Runs in a fresh interpreter — no state persists between calls.
-        For tasks involving shell utilities or system commands, use exec_shell instead.
         "};
         json!({
             "type": "function",
             "function": {
                 "name": &self.name(),
-                "description": "Execute Python 3 code.",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "code": {
                             "type": "string",
-                            "description": description
+                            "description": "The code to run."
                         }
                     },
                     "required": [ "code" ]

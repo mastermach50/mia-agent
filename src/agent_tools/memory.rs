@@ -34,12 +34,12 @@ impl Tool for Memory {
         let description = indoc! {"
         Insert or delete a single fact in your persistent memory files.
         Two scopes:
-            - 'user': facts about the user — name, preferences, projects, machine setup, constraints.
-            - 'system': facts about your own configuration — installed tools, discovered paths, behavior notes.
+            - 'user': facts about the user — identity, preferences, behaviours etc.
+            - 'system': facts about your own configuration and the system you are running on — system configuration, tool behaviours, how to better use tools you have etc.
         Memory is included in every system prompt, so keep entries terse and durable.
         Insert facts that will remain relevant across future sessions.
-        Delete entries that become wrong or outdated when you discover they are.
-        Do not store task logs, session notes, or transient state — memory is for facts only.
+        Delete entries that become wrong or outdated when you discover that they are.
+        Do not store anything that will not be relevent in future sessions.
         "};
         json!({
             "type": "function",
@@ -93,9 +93,6 @@ impl Tool for Memory {
             });
         };
 
-        // Remove the bullet point from the content if it exists
-        // let content = content.strip_prefix("- ").unwrap_or(content);
-
         match operation {
             "insert" => {
                 let current = fs::read_to_string(&path).unwrap_or_default();
@@ -135,7 +132,7 @@ impl Tool for Memory {
             }
             _ => json!({
                 "status": "error",
-                "message": "Invalid operation. Use 'insert', 'list', or 'delete'"
+                "message": "Invalid operation. Use 'insert' or 'delete'"
             }),
         }
     }

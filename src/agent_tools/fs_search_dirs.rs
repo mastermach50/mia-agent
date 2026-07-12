@@ -29,10 +29,9 @@ impl Tool for FSSearchDirs {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
-        Find files and directories by name pattern using fd.
+        Find files and directories by name using fd.
         Accepts regex, respects .gitignore, and skips hidden files by default.
         Use when you know part of a filename but not its location, or to enumerate all files matching a pattern (e.g. all *.toml files in a project).
-        Pair with fs_grep_files: this finds files by name, grep finds files by content.
         "};
         json!({
             "type": "function",

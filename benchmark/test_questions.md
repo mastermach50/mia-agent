@@ -1,0 +1,4 @@
+- Save the latest xkcd comic to my downloads
+- Find me the top 5 colleges in kerala based on nirf ranking
+- Save my system specs to an odt file
+- Can you find my profile pic on this system

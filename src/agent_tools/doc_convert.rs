@@ -35,13 +35,10 @@ impl Tool for DocConvert {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
-        Convert documents between formats using pandoc.
-        Supports markdown, html, docx, pdf, epub, latex, rst, odt, and many more.
-        Auto-detects input format from the file extension unless from_format is given.
-        Use this to convert notes to Word/PDF, turn HTML into markdown, or reformat docs.
-        Use this to generate different types of documents from markdown or latex files.
-        Use this to view files that you cannot simply parse as text (pdf, odt, docx, xlsx etc) by converting them into markdown.
-        Writes the converted output to output_path and reports success or failure.
+        Convert any document into any other document using pandoc.
+        Use this to create non text documents (.docx, .pdf, .odt, etc.) from text files that you can generate (markdown, latex).
+        Use this to read non text documents by converting them into text files.
+        Any intermediate files should be created only in the temp folder of the system.
         "};
         json!({
             "type": "function",
