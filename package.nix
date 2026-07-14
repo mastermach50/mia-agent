@@ -6,12 +6,13 @@
   makeWrapper,
   python3,
   pandoc,
-  miktex,
+  typst,
+  texliveFull,
   ripgrep,
   tree,
 }:
 let
-  runtimeDeps = [ tree python3 bash ripgrep fd pandoc miktex ];
+  runtimeDeps = [ tree python3 bash ripgrep fd pandoc typst texliveFull];
 
   commonArgs = {
     src = craneLib.cleanCargoSource ./.;

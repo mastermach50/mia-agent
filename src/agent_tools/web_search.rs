@@ -55,7 +55,7 @@ impl Tool for WebSearch {
             }
         })
     }
-    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let query = args["query"].as_str().expect("Query argument not found");
         let max_results = args["max_results"].as_u64().unwrap_or(5) as i32;
 
@@ -90,7 +90,7 @@ impl Tool for WebSearch {
             }
         };
 
-        let result: serde_json::Value = match response.json().await {
+        let response_json: serde_json::Value = match response.json().await {
             Ok(json) => json,
             Err(e) => {
                 return json!({
@@ -100,10 +100,18 @@ impl Tool for WebSearch {
             }
         };
 
+        let mut urls = Vec::new();
+        for result in response_json["results"].as_array().unwrap() {
+            let url = result["url"].as_str().unwrap();
+            urls.push(url);
+        }
+
+        handle.tool_output(urls.join("\n"), "");
+
         json!({
             "status": "success",
             "query": query,
-            "results": result
+            "results": response_json
         })
     }
 }

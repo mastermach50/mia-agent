@@ -1,0 +1,160 @@
+= Comprehensive AsciiDoc Example
+:author: Mathew Writer
+:email: mathew@example.com
+:revdate: 2025-07-13
+:revnumber: 1.0
+:revremark: Initial version
+:icons: font
+:source-highlighter: rouge
+:toc: left
+:toclevels: 3
+:sectnums:
+:icons: font
+:experimental:
+:stem: latexmath
+:icons: font
+:source-highlighter: rouge
+:icons: font
+:source-highlighter: rouge
+:icons: font
+:source-highlighter: rouge
+:icons: font
+
+== Introduction
+
+This document demonstrates the full power of AsciiDoc.
+
+*Features include:*
+- Advanced formatting
+- Cross-references
+- Footnotes[^1]
+- Callouts
+- Source code with callouts
+- Diagrams (via plantuml or graphviz via extensions)
+- Tables with formatting
+- Include directives
+- Macros and includes
+
+[NOTE]
+====
+This is a note block that can span multiple lines.
+It can also contain **bold**, *italic*, and `monospace` text.
+====
+
+[TIP]
+====
+Pro tip: Use AsciiDoc for technical documentation.
+====
+
+[WARNING]
+====
+Warning: This is a warning block.
+====
+
+[NOTE]
+====
+Another note.
+====
+
+[source,python]
+----
+def fibonacci(n):
+    """Return the nth Fibonacci number."""
+    a, b = 0, 1
+    for _ in range(n):
+        yield a
+        a, b = b, a + b
+----
+
+<1> Function definition
+<2> Initialize variables
+<3> Loop n times
+<4> Yield current value
+<5> Update values
+
+[source,bash]
+----
+$ echo "Hello, World!"
+Hello, World!
+----
+
+[source,java]
+----
+public class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+----
+
+[source,sql]
+----
+SELECT *
+FROM users
+WHERE age > 18
+ORDER BY name;
+----
+
+== Tables
+
+[options="header,autowidth,stripes"]
+|===
+| Header 1 | Header 2 | Header 3
+| Cell 1   | Cell 2   | Cell 3
+| Cell 4   | Cell 5   | Cell 6
+|===
+
+[options="header,footer"]
+|===
+| Name | Age | Occupation
+| Alice| 30  | Engineer
+| Bob  | 25  | Designer
+|===
+
+== Diagrams (using PlantUML via passthrough)
+
+[plantuml,format=svg]
+----
+Alice -> Bob: Authentication Request
+Bob --> Alice: Authentication Response
+
+Alice -> Bob: Another authentication Request
+Alice <-- Bob: another authentication Response
+----
+
+[dot,format=svg]
+digraph G {
+    Main -> Init;
+    Init -> Loop;
+    Loop -> Loop[label="Loop"];
+    Loop -> End[label="Exit"];
+    End -> [shape=point];
+}
+
+== Footnotes
+
+This is a sentence with a footnote.[^1]
+
+[^1]: This is the footnote text.
+
+[footnote] This is an inline footnote.[^2]
+
+[^2]: Another footnote.
+
+== Bibliography
+
+Refer to this amazing book [^book].
+
+[bibliography]
+== References
+
+* [[book]] Leslie Lamport. *LaTeX: A Document Preparation System*. Addison-Wesley, 1994.
+
+== Conclusion
+
+AsciiDoc is a powerful, lightweight markup language for writing documentation.
+
+[NOTE]
+====
+End of document.
+====

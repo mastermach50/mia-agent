@@ -10,6 +10,7 @@
 - Make session pruning
 - Tool call status in tui
 - Split setup into sections
+- Replace markdown with plain text in fs_list_dir
 
 # Long Term
 - Graceful error handling in API calls

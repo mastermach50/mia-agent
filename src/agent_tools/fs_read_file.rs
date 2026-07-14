@@ -47,9 +47,17 @@ impl Tool for FSReadFile {
         })
     }
     async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
-        let path = args["path"].as_str().expect("Path argument not found");
+        let path = match args["path"].as_str() {
+            Some(path) => shellexpand::tilde(path).to_string(),
+            None => {
+                return json!({
+                    "status": "error",
+                    "message": "path argument not found"
+                });
+            }
+        };
 
-        match fs::read_to_string(path) {
+        match fs::read_to_string(&path) {
             Ok(content) => {
                 let preview = if content.len() > 10000 {
                     format!(

@@ -49,9 +49,9 @@ impl Tool for FSListDir {
         })
     }
     async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
-        let path = args["path"].as_str().unwrap_or(".");
+        let path = shellexpand::tilde(args["path"].as_str().unwrap_or(".")).to_string();
 
-        match fs::read_dir(path) {
+        match fs::read_dir(&path) {
             Ok(entries) => {
                 let mut md = String::new();
                 md.push_str("| Permission | Size | User | Group | Modified | Path |\n");

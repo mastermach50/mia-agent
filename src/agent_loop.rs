@@ -208,8 +208,8 @@ pub async fn run_agent(
         // If the assistant requested tool calls then do the tool calls
         // Append the result of the tool calls to the history and continue the loop
         if let Some(tool_calls) = assistant_msg.tool_calls {
-            handle.assistant_status_update("Calling Tools");
             for tool_call in tool_calls {
+                handle.assistant_status_update("Calling Tools");
                 let tool_name = tool_call.function.name.clone();
                 let tool_args = tool_call.function.arguments.clone();
                 let content = tokio::select! {

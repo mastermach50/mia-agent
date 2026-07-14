@@ -19,24 +19,23 @@ impl Tool for DocConvert {
         format!("{src} -> {dest}")
     }
     fn availability(&self) -> Result<(), String> {
-        let mut items = Vec::new();
+        let mut missing_items = Vec::new();
         if which::which("pandoc").is_err() {
-            items.push("pandoc");
+            missing_items.push("pandoc");
         }
-        if which::which("miktex").is_err() {
-            items.push("miktex");
+        if which::which("pdflatex").is_err() {
+            missing_items.push("pdflatex");
         }
 
-        if items.is_empty() {
+        if missing_items.is_empty() {
             Ok(())
         } else {
-            Err(format!("{} not found", items.join(", ")))
+            Err(format!("{} not found", missing_items.join(", ")))
         }
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
         Convert any document into any other document using pandoc.
-        Use this to create non text documents (.docx, .pdf, .odt, etc.) from text files that you can generate (markdown, latex).
         Use this to read non text documents by converting them into text files.
         Any intermediate files should be created only in the temp folder of the system.
         "};
@@ -78,7 +77,7 @@ impl Tool for DocConvert {
 
     async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let input_path = match args["input_path"].as_str() {
-            Some(p) => p,
+            Some(path) => shellexpand::tilde(path).to_string(),
             None => {
                 return json!({
                     "status": "error",
@@ -87,7 +86,7 @@ impl Tool for DocConvert {
             }
         };
         let output_path = match args["output_path"].as_str() {
-            Some(p) => p,
+            Some(path) => shellexpand::tilde(path).to_string(),
             None => {
                 return json!({
                     "status": "error",
@@ -97,7 +96,7 @@ impl Tool for DocConvert {
         };
 
         let mut cmd = std::process::Command::new("pandoc");
-        cmd.arg(input_path).arg("-o").arg(output_path);
+        cmd.arg(input_path).arg("-o").arg(&output_path);
 
         if let Some(from_format) = args["from_format"].as_str() {
             cmd.arg("--from").arg(from_format);

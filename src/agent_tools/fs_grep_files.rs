@@ -60,8 +60,8 @@ impl Tool for FSGrepFiles {
             }
         })
     }
-    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
-        let path = args["path"].as_str().unwrap_or(".");
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
+        let path = shellexpand::tilde(args["path"].as_str().unwrap_or(".")).to_string();
         let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
         if let Some(pattern) = args["pattern"].as_str() {
             let output = std::process::Command::new("rg")
@@ -75,11 +75,16 @@ impl Tool for FSGrepFiles {
                 .output()
                 .expect("Failed to execute rg");
 
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            handle.tool_output(&stdout, &stderr);
+
             json!({
                 "status": if output.status.success() { "success" } else { "error" },
                 "exit_code": output.status.code().unwrap(),
-                "stdout": String::from_utf8(output.stdout).unwrap(),
-                "stderr": String::from_utf8(output.stderr).unwrap()
+                "stdout": stdout,
+                "stderr": stderr
             })
         } else {
             json!({

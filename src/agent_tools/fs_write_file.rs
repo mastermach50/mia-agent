@@ -55,16 +55,31 @@ impl Tool for FSWriteFile {
         })
     }
     async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
-        let path = args["path"].as_str().expect("Path argument not found");
-        let content = args["content"]
-            .as_str()
-            .expect("Content argument not found");
+        let path = match args["path"].as_str() {
+            Some(path) => shellexpand::tilde(path).to_string(),
+            None => {
+                return json!({
+                    "status": "error",
+                    "message": "path argument not found"
+                });
+            }
+        };
 
-        let colored_content = utils::highlight_text(path, content);
+        let content = match args["content"].as_str() {
+            Some(content) => content.to_string(),
+            None => {
+                return json!({
+                    "status": "error",
+                    "message": "content argument not found"
+                });
+            }
+        };
+
+        let colored_content = utils::highlight_text(&path, &content);
 
         let header = format!("Write to {}", path);
         if handle.ask_permission(header, &colored_content).await {
-            match fs::write(path, content) {
+            match fs::write(&path, &content) {
                 Ok(_) => {
                     json!({
                         "status": "success",

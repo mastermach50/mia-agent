@@ -7,6 +7,7 @@ use crate::agent_loop::AgentHandle;
 
 mod datetime;
 mod doc_convert;
+mod doc_create;
 mod exec_python;
 mod exec_shell;
 mod fs_grep_files;
@@ -54,6 +55,7 @@ impl ToolRegistry {
 
         Self::register(&mut registry, datetime::DateTime);
         Self::register(&mut registry, doc_convert::DocConvert);
+        Self::register(&mut registry, doc_create::DocCreate);
         Self::register(&mut registry, exec_python::ExecPython);
         Self::register(&mut registry, exec_shell::ExecShell);
         Self::register(&mut registry, fs_grep_files::FSGrepFiles);
