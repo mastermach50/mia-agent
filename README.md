@@ -61,7 +61,8 @@ Currently Mia has the following tools:
 | 🧠 | `memory` | Manage memory about the user and the agent | No |
 | 🪏 | `web_extract` | Extract content from a URL | No |
 | 🌐 | `web_search` | Search the web | No |
-| 📄 | `doc_convert` | Convert documents using pandoc | No |
+| 📄 | `doc_create` | Create pdf, docx and other documents | No |
+| 📃 | `doc_convert` | Convert any document to another using pandoc | No |
 
 ## Installation
 ### Option A: Package Manager
