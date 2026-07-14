@@ -4,8 +4,7 @@ use ansi_to_tui::IntoText;
 use anyhow::{Context, Result};
 use crossterm::{
     event::{
-        self, DisableBracketedPaste, EnableBracketedPaste, Event, KeyCode, KeyModifiers,
-        KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event, KeyCode, KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEventKind, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags
     },
     execute,
 };
@@ -37,7 +36,7 @@ pub async fn run(new_session: bool) -> Result<()> {
     let mut state = AppState::new();
 
     let mut terminal = ratatui::init();
-    execute!(std::io::stdout(), EnableBracketedPaste)
+    execute!(std::io::stdout(), EnableBracketedPaste, EnableMouseCapture)
         .context("Failed to enable bracketed paste")?;
 
     if kitty_protocol_available() {
@@ -46,7 +45,7 @@ pub async fn run(new_session: bool) -> Result<()> {
             PushKeyboardEnhancementFlags(
                 KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
                     | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-            )
+            ),
         )
         .context("Failed to push keyboard enhancement flags")?;
     }
@@ -93,7 +92,7 @@ pub async fn run(new_session: bool) -> Result<()> {
     }
 
     state.session.save()?;
-    execute!(std::io::stdout(), DisableBracketedPaste)
+    execute!(std::io::stdout(), DisableBracketedPaste, DisableMouseCapture)
         .context("Failed to disable bracketed paste")?;
     if kitty_protocol_available() {
         execute!(std::io::stdout(), PopKeyboardEnhancementFlags)
@@ -461,13 +460,15 @@ impl AppState {
                                 self.session.save()?;
                             }
                         }
+                        // Kinda weird, but works for natural user interaction
                         KeyCode::Up => {
-                            self.scroll_offset = self.scroll_offset.saturating_sub(1);
-                            self.auto_scroll = false;
+                            execute!(std::io::stdout(), EnableMouseCapture)?;
                         }
                         KeyCode::Down => {
-                            self.scroll_offset = self.scroll_offset.saturating_add(1);
+                            execute!(std::io::stdout(), EnableMouseCapture)?;
                         }
+
+                        // Scroll using navigation keys
                         KeyCode::PageUp => {
                             self.scroll_offset = self.scroll_offset.saturating_sub(10);
                             self.auto_scroll = false;
@@ -478,10 +479,8 @@ impl AppState {
                         _ => {}
                     }
 
-                    let is_scroll_key = matches!(
-                        key_event.code,
-                        KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
-                    );
+                    let is_scroll_key =
+                        matches!(key_event.code, KeyCode::PageUp | KeyCode::PageDown);
 
                     let is_action_keybind =
                         key_event.code == KeyCode::Enter && key_event.modifiers.is_empty();
@@ -498,6 +497,23 @@ impl AppState {
                         }
                     }
                 }
+                Event::Mouse(mouse_event) => match mouse_event.kind {
+                    MouseEventKind::ScrollUp => {
+                        self.scroll_offset = self.scroll_offset.saturating_sub(2);
+                        self.auto_scroll = false;
+                    }
+                    MouseEventKind::ScrollDown => {
+                        self.scroll_offset = self.scroll_offset.saturating_add(2);
+                    }
+
+                    // Allows for the user to select and copy text
+                    MouseEventKind::Down(MouseButton::Left) => {
+                        execute!(std::io::stdout(), DisableMouseCapture)?;
+                    }
+                    _ => {
+                        self.input.input(mouse_event);
+                    }
+                },
                 Event::Paste(text) => {
                     self.input.insert_str(&text);
                 }
