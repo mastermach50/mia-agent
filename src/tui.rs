@@ -17,7 +17,7 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
-use ratatui_textarea::TextArea;
+use ratatui_textarea::{TextArea, WrapMode::WordOrGlyph};
 use reedline::kitty_protocol_available;
 use termimad::MadSkin;
 use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
@@ -45,7 +45,7 @@ pub async fn run(new_session: bool) -> Result<()> {
             std::io::stdout(),
             PushKeyboardEnhancementFlags(
                 KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
             )
         )
         .context("Failed to push keyboard enhancement flags")?;
@@ -161,6 +161,9 @@ impl AppState {
         "}
         .to_string();
 
+        let mut input = TextArea::default();
+        input.set_wrap_mode(WordOrGlyph);
+
         Self {
             agent_handle,
             event_rx,
@@ -168,7 +171,7 @@ impl AppState {
             help_message,
             term_width: 0,
 
-            input: TextArea::default(),
+            input,
             input_placeholder: "Type Something...".to_string(),
 
             permission_request: None,

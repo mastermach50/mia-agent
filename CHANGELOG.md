@@ -1,3 +1,11 @@
+## v0.2.1
+### Added
+- New `doc_create` tool to directly create documents.
+- Tool ouputs fully visible in chat.
+
+### Fixed
+- Shift key not being resolved properly in tui input.
+
 ## v0.2.0
 ### Added
 - __New ratatui based tui is the default tui__.
