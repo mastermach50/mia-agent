@@ -1,3 +1,10 @@
+## v0.2.2
+### Added
+- Added section selection areguments to `mia setup`.
+
+### Fixed
+- Scrolling with mouse and also selecting text.
+
 ## v0.2.1
 ### Added
 - New `doc_create` tool to directly create documents.

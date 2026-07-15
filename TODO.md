@@ -8,7 +8,6 @@
 - Implement ratatui scrollbar
 - Make session pruning
 - Tool call status in tui
-- Split setup into sections
 - Replace markdown with plain text in fs_list_dir
 - Create config value for showing tool ouputs in chat
 

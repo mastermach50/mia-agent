@@ -27,8 +27,8 @@ pub enum MainSubCommands {
         sub_command: Option<SessionSubCommands>,
     },
 
-    /// Setup the agent
-    Setup,
+    /// Setup the agent (defaults to full setup)
+    Setup(SetupArgs),
 
     /// List all agent tools and their status
     Tools,
@@ -60,15 +60,15 @@ pub enum ModelSubCommands {
 
 #[derive(Parser)]
 pub struct ModelListArgs {
-    // Maximum price per million completion tokens
+    /// Maximum price per million completion tokens
     #[arg(long, conflicts_with = "free")]
     pub max_price: Option<f64>,
 
-    // Show only free models
+    /// Show only free models
     #[arg(long, conflicts_with = "max_price")]
     pub free: bool,
 
-    // Minimum context length
+    /// Minimum context length
     #[arg(long)]
     pub min_context: Option<String>,
 }
@@ -80,4 +80,19 @@ pub enum SessionSubCommands {
 
     /// Clear all sessions
     Clear,
+}
+
+#[derive(Parser)]
+pub struct SetupArgs {
+    /// Setup the model only
+    #[arg(short, long)]
+    pub model: bool,
+
+    /// Setup the TUI only
+    #[arg(short, long)]
+    pub tui: bool,
+
+    /// Setup the agent only
+    #[arg(short, long)]
+    pub agent: bool,
 }

@@ -114,9 +114,9 @@ async fn main() -> Result<()> {
                 println!("No subcommand provided. Use --help for usage.");
             }
         },
-        Some(cli::MainSubCommands::Setup) => {
+        Some(cli::MainSubCommands::Setup(args)) => {
             info!("Starting agent setup...");
-            setup::setup().await?;
+            setup::setup(args).await?;
         }
         Some(cli::MainSubCommands::Tools) => {
             println!("Available Tools:");

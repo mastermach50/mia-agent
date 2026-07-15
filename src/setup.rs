@@ -12,6 +12,7 @@ use strum::{EnumIter, IntoEnumIterator};
 use termimad::crossterm::style::Stylize;
 use toml_edit::{DocumentMut, value};
 
+use crate::cli::SetupArgs;
 use crate::{api, config::AppConfig};
 
 #[derive(Debug, Clone, Copy, Selectable, EnumIter, PartialEq)]
@@ -92,22 +93,30 @@ impl Display for EditModes {
     }
 }
 
-pub async fn setup() -> Result<()> {
+pub async fn setup(args: SetupArgs) -> Result<()> {
+    let noargs = !(args.agent || args.model || args.tui);
+
     let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
     let mut doc = config.parse::<DocumentMut>()?;
 
-    println!("{}", "Model Options".yellow());
-    set_model_provider(&mut doc).await?;
-    set_model_name(&mut doc).await?;
-    set_model_reasoning(&mut doc).await?;
+    if noargs || args.model {
+        println!("{}", "Model Options".yellow());
+        set_model_provider(&mut doc).await?;
+        set_model_name(&mut doc).await?;
+        set_model_reasoning(&mut doc).await?;
+    }
 
-    println!("\n{}", "TUI Options".yellow());
-    set_tui_username(&mut doc).await?;
-    set_tui_streaming(&mut doc).await?;
-    set_tui_reasoning(&mut doc).await?;
+    if noargs || args.tui {
+        println!("\n{}", "TUI Options".yellow());
+        set_tui_username(&mut doc).await?;
+        set_tui_streaming(&mut doc).await?;
+        set_tui_reasoning(&mut doc).await?;
+    }
 
-    println!("\n{}", "Agent Options".yellow());
-    set_max_iterations(&mut doc).await?;
+    if noargs || args.agent {
+        println!("\n{}", "Agent Options".yellow());
+        set_max_iterations(&mut doc).await?;
+    }
 
     fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
 
