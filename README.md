@@ -151,7 +151,7 @@ The TUI supports certain commands. Use `/help` while in the TUI to see them.
 Mia uses rust nightly as it is required for `whatsapp-rust` and certain necessary features.
 
 ## Contributing
-We DO NOT accept vibecoded contributions or contributions from agents.
+We DO NOT accept vibe coded contributions or contributions from agents.
 
 However AI assisted code is fine as long as you the human are the one contributing.
 
