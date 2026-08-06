@@ -93,7 +93,9 @@ impl AgentHandle {
     }
 
     fn update_history(&self, history: History) {
-        self.tx.send(AgentEvent::HistoryUpdate(history)).unwrap();
+        self.tx
+            .send(AgentEvent::HistoryUpdate(history))
+            .unwrap();
 
         trace!("History update message sent");
     }
