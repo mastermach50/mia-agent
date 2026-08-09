@@ -12,7 +12,16 @@
   tree,
 }:
 let
-  runtimeDeps = [ tree python3 bash ripgrep fd pandoc typst texliveFull];
+  runtimeDeps = [
+    tree
+    python3
+    bash
+    ripgrep
+    fd
+    pandoc
+    typst
+    texliveFull
+  ];
 
   commonArgs = {
     src = craneLib.cleanCargoSource ./.;
@@ -22,8 +31,9 @@ let
 
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 in
-{
-  package = craneLib.buildPackage (commonArgs // {
+craneLib.buildPackage (
+  commonArgs
+  // {
     inherit cargoArtifacts;
 
     postInstall = ''
@@ -38,7 +48,5 @@ in
       maintainers = with lib.maintainers; [ mastermach50 ];
       mainProgram = "mia";
     };
-  });
-
-  inherit runtimeDeps;
-}
+  }
+)
