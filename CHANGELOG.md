@@ -1,3 +1,7 @@
+## v0.2.3
+### Fixed
+- Fixed token usage counts not being loaded when a session is loaded.
+
 ## v0.2.2
 ### Added
 - Added section selection arguments to `mia setup`.

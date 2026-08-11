@@ -18,7 +18,11 @@ use crate::{
 ///
 /// Only returns a text if the message is not a system or tool response message.
 /// Only contents of the messages are ever hard wrapped, and that too only if markdown rendering is enabled.
-pub fn render_message(message: &Message, width: usize, with_reasoning: bool) -> Result<Option<Text<'static>>> {
+pub fn render_message(
+    message: &Message,
+    width: usize,
+    with_reasoning: bool,
+) -> Result<Option<Text<'static>>> {
     // Ignore system and tool response messages
     if message.role == "system" || message.role == "tool" {
         return Ok(Some(Text::default()));
@@ -109,11 +113,22 @@ pub fn render_message(message: &Message, width: usize, with_reasoning: bool) -> 
 pub fn render_all_messages(state: &mut AppState) -> Result<()> {
     state.rendered_messages.clear();
     state.wrapped_line_count = 0;
+    state.prompt_tokens = 0;
+    state.completion_tokens = 0;
+    state.total_tokens = 0;
 
     state.push_rendered_message(get_logo());
 
     for message in state.session.history.messages.clone() {
-        if let Some(rendered_message) = render_message(&message, state.chat_area_width, state.show_reasoning)? {
+        if let Some(usage) = &message.usage {
+            state.prompt_tokens = usage.prompt_tokens;
+            state.completion_tokens += usage.completion_tokens;
+            state.total_tokens = usage.total_tokens;
+        }
+
+        if let Some(rendered_message) =
+            render_message(&message, state.chat_area_width, state.show_reasoning)?
+        {
             state.push_rendered_message(rendered_message);
         }
     }
