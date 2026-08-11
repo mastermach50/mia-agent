@@ -27,6 +27,7 @@ use crate::{
     api::Message,
     config::AppConfig,
     sessions::Session,
+    system_prompt::tui_system_prompt,
     tui::{
         logo::get_logo,
         message_renderer::{render_all_messages, render_message},
@@ -43,6 +44,10 @@ pub async fn run(new_session: bool) -> Result<()> {
 
     if new_session {
         state.session = Session::new("user", "tui", "tui");
+        state
+            .session
+            .history
+            .set_system_prompt(tui_system_prompt(None)?);
         state.push_rendered_message(get_logo());
         state.send_harness_message("New session creted")?;
     } else {
@@ -54,6 +59,10 @@ pub async fn run(new_session: bool) -> Result<()> {
             }
             Err(_) => {
                 state.session = Session::new("user", "tui", "tui");
+                state
+                    .session
+                    .history
+                    .set_system_prompt(tui_system_prompt(None)?);
                 state.push_rendered_message(get_logo());
                 state.send_harness_message("No previous session found")?;
                 state.send_harness_message("New session creted")?;
@@ -225,6 +234,7 @@ impl AppState {
             && !permission_request.response.is_closed()
         {
             let user_response = self.input.lines().join("\n");
+            self.input.clear();
 
             let permission_granted =
                 if user_response == "yes" || user_response.chars().all(|c| c == 'y') {
@@ -247,6 +257,8 @@ impl AppState {
             self.input
                 .set_placeholder_text("Executing, <Ctrl-C> to cancel");
             self.status.clear();
+
+            return Ok(());
         }
 
         // Note: After cancellation the cancellation token is reset instead of creating a new agent handle
@@ -438,7 +450,7 @@ impl AppState {
                     self.partial_message = None;
                     self.rendered_partial_message = None;
                     self.rendered_partial_message_wrapped_line_count = 0;
-                    
+
                     // Clear permission prompt
                     self.permission_request = None;
                     self.rendered_permission_request = None;

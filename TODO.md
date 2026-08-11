@@ -1,5 +1,4 @@
 # Redo
-- implement permission asking ui
 - implement commands
 - implement mouse selection
 
