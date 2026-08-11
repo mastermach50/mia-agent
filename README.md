@@ -15,7 +15,7 @@ This project was inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 - [Principles](#principles)          
 - [Features](#features)  
 - [Installation](#installation)
-    - [Option A: Package Manager](#option-a-package-manager)
+    - [Option A: Prebuilt binaries](#option-a-prebuilt-binaries)
     - [Option B: Using cargo (Windows/Linux)](#option-b-using-cargo-windowslinux)
     - [Option C: Using nix flakes (NixOS/Linux)](#option-c-using-nix-flakes-nixoslinux)
 - [Configuration](#configuration)
@@ -30,20 +30,22 @@ This project was inspired by [Hermes Agent](https://hermes-agent.nousresearch.co
 
 ## Features
 - Minimal terminal UI powered by [ratatui](https://github.com/ratatui-org/ratatui)
-- Multi turn agent loop
+- Multi turn agent loop with configurable iteration limit
 - Agent memory (persistent across sessions)
-- Session and prompt history
+- Session history with auto-loading of the last session (`mia session list` / `mia session clear`)
 - Full markdown rendering in terminal (thanks to [termimad](https://github.com/Canop/termimad))
+- Streaming responses (enabled by default, with token usage display)
 - OpenAI Compatible API access with support for multiple providers:
   - OpenRouter (default, recommended)
+  - OpenCode Zen
   - Google AI Studio
   - Groq
   - Cerebras
   - Local LLMs (Ollama, LMStudio, llama.cpp, etc.)
 - Web search and extract using [Tavily](https://tavily.com)
 - Document conversion using [pandoc](https://pandoc.org) (`doc_convert` tool)
-- Experimental streaming support
-- Legacy reedline-based TUI available via `mia old-tui`
+- Document creation from markdown/latex (`doc_create` tool)
+- Legacy reedline-based TUI available via the hidden `mia old-tui` command
 
 ## Tools
 Currently Mia has the following tools:
@@ -64,12 +66,12 @@ Currently Mia has the following tools:
 | 📄 | `doc_create` | Create pdf, docx and other documents | No |
 | 📃 | `doc_convert` | Convert any document to another using pandoc | No |
 
+Tools that are gated require explicit user permission before executing.
+
 ## Installation
-### Option A: Package Manager
-#### winget (Windows)
-```
-winget install Mach50.MiaAgent
-```
+### Option A: Prebuilt binaries
+Prebuilt binaries for Linux (x86_64) and Windows (x86_64) are published as GitHub releases from the [releases page](https://github.com/mastermach50/mia-agent/releases).
+
 Open a new terminal and run
 ```
 mia setup
@@ -101,12 +103,14 @@ To install it, add to your system packages using the same flake.
 Mia supports multiple LLM providers:
 
 - **[OpenRouter](https://openrouter.ai/workspaces/default/keys)** (default, recommended) - can be obtained for free, [there are also free models](https://openrouter.ai/docs/guides/routing/model-variants/free)
+- **[OpenCode Zen](https://opencode.ai/zen/)** - competitive pricing, free credits
 - **[Google AI Studio](https://aistudio.google.com/)** - free tier available
 - **[Groq](https://groq.com/)** - fast inference API
 - **[Cerebras](https://www.cerebras.ai/)** - large model inference
 - **Local LLMs** - Ollama, LMStudio, llama.cpp, and other OpenAI-compatible local servers
 
 1. Run `mia setup` to configure your agent interactively.
+   `mia setup` supports section selection: `--model`, `--tui` and `--agent` to run only that part of the setup.
 
 2. For advanced configuration, you can manually edit the `~/.mia/.env` file on Linux or `C:\Users\<username>\.mia\.env` on Windows to add your API key:
 ```
@@ -124,7 +128,8 @@ TAVILY_API_KEY=<your-tavily-api-key>
 Currently the external tools required by mia are
 - [Python](https://python.org)
 - [Ripgrep](https://github.com/BurntSushi/ripgrep)
-- [fd](https://github.com/sharkdp/fd)
+- [fd](https://github.com/sharkdp/fd) 
+- [pandoc](https://pandoc.org).
 
 ## Usage
 ### CLI
@@ -140,7 +145,7 @@ The TUI supports certain commands. Use `/help` while in the TUI to see them.
 - `mia tools` - Check tool availability
 - `mia model list` - List available models
 - `mia model list --free` - List only free models (price filter)
-- `mia model list --min-context <number>` - Filter by minimum context length
+- `mia model list --min-context <number>` - Filter by minimum context length (supports human readable values like `128k`, `4M`)
 - `mia model list --max-price <price>` - Filter by maximum price per million tokens
 - `mia model show` - Show current model info
 - `mia sessions list` - List all sessions
@@ -148,7 +153,14 @@ The TUI supports certain commands. Use `/help` while in the TUI to see them.
 
 ## Development
 ### MSRV
-Mia uses rust nightly as it is required for `whatsapp-rust` and certain necessary features.
+Mia uses rust nightly because the code relies on unstable Rust features
+(`iter_intersperse`, `pathbuf_into_string`, `file_buffered`) and the 2024 edition.
+
+A nix development shell is available:
+```
+nix develop .#mia-dev
+```
+which provides the nightly toolchain, rust-analyzer and lldb.
 
 ## Contributing
 We DO NOT accept vibe coded contributions or contributions from agents.

@@ -1,3 +1,6 @@
+# Check
+- Check if the reasoning levels for opencode zen are correct.
+
 # Short Term
 - Implement message history for input box
 - Re implement single prompt command
