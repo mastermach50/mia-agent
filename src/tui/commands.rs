@@ -1,9 +1,25 @@
+use arboard::Clipboard;
 use indoc::indoc;
 
 use crate::{config::AppConfig, sessions::Session, tui::AppState};
 use anyhow::Result;
 
-const COMMANDS: [&str; 6] = ["/help", "/new", "/model", "/yolo", "/exit", "/bye"];
+const COMMANDS: [&str; 8] = [
+    // Help message
+    "/help",
+    // Session
+    "/new",
+    // Info
+    "/model",
+    // States
+    "/yolo",
+    "/reasoning",
+    // Actions
+    "/copylast",
+    // Exit
+    "/exit",
+    "/bye",
+];
 
 pub fn is_valid_command(command: &str) -> bool {
     COMMANDS.contains(&command)
@@ -21,6 +37,8 @@ pub fn get_help_message() -> String {
         /new        Start a new session
         /model      Show the model information
         /yolo       Toggle YOLO mode
+        /copylast   Copy the last message to the clipboard
+        /reasoning  Toggle reasoning display
     "}
     .to_string()
 }
@@ -57,6 +75,24 @@ pub fn execute_command(command: &str, state: &mut AppState) -> Result<()> {
         "/yolo" => {
             state.yolo = !state.yolo;
         }
+        "/reasoning" => {
+            state.show_reasoning = !state.show_reasoning;
+            state.re_render_messages = true;
+        }
+        "/copylast" => {
+            if let Some(last_message) = state.session.history.messages.last() {
+                let mut clipboard = Clipboard::new()?;
+                match clipboard.set_text(last_message.content.as_ref().unwrap()) {
+                    Ok(_) => {
+                        state.send_harness_message("Last message copied to clipboard")?;
+                    }
+                    Err(e) => {
+                        state
+                            .send_harness_message(&format!("Failed to copy to clipboard: {}", e))?;
+                    }
+                }
+            }
+        }
         "/exit" | "/bye" => {
             state.exit = true;
         }
@@ -66,4 +102,40 @@ pub fn execute_command(command: &str, state: &mut AppState) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn complete_command(command: &str, state: &mut AppState) {
+    let matches: Vec<String> = COMMANDS
+        .iter()
+        .map(|opt| opt.to_string())
+        .filter(|opt| opt.starts_with(command))
+        .collect();
+
+    if matches.is_empty() {
+        return;
+    };
+
+    let first = &matches[0];
+    let mut longest_len = first.len();
+
+    for candidate in &matches[1..] {
+        // Narrow down matching length character by character
+        let common_len = first
+            .chars()
+            .zip(candidate.chars())
+            .take_while(|(a, b)| a == b)
+            .count();
+
+        // Convert character count back to byte index boundary
+        let byte_idx = first
+            .char_indices()
+            .map(|(idx, _)| idx)
+            .nth(common_len)
+            .unwrap_or(first.len());
+
+        longest_len = longest_len.min(byte_idx);
+    }
+
+    state.input.clear();
+    state.input.insert_str(&first[..longest_len]);
 }

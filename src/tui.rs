@@ -29,7 +29,7 @@ use crate::{
     sessions::Session,
     system_prompt::tui_system_prompt,
     tui::{
-        commands::{execute_command, is_valid_command},
+        commands::{complete_command, execute_command, is_valid_command},
         logo::get_logo,
         message_renderer::{render_all_messages, render_message},
         statusbar::create_statusbar,
@@ -96,6 +96,11 @@ pub async fn run(new_session: bool) -> Result<()> {
             state.redraw_once = false;
         }
 
+        if state.re_render_messages {
+            render_all_messages(&mut state)?;
+            state.re_render_messages = false;
+        }
+
         if state.term_size_changed {
             state.term_size_changed = false;
             state.chat_area_width = state.term_width - 1;
@@ -146,6 +151,8 @@ struct AppState {
     rendered_permission_request: Option<Text<'static>>,
     rendered_permission_request_wrapped_line_count: usize,
 
+    show_reasoning: bool,
+
     // Scrollbar
     scroll_offset: usize,
     auto_scroll: bool,
@@ -167,6 +174,7 @@ struct AppState {
     term_width: usize,
     term_height: usize,
     term_size_changed: bool,
+    re_render_messages: bool,
     redraw_once: bool,
     exit: bool,
 }
@@ -205,6 +213,7 @@ impl AppState {
             permission_request: None,
             rendered_permission_request: None,
             rendered_permission_request_wrapped_line_count: 0,
+            show_reasoning: AppConfig::global().tui.show_reasoning,
             scroll_offset: 0,
             auto_scroll: true,
             scrollbar_state,
@@ -219,6 +228,7 @@ impl AppState {
             term_width: (term_width as usize),
             term_height: (term_height as usize),
             term_size_changed: false,
+            re_render_messages: false,
             redraw_once: false,
             exit: false,
         }
@@ -286,7 +296,9 @@ impl AppState {
 
         // Add the message to history and also render it
         let message = Message::new("user", content);
-        if let Some(rendered_message) = render_message(&message, self.term_width)? {
+        if let Some(rendered_message) =
+            render_message(&message, self.term_width, self.show_reasoning)?
+        {
             self.push_rendered_message(rendered_message);
         }
         self.session.history.add_message(message);
@@ -434,7 +446,9 @@ impl AppState {
     /// placing it in the rendered_messages cache and updating the wrapped_line_count
     fn send_harness_message(&mut self, message: &str) -> Result<()> {
         let message = Message::new("harness", message);
-        if let Some(rendered_message) = render_message(&message, self.chat_area_width)? {
+        if let Some(rendered_message) =
+            render_message(&message, self.chat_area_width, self.show_reasoning)?
+        {
             self.push_rendered_message(rendered_message);
         }
         Ok(())
@@ -470,7 +484,9 @@ impl AppState {
                     self.recalculate_scroll_offset();
 
                     // Render and display the message
-                    if let Some(rendered_message) = render_message(&msg, self.chat_area_width)? {
+                    if let Some(rendered_message) =
+                        render_message(&msg, self.chat_area_width, self.show_reasoning)?
+                    {
                         self.push_rendered_message(rendered_message);
                     };
 
@@ -520,6 +536,7 @@ impl AppState {
                     if let Some(rendered_partial_message) = render_message(
                         &self.partial_message.as_ref().unwrap(),
                         self.chat_area_width,
+                        self.show_reasoning,
                     )? {
                         self.rendered_partial_message_wrapped_line_count =
                             wrapped_text_height(&rendered_partial_message, self.chat_area_width);
@@ -635,6 +652,8 @@ impl AppState {
     fn handle_input_events(&mut self) -> Result<()> {
         let timeout = Duration::from_millis(16);
         if event::poll(timeout)? {
+            let mut consumed = false;
+
             match event::read()? {
                 Event::Key(key_event) => {
                     match key_event.code {
@@ -644,10 +663,20 @@ impl AppState {
                         }
                         KeyCode::F(5) => {
                             self.redraw_once = true;
+                            consumed = true;
+                        }
+                        KeyCode::Tab => {
+                            let full_input = self.input.lines().join("\n");
+                            if full_input.starts_with("/") && !full_input.starts_with("//") {
+                                complete_command(&full_input, self);
+                                consumed = true;
+                            }
                         }
                         KeyCode::Enter => {
                             if key_event.modifiers.is_empty() {
                                 self.submit()?;
+
+                                consumed = true;
                             }
                         }
                         KeyCode::Char('c') => {
@@ -671,20 +700,20 @@ impl AppState {
                                 self.status.clear();
 
                                 self.session.save()?;
+
+                                consumed = true;
                             }
                         }
                         _ => {}
                     }
 
-                    let is_keybind =
-                        key_event.code == KeyCode::Enter && key_event.modifiers.is_empty();
-
-                    if !is_keybind {
+                    if !consumed {
                         self.input.input(key_event);
                     }
 
                     // Highlight commands
-                    if self.input.lines().join("\n").starts_with("/") {
+                    let full_input = self.input.lines().join("\n");
+                    if full_input.starts_with("/") && !full_input.starts_with("//") {
                         // Could be a command
                         if is_valid_command(&self.input.lines().join("\n")) {
                             // Is an actual command

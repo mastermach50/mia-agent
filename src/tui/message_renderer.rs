@@ -18,7 +18,7 @@ use crate::{
 ///
 /// Only returns a text if the message is not a system or tool response message.
 /// Only contents of the messages are ever hard wrapped, and that too only if markdown rendering is enabled.
-pub fn render_message(message: &Message, width: usize) -> Result<Option<Text<'static>>> {
+pub fn render_message(message: &Message, width: usize, with_reasoning: bool) -> Result<Option<Text<'static>>> {
     // Ignore system and tool response messages
     if message.role == "system" || message.role == "tool" {
         return Ok(Some(Text::default()));
@@ -50,7 +50,7 @@ pub fn render_message(message: &Message, width: usize) -> Result<Option<Text<'st
         return Ok(Some(text));
     }
 
-    let thoughts = if message.reasoning.is_some() && !AppConfig::global().tui.show_reasoning {
+    let thoughts = if message.reasoning.is_some() && !with_reasoning {
         "Thoughts...".dark_gray().italic()
     } else {
         "".into()
@@ -59,7 +59,7 @@ pub fn render_message(message: &Message, width: usize) -> Result<Option<Text<'st
 
     if let Some(reasoning) = &message.reasoning
         && !reasoning.is_empty()
-        && AppConfig::global().tui.show_reasoning
+        && with_reasoning
     {
         for line in reasoning.split("\n") {
             text.push_line(line.to_string().dark_gray().italic());
@@ -113,7 +113,7 @@ pub fn render_all_messages(state: &mut AppState) -> Result<()> {
     state.push_rendered_message(get_logo());
 
     for message in state.session.history.messages.clone() {
-        if let Some(rendered_message) = render_message(&message, state.chat_area_width)? {
+        if let Some(rendered_message) = render_message(&message, state.chat_area_width, state.show_reasoning)? {
             state.push_rendered_message(rendered_message);
         }
     }

@@ -6,6 +6,8 @@
 - Added `tui.render_markdown` option to config.
 - Added `tui.show_tool_output` option to config.
 - Added new provider __Opencode Zen__.
+- Added new `/copylast`, `/reasoning` commands.
+- Added tab completion for commands.
 
 
 ### Fixed
