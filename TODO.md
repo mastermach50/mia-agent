@@ -1,6 +1,7 @@
 # Redo
 - implement permission asking ui
 - implement commands
+- implement mouse selection
 
 # Short Term
 - Re implement single prompt command

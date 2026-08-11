@@ -111,6 +111,8 @@ pub async fn setup(args: SetupArgs) -> Result<()> {
         set_tui_username(&mut doc).await?;
         set_tui_streaming(&mut doc).await?;
         set_tui_reasoning(&mut doc).await?;
+        set_tui_render_markdown(&mut doc).await?;
+        set_tui_show_tool_output(&mut doc).await?;
     }
 
     if noargs || args.agent {
@@ -297,6 +299,40 @@ async fn set_tui_reasoning(doc: &mut DocumentMut) -> Result<()> {
     match reasoning {
         Some(reasoning) => {
             doc["tui"]["show_reasoning"] = value(reasoning);
+        }
+        None => {
+            println!("Value unchanged");
+        }
+    }
+
+    Ok(())
+}
+
+async fn set_tui_render_markdown(doc: &mut DocumentMut) -> Result<()> {
+    let render_markdown = Confirm::new("Render markdown:")
+        .with_help_message("Render markdown content with formatting")
+        .with_default(AppConfig::global().tui.render_markdown)
+        .prompt_skippable()?;
+    match render_markdown {
+        Some(render_markdown) => {
+            doc["tui"]["render_markdown"] = value(render_markdown);
+        }
+        None => {
+            println!("Value unchanged");
+        }
+    }
+
+    Ok(())
+}
+
+async fn set_tui_show_tool_output(doc: &mut DocumentMut) -> Result<()> {
+    let show_tool_output = Confirm::new("Show tool output:")
+        .with_help_message("Render markdown content with formatting")
+        .with_default(AppConfig::global().tui.show_tool_output)
+        .prompt_skippable()?;
+    match show_tool_output {
+        Some(show_tool_output) => {
+            doc["tui"]["show_tool_output"] = value(show_tool_output);
         }
         None => {
             println!("Value unchanged");

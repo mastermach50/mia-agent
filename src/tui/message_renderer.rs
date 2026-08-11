@@ -1,5 +1,5 @@
 use ansi_to_tui::IntoText;
-use anyhow::{Context, Result};
+use anyhow::{Context, Ok, Result};
 use log::error;
 use ratatui::{
     style::Stylize,
@@ -7,7 +7,7 @@ use ratatui::{
 };
 use termimad::MadSkin;
 
-use crate::{agent_tools::ToolRegistry, api::Message, config::AppConfig};
+use crate::{agent_tools::ToolRegistry, api::Message, config::AppConfig, tui::{AppState, logo::push_logo}};
 
 /// Renders an `api::Message` into a `ratatui::Text`.
 ///
@@ -98,4 +98,20 @@ pub fn render_message(message: &Message, width: usize) -> Result<Option<Text<'st
     }
 
     Ok(Some(text))
+}
+
+/// Render all the messages in the session to the rendered_messages
+pub fn render_all_messages(state: &mut AppState) -> Result<()> {
+    state.rendered_messages.clear();
+    state.wrapped_line_count = 0;
+
+    push_logo(state);
+
+    for message in state.session.history.messages.clone() {
+        if let Some(rendered_message) = render_message(&message, state.chat_area_width)? {
+            state.push_rendered_message(rendered_message);
+        }
+    }
+
+    Ok(())
 }

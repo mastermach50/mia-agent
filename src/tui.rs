@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use crossterm::{
     event::{
         self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-        Event, KeyModifiers, KeyboardEnhancementFlags, MouseEvent, MouseEventKind,
-        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+        Event, KeyModifiers, KeyboardEnhancementFlags, MouseEventKind, PopKeyboardEnhancementFlags,
+        PushKeyboardEnhancementFlags,
     },
     execute,
     terminal::supports_keyboard_enhancement,
@@ -26,37 +26,38 @@ use crate::{
     api::Message,
     config::AppConfig,
     sessions::Session,
-    tui::{message_renderer::render_message, statusbar::create_statusbar},
+    tui::{
+        logo::push_logo,
+        message_renderer::{render_all_messages, render_message},
+        statusbar::create_statusbar,
+    },
 };
 
+mod logo;
 mod message_renderer;
 mod statusbar;
 
 pub async fn run(new_session: bool) -> Result<()> {
     let mut state = AppState::new();
 
-    state.session = if new_session {
+    if new_session {
+        state.session = Session::new("user", "tui", "tui");
+        push_logo(&mut state);
         state.send_harness_message("New session creted")?;
-        Session::new("user", "tui", "tui")
     } else {
         match Session::load_last_session("user", "tui", "tui") {
             Ok(session) => {
-                for message in &session.history.messages {
-                    if let Some(rendered_message) = render_message(&message, state.chat_area_width)?
-                    {
-                        state.push_rendered_message(rendered_message);
-                    }
-                }
-
+                state.session = session;
+                render_all_messages(&mut state)?;
                 state.send_harness_message("Loaded last session")?;
-                session
             }
             Err(_) => {
+                state.session = Session::new("user", "tui", "tui");
+                push_logo(&mut state);
                 state.send_harness_message("No previous session found")?;
                 state.send_harness_message("New session creted")?;
-                Session::new("user", "tui", "tui")
             }
-        }
+        };
     };
 
     let mut terminal = ratatui::init();
@@ -82,6 +83,14 @@ pub async fn run(new_session: bool) -> Result<()> {
             terminal.clear()?;
             state.redraw_once = false;
         }
+
+        if state.term_size_changed {
+            state.term_size_changed = false;
+            state.chat_area_width = state.term_width - 1;
+            state.chat_area_height = state.term_height - 1 - state.get_input_height();
+            render_all_messages(&mut state)?;
+        }
+
         terminal.draw(|f| state.draw_frame(f).expect("Failed to draw frame"))?;
     }
 
@@ -160,8 +169,8 @@ impl AppState {
         let (term_width, term_height) =
             crossterm::terminal::size().expect("Failed to get terminal size");
 
-        let chat_area_height = term_height.saturating_sub(2) as usize;
         let chat_area_width = term_width.saturating_sub(1) as usize;
+        let chat_area_height = term_height.saturating_sub(2) as usize;
 
         let scrollbar_state = ScrollbarState::new(0);
 
@@ -224,6 +233,7 @@ impl AppState {
         self.recalculate_scroll_offset();
 
         // Call the agent
+        self.agent_handle.cancel.cancel(); // Cancel any existing agent turn
         (self.agent_event_rx, self.agent_handle) = AgentHandle::new();
         let history = self.session.history.clone();
         let session_id = self.session.get_extended_session_id();
@@ -245,24 +255,11 @@ impl AppState {
     fn draw_frame(&mut self, frame: &mut Frame) -> Result<()> {
         let area = frame.area();
 
-        // Calculate the height of the input based on its contents
-        let input_width = area.width;
-        let input_height = self
-            .input
-            .lines()
-            .iter()
-            .map(|l| {
-                let len = l.chars().count().max(1) as u16;
-                len.div_ceil(input_width)
-            })
-            .sum::<u16>()
-            .max(1);
-
         let chunks = Layout::default()
             .constraints([
                 Constraint::Min(3),
                 Constraint::Length(1),
-                Constraint::Length(input_height),
+                Constraint::Length(self.get_input_height() as u16),
             ])
             .split(area);
         let chat_chunk = chunks[0];
@@ -314,7 +311,27 @@ impl AppState {
         Ok(())
     }
 
-    /// Recalculate the content length of the scrollbar state
+    /// Get the input size based on its contents
+    fn get_input_height(&self) -> usize {
+        let input_width = self.term_width;
+
+        self.input
+            .lines()
+            .iter()
+            .map(|l| {
+                let len = l.chars().count().max(1);
+                len.div_ceil(input_width)
+            })
+            .sum::<usize>()
+            .max(1)
+    }
+
+    /// Recalculate the scroll offset and set the scrollbar state
+    ///
+    /// The total content height is the sum of
+    /// - rendered messages wrapped line count
+    /// - partial message wrapped line count
+    /// - partial tool call wrapped line count
     fn recalculate_scroll_offset(&mut self) {
         let content_height = self.wrapped_line_count
             + self.rendered_partial_message_wrapped_line_count
@@ -467,41 +484,45 @@ impl AppState {
                     self.input.set_placeholder_text("y/n, Ctrl-C to cancel");
                 }
                 AgentEvent::PartialToolOutput { stdout, stderr } => {
-                    if self.partial_tool_output.is_none() {
-                        self.partial_tool_output = Some(String::new());
-                    }
+                    if AppConfig::global().tui.show_tool_output {
+                        if self.partial_tool_output.is_none() {
+                            self.partial_tool_output = Some(String::new());
+                        }
 
-                    if let Some(stdout) = stdout {
-                        self.partial_tool_output.as_mut().unwrap().push_str(&stdout);
-                    }
+                        if let Some(stdout) = stdout {
+                            self.partial_tool_output.as_mut().unwrap().push_str(&stdout);
+                        }
 
-                    if let Some(stderr) = stderr {
-                        self.partial_tool_output.as_mut().unwrap().push_str(&stderr);
-                    }
+                        if let Some(stderr) = stderr {
+                            self.partial_tool_output.as_mut().unwrap().push_str(&stderr);
+                        }
 
-                    self.partial_tool_output_wrapped_line_count = wrapped_string_height(
-                        self.partial_tool_output.as_ref().unwrap(),
-                        self.chat_area_width,
-                    );
-                    self.recalculate_scroll_offset();
+                        self.partial_tool_output_wrapped_line_count = wrapped_string_height(
+                            self.partial_tool_output.as_ref().unwrap(),
+                            self.chat_area_width,
+                        );
+                        self.recalculate_scroll_offset();
+                    }
                 }
                 AgentEvent::ToolOutput { stdout, stderr } => {
-                    self.partial_tool_output = None;
-                    self.partial_tool_output_wrapped_line_count = 0;
-                    self.recalculate_scroll_offset();
+                    if AppConfig::global().tui.show_tool_output {
+                        self.partial_tool_output = None;
+                        self.partial_tool_output_wrapped_line_count = 0;
+                        self.recalculate_scroll_offset();
 
-                    let mut output = Text::default();
-                    output.extend(
-                        stdout
-                            .into_text()
-                            .context("Failed to parse toos stdout as ansi")?,
-                    );
-                    output.extend(
-                        stderr
-                            .into_text()
-                            .context("Failed to parse toos stderr as ansi")?,
-                    );
-                    self.push_rendered_message(output);
+                        let mut output = Text::default();
+                        output.extend(
+                            stdout
+                                .into_text()
+                                .context("Failed to parse toos stdout as ansi")?,
+                        );
+                        output.extend(
+                            stderr
+                                .into_text()
+                                .context("Failed to parse toos stderr as ansi")?,
+                        );
+                        self.push_rendered_message(output);
+                    }
                 }
             }
         }
@@ -575,8 +596,8 @@ impl AppState {
                 Event::Paste(text) => {
                     self.input.insert_str(&text);
                 }
-                Event::Resize(widht, height) => {
-                    self.term_width = widht as usize;
+                Event::Resize(width, height) => {
+                    self.term_width = width as usize;
                     self.term_height = height as usize;
                     self.term_size_changed = true;
                 }
@@ -587,26 +608,26 @@ impl AppState {
     }
 }
 
-fn wrapped_text_height(text: &Text, term_width: usize) -> usize {
+fn wrapped_text_height(text: &Text, width: usize) -> usize {
     let mut height = 0;
     for line in text.lines.iter() {
-        if line.width() <= term_width {
+        if line.width() <= width {
             height += 1;
         } else {
-            height += line.width().div_ceil(term_width).max(1);
+            height += line.width().div_ceil(width).max(1);
         }
     }
 
     height
 }
 
-fn wrapped_string_height(string: &String, term_width: usize) -> usize {
+fn wrapped_string_height(string: &String, width: usize) -> usize {
     let mut height = 0;
     for line in string.lines() {
-        if line.chars().count() <= term_width {
+        if line.chars().count() <= width {
             height += 1;
         } else {
-            height += line.chars().count().div_ceil(term_width).max(1);
+            height += line.chars().count().div_ceil(width).max(1);
         }
     }
 

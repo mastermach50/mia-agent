@@ -1,6 +1,13 @@
 ## v0.2.2
 ### Added
-- Added section selection areguments to `mia setup`.
+- Added section selection arguments to `mia setup`.
+- Added scrollbar to tui
+- Added auto re-rendering of message content on terminal resize.
+- Added `tui.render_markdown` option to config.
+- Added `tui.show_tool_output` option to config.
+
+### Fixed
+- Improved tui performance
 
 ### Fixed
 - Scrolling with mouse and also selecting text.

@@ -1,6 +1,6 @@
 use ratatui::{
     style::Stylize,
-    text::{Line, Span, ToLine, ToSpan},
+    text::Line,
     widgets::{Block, BorderType, Borders},
 };
 
