@@ -8,14 +8,11 @@
 - Added new provider __Opencode Zen__.
 - Added new `/copylast`, `/reasoning` commands.
 - Added tab completion for commands.
-
+- Added selection mode indicator.
 
 ### Fixed
 - Improved tui performance.
 - Fixed bug where after cancelling a permission request the status is set to waiting instead of empty.
-
-
-### Fixed
 - Scrolling with mouse and also selecting text.
 
 ## v0.2.1

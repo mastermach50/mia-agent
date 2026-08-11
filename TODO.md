@@ -7,6 +7,7 @@
 - Tool call status in tui
 - Implement exponential backoff for api rate limits
 - Replace markdown with plain text in fs_list_dir
+- Context compression
 
 # Long Term
 - Graceful error handling in API calls
