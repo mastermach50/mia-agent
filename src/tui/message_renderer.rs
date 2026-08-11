@@ -7,7 +7,12 @@ use ratatui::{
 };
 use termimad::MadSkin;
 
-use crate::{agent_tools::ToolRegistry, api::Message, config::AppConfig, tui::{AppState, logo::{get_logo}}};
+use crate::{
+    agent_tools::ToolRegistry,
+    api::Message,
+    config::AppConfig,
+    tui::{AppState, logo::get_logo},
+};
 
 /// Renders an `api::Message` into a `ratatui::Text`.
 ///

@@ -61,7 +61,7 @@ pub struct TuiConfig {
     pub streaming: bool,
     pub show_spinner: bool,
     pub render_markdown: bool,
-    pub show_tool_output: bool
+    pub show_tool_output: bool,
 }
 
 impl Default for TuiConfig {

@@ -1,8 +1,8 @@
 # Redo
-- implement commands
 - implement mouse selection
 
 # Short Term
+- Implement message history for input box
 - Re implement single prompt command
 - Improve tui permission asking ui
 - Implement session title generation

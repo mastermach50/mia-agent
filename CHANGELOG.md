@@ -1,14 +1,17 @@
 ## v0.2.2
 ### Added
 - Added section selection arguments to `mia setup`.
-- Added scrollbar to tui
+- Added scrollbar to tui.
 - Added auto re-rendering of message content on terminal resize.
 - Added `tui.render_markdown` option to config.
 - Added `tui.show_tool_output` option to config.
 - Added new provider __Opencode Zen__.
 
+
 ### Fixed
-- Improved tui performance
+- Improved tui performance.
+- Fixed bug where after cancelling a permission request the status is set to waiting instead of empty.
+
 
 ### Fixed
 - Scrolling with mouse and also selecting text.

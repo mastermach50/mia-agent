@@ -28,11 +28,11 @@ pub fn create_statusbar(state: &mut AppState) -> Block<'static> {
         if !state.status.is_empty() {
             statusbar = statusbar.title(Line::from(state.status.clone().yellow()).left_aligned());
         }
-
-        if state.yolo {
-            statusbar = statusbar.title(Line::from("[yolo]".red()).left_aligned());
-        }
     };
+
+    if state.yolo {
+        statusbar = statusbar.title(Line::from("[yolo]".red()).left_aligned());
+    }
 
     if state.completion_tokens > 0 && state.prompt_tokens > 0 {
         statusbar = statusbar.title(

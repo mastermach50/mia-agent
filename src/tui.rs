@@ -14,7 +14,7 @@ use crossterm::{
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::Stylize,
+    style::{Style, Stylize},
     text::{Line, Text},
     widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
 };
@@ -29,12 +29,14 @@ use crate::{
     sessions::Session,
     system_prompt::tui_system_prompt,
     tui::{
+        commands::{execute_command, is_valid_command},
         logo::get_logo,
         message_renderer::{render_all_messages, render_message},
         statusbar::create_statusbar,
     },
 };
 
+mod commands;
 mod logo;
 mod message_renderer;
 mod statusbar;
@@ -229,19 +231,28 @@ impl AppState {
             return Ok(());
         }
 
+        let full_input = self.input.lines().join("\n");
+
+        // Don't treat C style comments as commands
+        if full_input.starts_with("/") && !full_input.starts_with("//") {
+            execute_command(&full_input, self)?;
+            self.input.clear();
+
+            return Ok(());
+        }
+
         // Consider submission to permission request if it exists
         if let Some(permission_request) = self.permission_request.take()
             && !permission_request.response.is_closed()
         {
-            let user_response = self.input.lines().join("\n");
             self.input.clear();
 
-            let permission_granted =
-                if user_response == "yes" || user_response.chars().all(|c| c == 'y') {
-                    true
-                } else {
-                    false
-                };
+            let permission_granted = if full_input == "yes" || full_input.chars().all(|c| c == 'y')
+            {
+                true
+            } else {
+                false
+            };
 
             if permission_request
                 .response
@@ -643,17 +654,22 @@ impl AppState {
                             if key_event.modifiers.contains(KeyModifiers::CONTROL) {
                                 // Stop running agent if any
                                 self.agent_handle.cancel.cancel();
+
+                                // Clear all temporary buffers
                                 self.partial_message = None;
+                                self.rendered_partial_message = None;
+                                self.rendered_partial_message_wrapped_line_count = 0;
                                 self.partial_tool_output = None;
-
-                                // Clear permission requests if any
+                                self.partial_tool_output_wrapped_line_count = 0;
                                 self.permission_request = None;
-                                self.input.set_placeholder_text("Type Something...");
+                                self.rendered_permission_request = None;
+                                self.rendered_permission_request_wrapped_line_count = 0;
 
-                                // Clear status
+                                self.recalculate_scroll_offset();
+
+                                self.input.set_placeholder_text("Type Something...");
                                 self.status.clear();
 
-                                // Save the session
                                 self.session.save()?;
                             }
                         }
@@ -665,6 +681,20 @@ impl AppState {
 
                     if !is_keybind {
                         self.input.input(key_event);
+                    }
+
+                    // Highlight commands
+                    if self.input.lines().join("\n").starts_with("/") {
+                        // Could be a command
+                        if is_valid_command(&self.input.lines().join("\n")) {
+                            // Is an actual command
+                            self.input.set_style(Style::default().green().bold());
+                        } else {
+                            // Not an actual command
+                            self.input.set_style(Style::default().yellow());
+                        }
+                    } else {
+                        self.input.set_style(Style::default())
                     }
                 }
                 Event::Mouse(mouse_event) => match mouse_event.kind {

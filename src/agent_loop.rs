@@ -162,13 +162,13 @@ pub async fn run_agent(
 
     // Max number of iterations is configurable
     for iterations in 1..=AppConfig::global().agent.max_iterations {
-        // Initially mark the assistant as waiting
-        handle.assistant_status_update("Waiting");
-
         // Check if the request is cancelled
         if handle.cancel.is_cancelled() {
             break;
         }
+
+        // Initially mark the assistant as waiting
+        handle.assistant_status_update("Waiting");
 
         // Send a message if the agent does a lot of iterations
         if iterations >= 3
@@ -233,6 +233,15 @@ pub async fn run_agent(
                         content
                     },
                     _ = handle.cancel.cancelled() => {
+                        // Even if the tool call is cancelled generate a tool response message so that
+                        // every tool call has a corresponding tool response message
+                        let tool_call_cancelled_message = Message::new_tool_call_response(
+                            tool_call.id.clone(),
+                            "Assistant turn cancelled during tool call.".to_string(),
+                        );
+                        handle.tool_response_msg(&tool_call_cancelled_message);
+                        history.add_message(tool_call_cancelled_message);
+
                         handle.harness_msg("Assistant turn cancelled during tool call.");
                         break;
                     }

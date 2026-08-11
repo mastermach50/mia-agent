@@ -1,6 +1,7 @@
-use ratatui::{style::Stylize, text::{Line, Span, Text}};
-
-
+use ratatui::{
+    style::Stylize,
+    text::{Line, Span, Text},
+};
 
 pub fn get_logo() -> Text<'static> {
     // The left and top padding are part of the design
