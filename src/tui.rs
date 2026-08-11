@@ -4,42 +4,66 @@ use ansi_to_tui::IntoText;
 use anyhow::{Context, Result};
 use crossterm::{
     event::{
-        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event, KeyCode, KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEventKind, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags
+        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+        Event, KeyModifiers, KeyboardEnhancementFlags, MouseEvent, MouseEventKind,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
+    terminal::supports_keyboard_enhancement,
 };
-use log::error;
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Layout},
-    style::{Style, Stylize},
-    text::{Line, Span, Text},
-    widgets::{Block, BorderType, Borders, Paragraph, Wrap},
+    layout::{Constraint, Direction, Layout},
+    text::Text,
+    widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
 };
-use ratatui_textarea::{TextArea, WrapMode::WordOrGlyph};
-use reedline::kitty_protocol_available;
-use termimad::MadSkin;
-use tokio::sync::{mpsc::UnboundedReceiver, oneshot};
+use ratatui_textarea::{TextArea, WrapMode};
+use reedline::KeyCode;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::{
-    agent_loop::{self, AgentEvent, AgentHandle},
-    agent_tools::ToolRegistry,
-    api::{History, Message},
+    agent_loop::{AgentEvent, AgentHandle, PermissionRequest},
+    api::Message,
     config::AppConfig,
     sessions::Session,
-    system_prompt::tui_system_prompt,
+    tui::{message_renderer::render_message, statusbar::create_statusbar},
 };
 
-/// Entry point for starting the TUI
+mod message_renderer;
+mod statusbar;
+
 pub async fn run(new_session: bool) -> Result<()> {
-    // Create a new app state
     let mut state = AppState::new();
+
+    state.session = if new_session {
+        state.send_harness_message("New session creted")?;
+        Session::new("user", "tui", "tui")
+    } else {
+        match Session::load_last_session("user", "tui", "tui") {
+            Ok(session) => {
+                for message in &session.history.messages {
+                    if let Some(rendered_message) = render_message(&message, state.chat_area_width)?
+                    {
+                        state.push_rendered_message(rendered_message);
+                    }
+                }
+
+                state.send_harness_message("Loaded last session")?;
+                session
+            }
+            Err(_) => {
+                state.send_harness_message("No previous session found")?;
+                state.send_harness_message("New session creted")?;
+                Session::new("user", "tui", "tui")
+            }
+        }
+    };
 
     let mut terminal = ratatui::init();
     execute!(std::io::stdout(), EnableBracketedPaste, EnableMouseCapture)
         .context("Failed to enable bracketed paste")?;
 
-    if kitty_protocol_available() {
+    if supports_keyboard_enhancement()? {
         execute!(
             std::io::stdout(),
             PushKeyboardEnhancementFlags(
@@ -50,367 +74,163 @@ pub async fn run(new_session: bool) -> Result<()> {
         .context("Failed to push keyboard enhancement flags")?;
     }
 
-    state.term_width = terminal.get_frame().area().width as usize;
-
-    if new_session {
-        state.session = Session::new("user", "tui", "tui");
-        state
-            .session
-            .history
-            .set_system_prompt(tui_system_prompt(Some(&state.help_message))?);
-        state.messages.push(get_logo());
-        state.send_harness_message("Started new session.")?;
-    } else {
-        if let Ok(session) = Session::load_last_session("user", "tui", "tui") {
-            (
-                state.messages,
-                state.prompt_tokens,
-                state.completion_tokens,
-                state.total_tokens,
-            ) = render_full_chat(&session.history, Some(state.term_width))?;
-            state.session = session;
-            state.send_harness_message("Loaded last session.")?;
-        } else {
-            state.session = Session::new("user", "tui", "tui");
-            state
-                .session
-                .history
-                .set_system_prompt(tui_system_prompt(Some(&state.help_message))?);
-            state.messages.push(get_logo());
-            state.send_harness_message("No previous session found, started new one.")?;
-        }
-    };
-
     while !state.exit {
-        if state.redraw {
-            terminal.clear()?;
-            state.redraw = false;
-        }
-        terminal.draw(|f| state.draw(f))?;
-        state.handle_input_events().await?;
         state.handle_agent_events()?;
+        state.handle_input_events()?;
+
+        if state.redraw_once {
+            terminal.clear()?;
+            state.redraw_once = false;
+        }
+        terminal.draw(|f| state.draw_frame(f).expect("Failed to draw frame"))?;
     }
 
     state.session.save()?;
-    execute!(std::io::stdout(), DisableBracketedPaste, DisableMouseCapture)
-        .context("Failed to disable bracketed paste")?;
-    if kitty_protocol_available() {
+    execute!(
+        std::io::stdout(),
+        DisableBracketedPaste,
+        DisableMouseCapture
+    )
+    .context("Failed to disable bracketed paste")?;
+    if supports_keyboard_enhancement()? {
         execute!(std::io::stdout(), PopKeyboardEnhancementFlags)
             .context("Failed to pop keyboard enhancement flags")?;
     }
     ratatui::restore();
+
     Ok(())
 }
 
-const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
 struct AppState {
-    // Shared values
+    // Data
+    session: Session, // Contains the actual messages
     agent_handle: AgentHandle,
-    event_rx: UnboundedReceiver<AgentEvent>,
-    term_width: usize,
-    help_message: String,
+    agent_event_rx: UnboundedReceiver<AgentEvent>,
 
-    // Session
-    session: Session,
+    // Chat Area
+    chat_area_height: usize,
+    chat_area_width: usize,
 
-    // Input
-    input: TextArea<'static>,
-    input_placeholder: String,
+    rendered_messages: Vec<Text<'static>>, // For storing rendered messages
+    wrapped_line_count: usize,
 
-    // Permissions
-    permission_request: Option<oneshot::Sender<bool>>,
-    yolo: bool,
+    partial_message: Option<Message>,
+    rendered_partial_message: Option<Text<'static>>,
+    rendered_partial_message_wrapped_line_count: usize,
 
-    // Status Bar
+    partial_tool_output: Option<String>,
+    partial_tool_output_wrapped_line_count: usize,
+
+    permission_request: Option<PermissionRequest>,
+    // TODO calculate permission request height
+    scroll_offset: usize,
+    auto_scroll: bool,
+    scrollbar_state: ScrollbarState,
+
+    // Statusbar
     spinner_idx: usize,
     status: String,
     model: String,
-
-    // Chat
-    messages: Vec<Text<'static>>,
-    partial_message: Option<Message>,
-    partial_tool_output: Option<String>,
     prompt_tokens: u64,
     completion_tokens: u64,
     total_tokens: u64,
 
-    // Scroll
-    scroll_offset: u16,
-    auto_scroll: bool,
+    // Input Area
+    input: TextArea<'static>,
 
     // Other
-    redraw: bool,
+    yolo: bool,
+    term_width: usize,
+    term_height: usize,
+    term_size_changed: bool,
+    redraw_once: bool,
     exit: bool,
 }
 
 impl AppState {
     fn new() -> Self {
-        let (event_rx, agent_handle) = AgentHandle::new();
-        let help_message = indoc::indoc! {"
-        Commands:
-            /help         Show this help message
-            /exit /bye    Exit the tui
-            /new          Create a new session
-            /model        Show model information
-            /yolo         Toggle yolo mode (accept all permission requests)
-        
-        Keybinds:
-            <Esc>  Quit
-        "}
-        .to_string();
-
         let mut input = TextArea::default();
-        input.set_wrap_mode(WordOrGlyph);
+        input.set_wrap_mode(WrapMode::WordOrGlyph);
+        input.set_placeholder_text("Type something...");
+
+        let (agent_event_rx, agent_handle) = AgentHandle::new();
+
+        let model = AppConfig::global().model.name.clone();
+
+        let (term_width, term_height) =
+            crossterm::terminal::size().expect("Failed to get terminal size");
+
+        let chat_area_height = term_height.saturating_sub(2) as usize;
+        let chat_area_width = term_width.saturating_sub(1) as usize;
+
+        let scrollbar_state = ScrollbarState::new(0);
 
         Self {
-            agent_handle,
-            event_rx,
             session: Session::default(),
-            help_message,
-            term_width: 0,
-
-            input,
-            input_placeholder: "Type Something...".to_string(),
-
-            permission_request: None,
-            yolo: false,
-
-            spinner_idx: 0,
-            status: "".to_string(),
-            model: AppConfig::global().model.name.clone(),
-
-            messages: Vec::new(),
+            agent_handle,
+            agent_event_rx,
+            chat_area_height,
+            chat_area_width,
+            rendered_messages: Vec::new(),
+            wrapped_line_count: 0,
             partial_message: None,
+            rendered_partial_message: None,
+            rendered_partial_message_wrapped_line_count: 0,
             partial_tool_output: None,
+            partial_tool_output_wrapped_line_count: 0,
+            scroll_offset: 0,
+            scrollbar_state,
+            permission_request: None,
+            spinner_idx: 0,
+            status: String::new(),
+            model,
             prompt_tokens: 0,
             completion_tokens: 0,
             total_tokens: 0,
-
-            scroll_offset: 0,
+            input,
+            yolo: true, // TODO Change when commands and permission prompt are implemented
+            term_width: (term_width as usize),
+            term_height: (term_height as usize),
+            term_size_changed: false,
             auto_scroll: true,
-
-            redraw: false,
+            redraw_once: false,
             exit: false,
         }
     }
 
-    fn reset_messages(&mut self) {
-        self.messages.clear();
-        self.messages.push(get_logo());
-
-        self.partial_message = None;
-        self.prompt_tokens = 0;
-        self.completion_tokens = 0;
-        self.total_tokens = 0;
-    }
-
-    fn reset_input(&mut self) {
-        self.input.clear();
-        self.input.set_style(Style::default());
-        self.input_placeholder = "Type Something...".to_string();
-    }
-
-    /// Draw the frame from the current state
-    /// It requires a mutable self because it also calls pre_render_messages()
-    /// that requires a mutable self inorder to cache the rendered messages
-    fn draw(&mut self, frame: &mut Frame) {
-        let area = frame.area();
-
-        // Calculate the height required by the input based on its contents
-        let input_width = area.width as usize;
-        let input_height = self
-            .input
-            .lines()
-            .iter()
-            .map(|l| {
-                let len = l.chars().count().max(1);
-                len.div_ceil(input_width) as u16
-            })
-            .sum::<u16>()
-            .max(1);
-
-        // Divide up the total frame area
-        let chunks = Layout::default()
-            .constraints(vec![
-                Constraint::Min(1),
-                Constraint::Length(1),
-                Constraint::Length(input_height),
-            ])
-            .split(area);
-
-        // Render input box
-        self.input.set_placeholder_text(&self.input_placeholder);
-        frame.render_widget(&self.input, chunks[2]);
-
-        // Render status bar
-        let border_type = if self.auto_scroll {
-            BorderType::Plain
-        } else {
-            BorderType::LightDoubleDashed
-        };
-        let mut status_bar = Block::new().border_type(border_type).borders(Borders::TOP);
-
-        if !self.status.is_empty() {
-            let spinner =
-                if AppConfig::global().tui.show_spinner && self.permission_request.is_none() {
-                    self.spinner_idx = (self.spinner_idx + 1) % SPINNER_FRAMES.len();
-                    format!("{} ", SPINNER_FRAMES[self.spinner_idx])
-                } else {
-                    String::new()
-                };
-            status_bar = status_bar.title(
-                Line::from(vec![spinner.cyan(), self.status.clone().yellow()])
-                    .alignment(Alignment::Left),
-            );
-        }
-        if self.yolo {
-            status_bar =
-                status_bar.title(Line::from("[yolo]".red().bold()).alignment(Alignment::Left));
-        }
-
-        if self.completion_tokens > 0 && self.prompt_tokens > 0 {
-            status_bar = status_bar.title(
-                Line::from(vec![
-                    "(".yellow(),
-                    self.prompt_tokens.to_string().blue(),
-                    "|".yellow(),
-                    self.completion_tokens.to_string().blue(),
-                    "|".yellow(),
-                    self.total_tokens.to_string().blue(),
-                    ")".yellow(),
-                ])
-                .alignment(Alignment::Right),
-            );
-        }
-
-        status_bar = status_bar
-            .title(Line::from(vec![self.model.clone().yellow()]).alignment(Alignment::Right));
-        frame.render_widget(status_bar, chunks[1]);
-
-        // Render chat
-        let mut display_lines = Vec::new();
-        for message in &self.messages {
-            display_lines.extend(message.lines.clone());
-        }
-        if let Some(partial_message) = &self.partial_message {
-            let rendered_message = render_message(partial_message, Some(self.term_width))
-                .expect("Failed to render partial message");
-            display_lines.extend(rendered_message.lines.clone());
-        }
-
-        let visible_height = chunks[0].height;
-        let total_lines = wrapped_line_count(&display_lines, chunks[0].width as usize);
-        let max_scroll = total_lines.saturating_sub(visible_height);
-        if !self.auto_scroll && self.scroll_offset >= max_scroll {
-            self.auto_scroll = true;
-        }
-
-        if self.auto_scroll {
-            self.scroll_offset = max_scroll;
-        } else {
-            // Just in case of terminal resize
-            self.scroll_offset = self.scroll_offset.min(max_scroll);
-        }
-
-        let messages_paragraph = Paragraph::new(display_lines)
-            .wrap(Wrap { trim: false })
-            .scroll((self.scroll_offset, 0));
-
-        frame.render_widget(messages_paragraph, chunks[0]);
-    }
-
-    /// Take in the current contents of the input and make it into a new message
+    /// Submit the input. The input is either a message to the agent or a command to the harness.
     fn submit(&mut self) -> Result<()> {
-        // Ignore if empty
+        // Ignore if input is empty
         if self.input.is_empty() {
             return Ok(());
         }
 
+        // TODO implement permission request and command handling
+
+        // Get the input content
         let lines = self.input.lines();
-        let text = lines.join("\n");
+        let content = lines.join("\n");
+        self.input.clear();
 
-        // Process permission requests
-        if let Some(response) = self.permission_request.take() {
-            if text == "yes" || text == "y" {
-                response.send(true).unwrap();
-            } else {
-                response.send(false).unwrap();
-            }
-
-            self.messages.pop();
-            self.permission_request = None;
-
-            self.status.clear();
-            self.reset_input();
-
-            return Ok(());
-        };
-
-        // Handle commands
-        if text.trim().starts_with("/") && !text.trim().starts_with("//") {
-            match text.trim() {
-                "/exit" | "/bye" => {
-                    self.exit = true;
-                }
-                "/new" => {
-                    self.session = Session::new("user", "tui", "tui");
-                    self.session
-                        .history
-                        .set_system_prompt(tui_system_prompt(None)?);
-                    self.reset_messages();
-                    self.send_harness_message("New session started, history cleared.")?;
-                }
-                "/model" => {
-                    let mut text = String::new();
-                    let model_config = AppConfig::global().model.clone();
-                    text.push_str(&format!("Model     : {}\n", model_config.name));
-                    text.push_str(&format!("Provider  : {}\n", model_config.provider));
-                    text.push_str(&format!("Base URL  : {}\n", model_config.base_url));
-                    text.push_str(&format!("Reasoning : {}\n", model_config.reasoning));
-                    self.send_harness_message(&text)?;
-                }
-                "/yolo" => {
-                    self.yolo = !self.yolo;
-                    self.send_harness_message(&format!(
-                        "Yolo mode {}",
-                        if self.yolo { "enabled" } else { "disabled" }
-                    ))?;
-                }
-                "/" | "/help" => {
-                    let help_message = self.help_message.clone();
-                    self.send_harness_message(&help_message)?;
-                }
-                _ => {
-                    self.send_harness_message(
-                        "Invalid command, use /help for a list of commands.",
-                    )?;
-                }
-            }
-            self.reset_input();
-            return Ok(());
+        // Add the message to history and also render it
+        let message = Message::new("user", content);
+        if let Some(rendered_message) = render_message(&message, self.term_width)? {
+            self.push_rendered_message(rendered_message);
         }
-
-        // Cancel any running agent turn
-        self.agent_handle.cancel.cancel();
-
-        // Display the user message, add it to history and save session
-        let message = Message::new("user", text);
-        let rendered_message = render_message(&message, Some(self.term_width))?;
-        self.messages.push(rendered_message);
         self.session.history.add_message(message);
         self.session.save()?;
 
-        self.input.clear();
+        self.auto_scroll = true;
+        self.recalculate_scroll_offset();
 
-        // Run the agent
-        let stream = AppConfig::global().tui.streaming;
+        // Call the agent
+        (self.agent_event_rx, self.agent_handle) = AgentHandle::new();
+        let history = self.session.history.clone();
         let session_id = self.session.get_extended_session_id();
-        let history = self.session.history.clone(); // Fix history clone
-        self.agent_handle.reset_cancellation();
+        let stream = AppConfig::global().tui.streaming;
         let handle = self.agent_handle.clone();
         tokio::spawn(async move {
-            agent_loop::run_agent(history, &session_id, stream, handle)
+            crate::agent_loop::run_agent(history, &session_id, stream, handle)
                 .await
                 .unwrap();
         });
@@ -418,126 +238,148 @@ impl AppState {
         Ok(())
     }
 
-    /// Send messages about the state of the agent
-    fn send_harness_message(&mut self, message: &str) -> Result<()> {
-        let message = Message::new("harness", message);
-        let rendered_message = render_message(&message, Some(self.term_width))?;
-        self.messages.push(rendered_message);
+    /// Draw the frame based on current app state.
+    ///
+    /// The state taken is mutable (for now) to achieve the following
+    /// - update spinner frame index
+    fn draw_frame(&mut self, frame: &mut Frame) -> Result<()> {
+        let area = frame.area();
 
-        Ok(())
-    }
+        // Calculate the height of the input based on its contents
+        let input_width = area.width;
+        let input_height = self
+            .input
+            .lines()
+            .iter()
+            .map(|l| {
+                let len = l.chars().count().max(1) as u16;
+                len.div_ceil(input_width)
+            })
+            .sum::<u16>()
+            .max(1);
 
-    async fn handle_input_events(&mut self) -> Result<()> {
-        let timeout = Duration::from_millis(25);
-        if event::poll(timeout)? {
-            match event::read()? {
-                Event::Key(key_event) => {
-                    match key_event.code {
-                        KeyCode::Esc => {
-                            self.session.save()?;
-                            self.exit = true;
-                        }
-                        KeyCode::Enter => {
-                            if key_event.modifiers.is_empty() {
-                                self.submit()?;
-                            }
-                        }
-                        KeyCode::F(5) => {
-                            self.redraw = true;
-                        }
-                        KeyCode::Char('c') => {
-                            if key_event.modifiers.contains(KeyModifiers::CONTROL) {
-                                // Stop runnint agent
-                                self.agent_handle.cancel.cancel();
-                                self.partial_message = None;
+        let chunks = Layout::default()
+            .constraints([
+                Constraint::Min(3),
+                Constraint::Length(1),
+                Constraint::Length(input_height),
+            ])
+            .split(area);
+        let chat_chunk = chunks[0];
+        let statusbar_area = chunks[1];
+        let input_area = chunks[2];
 
-                                // Clear input and status
-                                self.status.clear();
-                                self.input_placeholder = "Type Something...".to_string();
-                                self.permission_request = None;
+        // Chat Area
+        let chat_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(chat_chunk);
+        let chat_area = chat_chunks[0];
+        let scrollbar_area = chat_chunks[1];
 
-                                // Save the session
-                                self.session.save()?;
-                            }
-                        }
-                        // Kinda weird, but works for natural user interaction
-                        KeyCode::Up => {
-                            execute!(std::io::stdout(), EnableMouseCapture)?;
-                        }
-                        KeyCode::Down => {
-                            execute!(std::io::stdout(), EnableMouseCapture)?;
-                        }
+        self.chat_area_height = chat_area.height as usize;
+        self.chat_area_width = chat_area.width as usize;
+        self.recalculate_scroll_offset();
 
-                        // Scroll using navigation keys
-                        KeyCode::PageUp => {
-                            self.scroll_offset = self.scroll_offset.saturating_sub(10);
-                            self.auto_scroll = false;
-                        }
-                        KeyCode::PageDown => {
-                            self.scroll_offset = self.scroll_offset.saturating_add(10);
-                        }
-                        _ => {}
-                    }
+        frame.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight).track_symbol(Some("│")),
+            scrollbar_area,
+            &mut self.scrollbar_state,
+        );
 
-                    let is_scroll_key =
-                        matches!(key_event.code, KeyCode::PageUp | KeyCode::PageDown);
-
-                    let is_action_keybind =
-                        key_event.code == KeyCode::Enter && key_event.modifiers.is_empty();
-
-                    if !is_action_keybind && !is_scroll_key {
-                        let commands = ["/", "/help", "/exit", "/bye", "/new", "/model", "/yolo"];
-
-                        self.input.input(key_event);
-                        let text = self.input.lines().join("\n");
-                        if commands.contains(&text.trim()) {
-                            self.input.set_style(Style::new().green());
-                        } else {
-                            self.input.set_style(Style::default());
-                        }
-                    }
-                }
-                Event::Mouse(mouse_event) => match mouse_event.kind {
-                    MouseEventKind::ScrollUp => {
-                        self.scroll_offset = self.scroll_offset.saturating_sub(2);
-                        self.auto_scroll = false;
-                    }
-                    MouseEventKind::ScrollDown => {
-                        self.scroll_offset = self.scroll_offset.saturating_add(2);
-                    }
-
-                    // Allows for the user to select and copy text
-                    MouseEventKind::Down(MouseButton::Left) => {
-                        execute!(std::io::stdout(), DisableMouseCapture)?;
-                    }
-                    _ => {
-                        self.input.input(mouse_event);
-                    }
-                },
-                Event::Paste(text) => {
-                    self.input.insert_str(&text);
-                }
-                Event::Resize(cols, _rows) => {
-                    self.term_width = cols as usize;
-                }
-                _ => {}
-            }
+        let mut display_lines = Vec::new();
+        for rendered_message in self.rendered_messages.iter() {
+            display_lines.extend(rendered_message.lines.clone());
         }
 
+        if let Some(rendered_partial_message) = &self.rendered_partial_message {
+            display_lines.extend(rendered_partial_message.lines.clone())
+        }
+        if let Some(partial_tool_output) = &self.partial_tool_output {
+            display_lines.extend(Text::from(partial_tool_output.clone()));
+        }
+
+        let chat = Paragraph::new(display_lines)
+            .wrap(Wrap { trim: false })
+            .scroll((self.scroll_offset as u16, 0));
+        frame.render_widget(chat, chat_area);
+
+        // Statusbar
+        let statusbar = create_statusbar(self);
+        frame.render_widget(statusbar, statusbar_area);
+
+        // Input Area
+        frame.render_widget(&self.input, input_area);
+
         Ok(())
     }
 
-    /// Handle message events
+    /// Recalculate the content length of the scrollbar state
+    fn recalculate_scroll_offset(&mut self) {
+        let content_height = self.wrapped_line_count
+            + self.rendered_partial_message_wrapped_line_count
+            + self.partial_tool_output_wrapped_line_count;
+
+        let viewport_height = self.chat_area_height;
+
+        let max_scroll = content_height.saturating_sub(viewport_height);
+        self.scrollbar_state = self.scrollbar_state.content_length(max_scroll);
+
+        if self.auto_scroll {
+            self.scroll_offset = max_scroll;
+            self.scrollbar_state.last();
+        }
+
+        if self.scroll_offset >= max_scroll {
+            self.scroll_offset = max_scroll;
+            self.auto_scroll = true;
+            self.scrollbar_state.last();
+        }
+
+        if self.scroll_offset == 0 {
+            self.scrollbar_state.first();
+        }
+    }
+
+    /// Send a new harness message to the chat
+    ///
+    /// Handles the whole process of turning the str into a message, rendering it,
+    /// placing it in the rendered_messages cache and updating the wrapped_line_count
+    fn send_harness_message(&mut self, message: &str) -> Result<()> {
+        let message = Message::new("harness", message);
+        if let Some(rendered_message) = render_message(&message, self.chat_area_width)? {
+            self.push_rendered_message(rendered_message);
+        }
+        Ok(())
+    }
+
+    /// Insert a rendered message into the rendered_messages cache, while also doing necessary operations.
+    ///
+    /// Necessary operations
+    /// - update wrapped line count
+    /// - update scrollbar state context length
+    fn push_rendered_message(&mut self, rendered_message: Text<'static>) {
+        let line_count = wrapped_text_height(&rendered_message, self.chat_area_width);
+        self.wrapped_line_count += line_count;
+        self.rendered_messages.push(rendered_message);
+        self.recalculate_scroll_offset();
+    }
+
+    /// Handle any agents events from `self.agent_event_rx`
     fn handle_agent_events(&mut self) -> Result<()> {
-        while let Ok(event) = self.event_rx.try_recv() {
+        while let Ok(event) = self.agent_event_rx.try_recv() {
             match event {
                 AgentEvent::AssistantMessage(msg) => {
                     // Clear the partial message
                     self.partial_message = None;
+                    self.rendered_partial_message = None;
+                    self.rendered_partial_message_wrapped_line_count = 0;
+                    self.recalculate_scroll_offset();
 
                     // Render and display the message
-                    let rendered_message = render_message(&msg, Some(self.term_width))?;
-                    self.messages.push(rendered_message);
+                    if let Some(rendered_message) = render_message(&msg, self.chat_area_width)? {
+                        self.push_rendered_message(rendered_message);
+                    };
 
                     // Calculate token usage
                     if let Some(usage) = &msg.usage {
@@ -552,7 +394,7 @@ impl AppState {
 
                     // Clear any previous status
                     self.status.clear();
-                    self.input_placeholder = "Type Something...".to_string();
+                    self.input.set_placeholder_text("Type Something...");
                 }
                 AgentEvent::PartialAssistantMessage(msg) => {
                     if (msg.reasoning_chunk_index == 0 && msg.content_chunk_index == -1)
@@ -581,57 +423,48 @@ impl AppState {
                     {
                         partial_content.push_str(content);
                     }
+
+                    if let Some(rendered_partial_message) = render_message(
+                        &self.partial_message.as_ref().unwrap(),
+                        self.chat_area_width,
+                    )? {
+                        self.rendered_partial_message_wrapped_line_count =
+                            wrapped_text_height(&rendered_partial_message, self.chat_area_width);
+                        self.recalculate_scroll_offset();
+                        self.rendered_partial_message = Some(rendered_partial_message);
+                    }
                 }
-                AgentEvent::AssistantStatusUpdate(kind) => {
-                    self.status = kind;
+                AgentEvent::AssistantStatusUpdate(msg) => {
+                    self.status = msg;
 
                     if !self.status.is_empty() {
-                        self.input_placeholder = "Executing, <Ctrl-C> to cancel".to_string();
+                        self.input
+                            .set_placeholder_text("Executing, <Ctrl-C> to cancel");
                     }
                 }
                 AgentEvent::ToolResponseMessage(msg) => {
+                    // This message is not actually displayed in the chat
                     self.session.history.add_message(msg);
                     self.session.save()?;
                 }
                 AgentEvent::HarnessMessage(msg) => {
-                    let rendered_message =
-                        render_message(&Message::new("harness", msg), Some(self.term_width))?;
-                    self.messages.push(rendered_message);
+                    self.send_harness_message(&msg)?;
                     self.status.clear();
+                    self.input.set_placeholder_text("Type Something...");
                 }
                 AgentEvent::HistoryUpdate(history) => {
                     self.session.history = history;
                     self.session.save()?;
                 }
-                AgentEvent::PermissionRequest {
-                    header,
-                    content,
-                    response,
-                } => {
+                AgentEvent::PermissionRequest(request) => {
                     if self.yolo {
-                        response.send(true).unwrap();
-                        return Ok(());
-                    };
-
-                    let mut text = Text::default();
-
-                    let wrapped = textwrap::wrap(&content, self.term_width - 2)
-                        .iter()
-                        .map(|i| i.to_string())
-                        .collect::<Vec<String>>()
-                        .join("\n");
-
-                    text.push_line(Line::from(vec!["╭─".into(), header.clone().red().bold()]));
-                    for mut line in wrapped.into_text()?.lines {
-                        line.spans.insert(0, "│ ".into());
-                        text.push_line(line);
+                        request.response.send(true).unwrap();
+                        continue;
                     }
-                    text.push_line(Line::from(vec!["╰─".into(), header.clone().red().bold()]));
 
-                    self.messages.push(text);
-                    self.permission_request = Some(response);
-                    self.status = "Waiting For Permission".to_string();
-                    self.input_placeholder = "y/n | <Ctrl-C> to cancel".to_string()
+                    self.permission_request = Some(request);
+                    self.status = "Permission Required".to_string();
+                    self.input.set_placeholder_text("y/n, Ctrl-C to cancel");
                 }
                 AgentEvent::PartialToolOutput { stdout, stderr } => {
                     if self.partial_tool_output.is_none() {
@@ -645,170 +478,137 @@ impl AppState {
                     if let Some(stderr) = stderr {
                         self.partial_tool_output.as_mut().unwrap().push_str(&stderr);
                     }
+
+                    self.partial_tool_output_wrapped_line_count = wrapped_string_height(
+                        self.partial_tool_output.as_ref().unwrap(),
+                        self.chat_area_width,
+                    );
+                    self.recalculate_scroll_offset();
                 }
                 AgentEvent::ToolOutput { stdout, stderr } => {
                     self.partial_tool_output = None;
+                    self.partial_tool_output_wrapped_line_count = 0;
+                    self.recalculate_scroll_offset();
 
-                    let mut text = Text::default();
-                    text.extend(stdout.into_text().unwrap());
-                    text.extend(stderr.into_text().unwrap());
-
-                    self.messages.push(text);
+                    let mut output = Text::default();
+                    output.extend(
+                        stdout
+                            .into_text()
+                            .context("Failed to parse toos stdout as ansi")?,
+                    );
+                    output.extend(
+                        stderr
+                            .into_text()
+                            .context("Failed to parse toos stderr as ansi")?,
+                    );
+                    self.push_rendered_message(output);
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Handle any input events directly from crossterm
+    fn handle_input_events(&mut self) -> Result<()> {
+        let timeout = Duration::from_millis(16);
+        if event::poll(timeout)? {
+            match event::read()? {
+                Event::Key(key_event) => {
+                    match key_event.code {
+                        KeyCode::Esc => {
+                            self.session.save()?;
+                            self.exit = true;
+                        }
+                        KeyCode::F(5) => {
+                            self.redraw_once = true;
+                        }
+                        KeyCode::Enter => {
+                            if key_event.modifiers.is_empty() {
+                                self.submit()?;
+                            }
+                        }
+                        KeyCode::Char('c') => {
+                            if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+                                // Stop running agent if any
+                                self.agent_handle.cancel.cancel();
+                                self.partial_message = None;
+                                self.partial_tool_output = None;
+
+                                // Clear permission requests if any
+                                self.permission_request = None;
+                                self.input.set_placeholder_text("Type Something...");
+
+                                // Clear status
+                                self.status.clear();
+
+                                // Save the session
+                                self.session.save()?;
+                            }
+                        }
+                        _ => {}
+                    }
+
+                    let is_keybind =
+                        key_event.code == KeyCode::Enter && key_event.modifiers.is_empty();
+
+                    if !is_keybind {
+                        self.input.input(key_event);
+                    }
+                }
+                Event::Mouse(mouse_event) => match mouse_event.kind {
+                    MouseEventKind::ScrollUp => {
+                        self.auto_scroll = false;
+                        self.scroll_offset = self.scroll_offset.saturating_sub(2);
+                        self.scrollbar_state.prev();
+                        self.scrollbar_state.prev();
+                        self.recalculate_scroll_offset();
+                    }
+                    MouseEventKind::ScrollDown => {
+                        self.scroll_offset = self.scroll_offset.saturating_add(2);
+                        self.scrollbar_state.next();
+                        self.scrollbar_state.next();
+                        self.recalculate_scroll_offset();
+                    }
+                    _ => {}
+                },
+                Event::Paste(text) => {
+                    self.input.insert_str(&text);
+                }
+                Event::Resize(widht, height) => {
+                    self.term_width = widht as usize;
+                    self.term_height = height as usize;
+                    self.term_size_changed = true;
+                }
+                _ => {}
             }
         }
         Ok(())
     }
 }
 
-/// Render all the messages
-/// Returns the rendered messages vec and the completion and prompt tokens
-fn render_full_chat(
-    history: &History,
-    term_width: Option<usize>,
-) -> Result<(Vec<Text<'static>>, u64, u64, u64)> {
-    let mut chat = Vec::new();
-    let mut prompt_tokens = 0;
-    let mut completion_tokens = 0;
-    let mut total_tokens = 0;
-
-    chat.push(get_logo());
-    for message in &history.messages {
-        let rendered_message = render_message(message, term_width)?;
-        chat.push(rendered_message);
-
-        if let Some(usage) = &message.usage {
-            prompt_tokens = usage.prompt_tokens;
-            completion_tokens += usage.completion_tokens;
-            total_tokens = usage.total_tokens;
+fn wrapped_text_height(text: &Text, term_width: usize) -> usize {
+    let mut height = 0;
+    for line in text.lines.iter() {
+        if line.width() <= term_width {
+            height += 1;
+        } else {
+            height += line.width().div_ceil(term_width).max(1);
         }
     }
-    Ok((chat, prompt_tokens, completion_tokens, total_tokens))
+
+    height
 }
 
-/// Render out a single Message into Text
-/// The rendered message is not wrapped to the width of the terminal
-fn render_message(message: &Message, term_width: Option<usize>) -> Result<Text<'static>> {
-    // Ignore actual system and tool response messages
-    if message.role == "system" || message.role == "tool" {
-        return Ok(Text::default());
-    }
-
-    let mut text = Text::default();
-
-    let sender = match message.role.as_str() {
-        "user" => AppConfig::global().tui.username.clone().green(),
-        "assistant" => "Mia".cyan(),
-        "harness" => "Harness".yellow(),
-        _ => {
-            error!("Unknown role: {}", message.role);
-            anyhow::bail!("Unknown role: {}", message.role);
-        }
-    };
-
-    let short_message = message.reasoning.is_none()
-        && message.content.is_some()
-        && !message.content.as_ref().unwrap().contains("\n")
-        && message.content.as_ref().unwrap().chars().count() < 100;
-
-    if short_message {
-        text.push_line(Line::from(vec![
-            sender,
-            " ▶ ".into(),
-            message.content.as_ref().unwrap().to_string().into(),
-        ]));
-        return Ok(text);
-    }
-
-    let thoughts = if message.reasoning.is_some() && !AppConfig::global().tui.show_reasoning {
-        "Thoughts...".dark_gray().italic()
-    } else {
-        "".into()
-    };
-    text.push_line(Line::from(vec![sender, " ▼ ".into(), thoughts]));
-
-    if let Some(reasoning) = &message.reasoning
-        && !reasoning.is_empty()
-        && AppConfig::global().tui.show_reasoning
-    {
-        for line in reasoning.split("\n") {
-            text.push_line(line.to_string().dark_gray().italic());
+fn wrapped_string_height(string: &String, term_width: usize) -> usize {
+    let mut height = 0;
+    for line in string.lines() {
+        if line.chars().count() <= term_width {
+            height += 1;
+        } else {
+            height += line.chars().count().div_ceil(term_width).max(1);
         }
     }
 
-    if let Some(content) = &message.content
-        && !content.is_empty()
-    {
-        let skin = MadSkin::default_dark();
-        let formatted = skin.text(content, term_width);
-        let ansi_string = formatted.to_string();
-        text.extend(ansi_string.into_text()?);
-    }
-
-    if let Some(tool_calls) = &message.tool_calls {
-        for tool_call in tool_calls {
-            text.push_line(Line::from(vec![
-                "[ ".into(),
-                ToolRegistry::tool_icon(&tool_call.function.name)
-                    .to_string()
-                    .into(),
-                " ".into(),
-                tool_call.function.name.clone().into(),
-                ": ".into(),
-                ToolRegistry::tool_short(&tool_call.function.name, &tool_call.function.arguments)
-                    .into(),
-                " ]".into(),
-            ]));
-        }
-    }
-
-    Ok(text)
-}
-
-/// Used to find the wrapped line count of given lines
-fn wrapped_line_count(lines: &[Line], width: usize) -> u16 {
-    if width == 0 {
-        return lines.len() as u16;
-    }
-
-    lines
-        .iter()
-        .map(|line| {
-            let content: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
-            if content.is_empty() {
-                1
-            } else {
-                textwrap::wrap(&content, width).len().max(1)
-            }
-        })
-        .sum::<usize>() as u16
-}
-
-fn get_logo() -> Text<'static> {
-    // The left and top padding are part of the design
-    let logo = "
-
-    ██╷     ██╷ ██╷   ██╷
-    ████╷ ████│ ██│ ██┌─██╷
-    ██┌─██┌─██│ ██│ ██████│
-    ██│ └─┘ ██│ ██│ ██┌─██│
-    └─┘     └─┘ └─┘ └─┘ └─┘
-    ";
-
-    let mut out = Text::default();
-    for line in logo.split('\n') {
-        let mut colored_line = Line::default();
-        for ch in line.chars() {
-            let colored_char: Span<'static> = if ['█', '▄', '▀'].contains(&ch) {
-                ch.to_string().magenta()
-            } else if ['─', '│', '┘', '└', '┌', '┐', '╷', '╶'].contains(&ch) {
-                ch.to_string().light_green()
-            } else {
-                ch.to_string().into()
-            };
-            colored_line.push_span(colored_char);
-        }
-        out.push_line(colored_line);
-    }
-    out
+    height
 }

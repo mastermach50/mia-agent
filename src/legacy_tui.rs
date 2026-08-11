@@ -272,13 +272,10 @@ fn handle_agent_events(event_rx: &mut UnboundedReceiver<AgentEvent>, session: &m
                     session.history = history;
                     break 'outer;
                 }
-                AgentEvent::PermissionRequest {
-                    header,
-                    content,
-                    response,
-                } => {
-                    response
-                        .send(stdio_ask_permission(header, &content))
+                AgentEvent::PermissionRequest(request) => {
+                    request
+                        .response
+                        .send(stdio_ask_permission(request.header, &request.content))
                         .unwrap();
                 }
                 AgentEvent::PartialToolOutput { stdout, stderr } => {

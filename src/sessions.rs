@@ -72,7 +72,9 @@ impl Session {
         session
     }
 
-    pub fn save(&self) -> Result<()> {
+    pub fn save(&mut self) -> Result<()> {
+        self.modified = Local::now();
+
         let filename = self.id.clone() + ".json";
         let session_dir = AppConfig::internal().sessions_dir.clone();
         let filepath = session_dir.join(&filename);

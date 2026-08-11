@@ -60,6 +60,7 @@ pub struct TuiConfig {
     pub show_reasoning: bool,
     pub streaming: bool,
     pub show_spinner: bool,
+    pub render_markdown: bool,
 }
 
 impl Default for TuiConfig {
@@ -71,6 +72,7 @@ impl Default for TuiConfig {
             show_reasoning: true,
             streaming: true,
             show_spinner: true,
+            render_markdown: true,
         }
     }
 }

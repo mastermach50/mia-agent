@@ -8,12 +8,22 @@ use crate::agent_tools::ToolRegistry;
 use crate::api::{Completion, History, Message, PartialMessage, completion};
 use crate::config::AppConfig;
 
+/// A handle to the agent's thread.
+///
+/// Can be used to cancel execution.
 #[derive(Clone)]
 pub struct AgentHandle {
     tx: UnboundedSender<AgentEvent>,
     pub cancel: CancellationToken,
 }
 
+pub struct PermissionRequest {
+    pub header: String,
+    pub content: String,
+    pub response: oneshot::Sender<bool>,
+}
+
+/// An event sent from the agent's thread to any receiver
 pub enum AgentEvent {
     AssistantMessage(Message),
     PartialAssistantMessage(PartialMessage),
@@ -21,11 +31,7 @@ pub enum AgentEvent {
     ToolResponseMessage(Message),
     HarnessMessage(String),
     HistoryUpdate(History),
-    PermissionRequest {
-        header: String,
-        content: String,
-        response: oneshot::Sender<bool>,
-    },
+    PermissionRequest(PermissionRequest),
     PartialToolOutput {
         stdout: Option<String>,
         stderr: Option<String>,
@@ -37,6 +43,10 @@ pub enum AgentEvent {
 }
 
 impl AgentHandle {
+    /// Create an agent handle and an event receiver.
+    ///
+    /// The agent handle needs to be passed to the `agent_loop::run_agent` when calling it.
+    /// The event reciever will receive agent events from the agent while it is running.
     pub fn new() -> (UnboundedReceiver<AgentEvent>, Self) {
         let (tx, rx) = mpsc::unbounded_channel::<AgentEvent>();
         let cancel = CancellationToken::new();
@@ -46,11 +56,11 @@ impl AgentHandle {
         (rx, AgentHandle { tx, cancel })
     }
 
-    pub fn reset_cancellation(&mut self) {
-        self.cancel = CancellationToken::new();
+    // pub fn reset_cancellation(&mut self) {
+    //     self.cancel = CancellationToken::new();
 
-        trace!("Agent cancellation token reset");
-    }
+    //     trace!("Agent cancellation token reset");
+    // }
 
     fn assistant_msg(&self, msg: &Message) {
         self.tx
@@ -104,11 +114,13 @@ impl AgentHandle {
         content: impl Into<String>,
     ) -> bool {
         let (respond, rx) = oneshot::channel();
-        let sent = self.tx.send(AgentEvent::PermissionRequest {
-            header: header.into(),
-            content: content.into(),
-            response: respond,
-        });
+        let sent = self
+            .tx
+            .send(AgentEvent::PermissionRequest(PermissionRequest {
+                header: header.into(),
+                content: content.into(),
+                response: respond,
+            }));
 
         if sent.is_err() {
             return false;

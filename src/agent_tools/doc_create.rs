@@ -116,7 +116,10 @@ impl Tool for DocCreate {
             }
         };
 
-        let input_file = temp_dir().join(format!("mia_doc_create-{}.{input_format}", output_file.file_name().unwrap().to_string_lossy()));
+        let input_file = temp_dir().join(format!(
+            "mia_doc_create-{}.{input_format}",
+            output_file.file_name().unwrap().to_string_lossy()
+        ));
         debug!("Writing input to {:?}", input_file);
         fs::write(&input_file, contents).expect("Failed to write input to temp dir");
 

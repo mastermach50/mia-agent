@@ -1,11 +1,11 @@
-# Urgent
-- Improve tui render loop performance
+# Redo
+- implement permission asking ui
+- implement commands
 
 # Short Term
 - Re implement single prompt command
 - Improve tui permission asking ui
 - Implement session title generation
-- Implement ratatui scrollbar
 - Make session pruning
 - Tool call status in tui
 - Replace markdown with plain text in fs_list_dir
