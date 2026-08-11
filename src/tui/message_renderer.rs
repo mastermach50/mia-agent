@@ -7,7 +7,7 @@ use ratatui::{
 };
 use termimad::MadSkin;
 
-use crate::{agent_tools::ToolRegistry, api::Message, config::AppConfig, tui::{AppState, logo::push_logo}};
+use crate::{agent_tools::ToolRegistry, api::Message, config::AppConfig, tui::{AppState, logo::{get_logo}}};
 
 /// Renders an `api::Message` into a `ratatui::Text`.
 ///
@@ -105,7 +105,7 @@ pub fn render_all_messages(state: &mut AppState) -> Result<()> {
     state.rendered_messages.clear();
     state.wrapped_line_count = 0;
 
-    push_logo(state);
+    state.push_rendered_message(get_logo());
 
     for message in state.session.history.messages.clone() {
         if let Some(rendered_message) = render_message(&message, state.chat_area_width)? {

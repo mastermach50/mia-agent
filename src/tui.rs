@@ -14,7 +14,8 @@ use crossterm::{
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    text::Text,
+    style::Stylize,
+    text::{Line, Text},
     widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
 };
 use ratatui_textarea::{TextArea, WrapMode};
@@ -27,7 +28,7 @@ use crate::{
     config::AppConfig,
     sessions::Session,
     tui::{
-        logo::push_logo,
+        logo::get_logo,
         message_renderer::{render_all_messages, render_message},
         statusbar::create_statusbar,
     },
@@ -42,7 +43,7 @@ pub async fn run(new_session: bool) -> Result<()> {
 
     if new_session {
         state.session = Session::new("user", "tui", "tui");
-        push_logo(&mut state);
+        state.push_rendered_message(get_logo());
         state.send_harness_message("New session creted")?;
     } else {
         match Session::load_last_session("user", "tui", "tui") {
@@ -53,7 +54,7 @@ pub async fn run(new_session: bool) -> Result<()> {
             }
             Err(_) => {
                 state.session = Session::new("user", "tui", "tui");
-                push_logo(&mut state);
+                state.push_rendered_message(get_logo());
                 state.send_harness_message("No previous session found")?;
                 state.send_harness_message("New session creted")?;
             }
@@ -131,7 +132,10 @@ struct AppState {
     partial_tool_output_wrapped_line_count: usize,
 
     permission_request: Option<PermissionRequest>,
-    // TODO calculate permission request height
+    rendered_permission_request: Option<Text<'static>>,
+    rendered_permission_request_wrapped_line_count: usize,
+
+    // Scrollbar
     scroll_offset: usize,
     auto_scroll: bool,
     scrollbar_state: ScrollbarState,
@@ -187,9 +191,12 @@ impl AppState {
             rendered_partial_message_wrapped_line_count: 0,
             partial_tool_output: None,
             partial_tool_output_wrapped_line_count: 0,
-            scroll_offset: 0,
-            scrollbar_state,
             permission_request: None,
+            rendered_permission_request: None,
+            rendered_permission_request_wrapped_line_count: 0,
+            scroll_offset: 0,
+            auto_scroll: true,
+            scrollbar_state,
             spinner_idx: 0,
             status: String::new(),
             model,
@@ -197,11 +204,10 @@ impl AppState {
             completion_tokens: 0,
             total_tokens: 0,
             input,
-            yolo: true, // TODO Change when commands and permission prompt are implemented
+            yolo: false,
             term_width: (term_width as usize),
             term_height: (term_height as usize),
             term_size_changed: false,
-            auto_scroll: true,
             redraw_once: false,
             exit: false,
         }
@@ -214,7 +220,41 @@ impl AppState {
             return Ok(());
         }
 
-        // TODO implement permission request and command handling
+        // Consider submission to permission request if it exists
+        if let Some(permission_request) = self.permission_request.take()
+            && !permission_request.response.is_closed()
+        {
+            let user_response = self.input.lines().join("\n");
+
+            let permission_granted =
+                if user_response == "yes" || user_response.chars().all(|c| c == 'y') {
+                    true
+                } else {
+                    false
+                };
+
+            if permission_request
+                .response
+                .send(permission_granted)
+                .is_err()
+            {
+                self.send_harness_message("Failed to send permission response")?;
+            }
+
+            self.permission_request = None;
+            self.rendered_permission_request = None;
+            self.rendered_permission_request_wrapped_line_count = 0;
+            self.input
+                .set_placeholder_text("Executing, <Ctrl-C> to cancel");
+            self.status.clear();
+        }
+
+        // Note: After cancellation the cancellation token is reset instead of creating a new agent handle
+        // to avoid a race condition where the event_rx is dropped and redefined before the agent thread
+        // can send a harness message to it declaring the cancellation.
+
+        // Cancel any existing agent turn
+        self.agent_handle.cancel.cancel();
 
         // Get the input content
         let lines = self.input.lines();
@@ -229,12 +269,12 @@ impl AppState {
         self.session.history.add_message(message);
         self.session.save()?;
 
+        // Snap to the end of the chat
         self.auto_scroll = true;
         self.recalculate_scroll_offset();
 
         // Call the agent
-        self.agent_handle.cancel.cancel(); // Cancel any existing agent turn
-        (self.agent_event_rx, self.agent_handle) = AgentHandle::new();
+        self.agent_handle.reset_cancellation();
         let history = self.session.history.clone();
         let session_id = self.session.get_extended_session_id();
         let stream = AppConfig::global().tui.streaming;
@@ -252,6 +292,8 @@ impl AppState {
     ///
     /// The state taken is mutable (for now) to achieve the following
     /// - update spinner frame index
+    /// - update chat area dimensions
+    /// - recalculate scroll offset
     fn draw_frame(&mut self, frame: &mut Frame) -> Result<()> {
         let area = frame.area();
 
@@ -295,6 +337,9 @@ impl AppState {
         if let Some(partial_tool_output) = &self.partial_tool_output {
             display_lines.extend(Text::from(partial_tool_output.clone()));
         }
+        if let Some(rendered_permission_request) = &self.rendered_permission_request {
+            display_lines.extend(rendered_permission_request.lines.clone());
+        }
 
         let chat = Paragraph::new(display_lines)
             .wrap(Wrap { trim: false })
@@ -311,7 +356,7 @@ impl AppState {
         Ok(())
     }
 
-    /// Get the input size based on its contents
+    /// Get the input size based on its contents. Has no side effects.
     fn get_input_height(&self) -> usize {
         let input_width = self.term_width;
 
@@ -326,16 +371,18 @@ impl AppState {
             .max(1)
     }
 
-    /// Recalculate the scroll offset and set the scrollbar state
+    /// Recalculate the scroll offset and set the scrollbar state.
     ///
     /// The total content height is the sum of
     /// - rendered messages wrapped line count
     /// - partial message wrapped line count
     /// - partial tool call wrapped line count
+    /// - permission request wrapped line count
     fn recalculate_scroll_offset(&mut self) {
         let content_height = self.wrapped_line_count
             + self.rendered_partial_message_wrapped_line_count
-            + self.partial_tool_output_wrapped_line_count;
+            + self.partial_tool_output_wrapped_line_count
+            + self.rendered_permission_request_wrapped_line_count;
 
         let viewport_height = self.chat_area_height;
 
@@ -391,6 +438,12 @@ impl AppState {
                     self.partial_message = None;
                     self.rendered_partial_message = None;
                     self.rendered_partial_message_wrapped_line_count = 0;
+                    
+                    // Clear permission prompt
+                    self.permission_request = None;
+                    self.rendered_permission_request = None;
+                    self.rendered_permission_request_wrapped_line_count = 0;
+
                     self.recalculate_scroll_offset();
 
                     // Render and display the message
@@ -447,8 +500,8 @@ impl AppState {
                     )? {
                         self.rendered_partial_message_wrapped_line_count =
                             wrapped_text_height(&rendered_partial_message, self.chat_area_width);
-                        self.recalculate_scroll_offset();
                         self.rendered_partial_message = Some(rendered_partial_message);
+                        self.recalculate_scroll_offset();
                     }
                 }
                 AgentEvent::AssistantStatusUpdate(msg) => {
@@ -479,9 +532,34 @@ impl AppState {
                         continue;
                     }
 
+                    let mut text = Text::default();
+                    let wrapped = textwrap::wrap(&request.content, self.chat_area_width - 2)
+                        .iter()
+                        .map(|line| line.to_string())
+                        .collect::<Vec<String>>()
+                        .join("\n");
+
+                    text.push_line(Line::from(vec![
+                        "╭─".into(),
+                        request.header.clone().red().bold(),
+                    ]));
+                    for mut line in wrapped.into_text()?.lines {
+                        line.spans.insert(0, "│ ".into());
+                        text.push_line(line);
+                    }
+                    text.push_line(Line::from(vec![
+                        "╰─".into(),
+                        request.header.clone().red().bold(),
+                    ]));
+
+                    self.rendered_permission_request_wrapped_line_count =
+                        wrapped_text_height(&text, self.chat_area_width);
+                    self.rendered_permission_request = Some(text);
+                    self.recalculate_scroll_offset();
+
                     self.permission_request = Some(request);
                     self.status = "Permission Required".to_string();
-                    self.input.set_placeholder_text("y/n, Ctrl-C to cancel");
+                    self.input.set_placeholder_text("y/n, <Ctrl-C> to cancel");
                 }
                 AgentEvent::PartialToolOutput { stdout, stderr } => {
                     if AppConfig::global().tui.show_tool_output {

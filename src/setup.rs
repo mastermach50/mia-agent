@@ -22,6 +22,7 @@ pub enum Providers {
     Groq,
     Cerebras,
     GoogleAIStudio,
+    OpenCodeZen,
 }
 
 impl Display for Providers {
@@ -32,6 +33,7 @@ impl Display for Providers {
             Providers::Groq => write!(f, "Groq"),
             Providers::Cerebras => write!(f, "Cerebras.ai"),
             Providers::GoogleAIStudio => write!(f, "Google AI Studio"),
+            Providers::OpenCodeZen => write!(f, "OpenCode Zen"),
         }
     }
 }
@@ -52,6 +54,7 @@ impl Providers {
             Providers::Groq => "groq",
             Providers::Cerebras => "cerebras",
             Providers::GoogleAIStudio => "google_ai_studio",
+            Providers::OpenCodeZen => "opencode_zen",
         }
     }
 
@@ -62,6 +65,7 @@ impl Providers {
             Providers::Groq => Some("GROQ_API_KEY"),
             Providers::Cerebras => Some("CEREBRAS_API_KEY"),
             Providers::GoogleAIStudio => Some("GOOGLE_AI_STUDIO_API_KEY"),
+            Providers::OpenCodeZen => Some("OPENCODE_ZEN_API_KEY"),
         }
     }
 
@@ -72,8 +76,9 @@ impl Providers {
             Providers::Groq => Ok("https://api.groq.com/openai/v1"),
             Providers::Cerebras => Ok("https://api.cerebras.ai/v1"),
             Providers::GoogleAIStudio => {
-                Ok("https://generativelanguage.googleapis.com/v1beta/openai/")
+                Ok("https://generativelanguage.googleapis.com/v1beta/openai")
             }
+            Providers::OpenCodeZen => Ok("https://opencode.ai/zen/v1"),
         }
     }
 }
@@ -245,6 +250,7 @@ async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
         Providers::Cerebras => vec!["high", "medium", "low", "none"],
         Providers::GoogleAIStudio => vec!["high", "medium", "low", "none"], // not verified
         Providers::Local => vec!["max", "high", "medium", "low", "none"],
+        Providers::OpenCodeZen => vec!["xhigh", "high", "medium", "low", "minimal", "none"],
     };
     let current_level = AppConfig::global().model.reasoning.clone();
     let starting_index = levels.iter().position(|i| i == &current_level).unwrap_or(0);
@@ -327,7 +333,7 @@ async fn set_tui_render_markdown(doc: &mut DocumentMut) -> Result<()> {
 
 async fn set_tui_show_tool_output(doc: &mut DocumentMut) -> Result<()> {
     let show_tool_output = Confirm::new("Show tool output:")
-        .with_help_message("Render markdown content with formatting")
+        .with_help_message("Display the ouputs of tools called by the agent")
         .with_default(AppConfig::global().tui.show_tool_output)
         .prompt_skippable()?;
     match show_tool_output {

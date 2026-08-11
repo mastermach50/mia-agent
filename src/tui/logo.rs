@@ -32,11 +32,11 @@ pub fn get_logo() -> Text<'static> {
     out
 }
 
-/// Push the logo to the rendered messages
-pub fn push_logo(state: &mut AppState) {
-    // Push the logo to the rendered messages while also updating wrapped line_count
-    // This is the only place where state.rendered_messages must be modified directly
-    let logo = get_logo();
-    state.wrapped_line_count += wrapped_text_height(&logo, state.chat_area_width);
-    state.rendered_messages.push(logo);
-}
+// /// Push the logo to the rendered messages
+// pub fn push_logo(state: &mut AppState) {
+//     // Push the logo to the rendered messages while also updating wrapped line_count
+//     // This is the only place where state.rendered_messages must be modified directly
+//     let logo = get_logo();
+//     state.wrapped_line_count += wrapped_text_height(&logo, state.chat_area_width);
+//     state.rendered_messages.push(logo);
+// }

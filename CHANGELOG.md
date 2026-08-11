@@ -5,6 +5,7 @@
 - Added auto re-rendering of message content on terminal resize.
 - Added `tui.render_markdown` option to config.
 - Added `tui.show_tool_output` option to config.
+- Added new provider __Opencode Zen__.
 
 ### Fixed
 - Improved tui performance

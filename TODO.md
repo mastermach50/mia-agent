@@ -9,8 +9,8 @@
 - Implement session title generation
 - Make session pruning
 - Tool call status in tui
+- Implement exponential backoff for api rate limits
 - Replace markdown with plain text in fs_list_dir
-- Create config value for showing tool ouputs in chat
 
 # Long Term
 - Graceful error handling in API calls
