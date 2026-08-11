@@ -1,6 +1,3 @@
-# Redo
-- implement mouse selection
-
 # Short Term
 - Implement message history for input box
 - Re implement single prompt command

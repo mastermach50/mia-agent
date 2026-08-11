@@ -34,6 +34,10 @@ pub fn create_statusbar(state: &mut AppState) -> Block<'static> {
         statusbar = statusbar.title(Line::from("[yolo]".red()).left_aligned());
     }
 
+    if state.selection_mode {
+        statusbar = statusbar.title(Line::from("[selection]".blue()).left_aligned());
+    }
+
     if state.completion_tokens > 0 && state.prompt_tokens > 0 {
         statusbar = statusbar.title(
             Line::from(vec![

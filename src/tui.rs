@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use crossterm::{
     event::{
         self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-        Event, KeyModifiers, KeyboardEnhancementFlags, MouseEventKind, PopKeyboardEnhancementFlags,
-        PushKeyboardEnhancementFlags,
+        Event, KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
     terminal::supports_keyboard_enhancement,
@@ -171,6 +171,7 @@ struct AppState {
 
     // Other
     yolo: bool,
+    selection_mode: bool,
     term_width: usize,
     term_height: usize,
     term_size_changed: bool,
@@ -225,6 +226,7 @@ impl AppState {
             total_tokens: 0,
             input,
             yolo: false,
+            selection_mode: false,
             term_width: (term_width as usize),
             term_height: (term_height as usize),
             term_size_changed: false,
@@ -414,13 +416,14 @@ impl AppState {
     /// - partial tool call wrapped line count
     /// - permission request wrapped line count
     fn recalculate_scroll_offset(&mut self) {
+        // Calculate content and viewport height
         let content_height = self.wrapped_line_count
             + self.rendered_partial_message_wrapped_line_count
             + self.partial_tool_output_wrapped_line_count
             + self.rendered_permission_request_wrapped_line_count;
-
         let viewport_height = self.chat_area_height;
 
+        // Set the max scroll before updating position
         let max_scroll = content_height.saturating_sub(viewport_height);
         self.scrollbar_state = self.scrollbar_state.content_length(max_scroll);
 
@@ -435,9 +438,7 @@ impl AppState {
             self.scrollbar_state.last();
         }
 
-        if self.scroll_offset == 0 {
-            self.scrollbar_state.first();
-        }
+        self.scrollbar_state = self.scrollbar_state.position(self.scroll_offset);
     }
 
     /// Send a new harness message to the chat
@@ -704,6 +705,15 @@ impl AppState {
                                 consumed = true;
                             }
                         }
+                        // Kinda weird, but works for natural user interaction
+                        KeyCode::Up => {
+                            self.selection_mode = false;
+                            execute!(std::io::stdout(), EnableMouseCapture)?;
+                        }
+                        KeyCode::Down => {
+                            self.selection_mode = false;
+                            execute!(std::io::stdout(), EnableMouseCapture)?;
+                        }
                         _ => {}
                     }
 
@@ -730,15 +740,15 @@ impl AppState {
                     MouseEventKind::ScrollUp => {
                         self.auto_scroll = false;
                         self.scroll_offset = self.scroll_offset.saturating_sub(2);
-                        self.scrollbar_state.prev();
-                        self.scrollbar_state.prev();
                         self.recalculate_scroll_offset();
                     }
                     MouseEventKind::ScrollDown => {
                         self.scroll_offset = self.scroll_offset.saturating_add(2);
-                        self.scrollbar_state.next();
-                        self.scrollbar_state.next();
                         self.recalculate_scroll_offset();
+                    }
+                    MouseEventKind::Down(MouseButton::Left) => {
+                        self.selection_mode = true;
+                        execute!(std::io::stdout(), DisableMouseCapture)?;
                     }
                     _ => {}
                 },

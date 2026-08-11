@@ -6,7 +6,6 @@ use ratatui::{
 pub fn get_logo() -> Text<'static> {
     // The left and top padding are part of the design
     let logo = "
-
     ██╷     ██╷ ██╷   ██╷
     ████╷ ████│ ██│ ██┌─██╷
     ██┌─██┌─██│ ██│ ██████│
