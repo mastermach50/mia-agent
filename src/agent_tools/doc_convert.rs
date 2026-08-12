@@ -11,7 +11,7 @@ impl Tool for DocConvert {
         "doc_convert".to_string()
     }
     fn icon(&self) -> String {
-        "📃".to_string()
+        "📑".to_string()
     }
     fn short(&self, args: serde_json::Value) -> String {
         let src = args["input_path"].as_str().unwrap_or_default().to_string();

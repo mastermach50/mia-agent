@@ -14,7 +14,7 @@ impl Tool for DocCreate {
         "doc_create".to_string()
     }
     fn icon(&self) -> String {
-        "📄".to_string()
+        "📝".to_string()
     }
     fn short(&self, args: serde_json::Value) -> String {
         let input_format = args["input_format"]

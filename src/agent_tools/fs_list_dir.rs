@@ -16,7 +16,7 @@ impl Tool for FSListDir {
         "fs_list_dir".to_string()
     }
     fn icon(&self) -> String {
-        "📁".to_string()
+        "📂".to_string()
     }
     fn short(&self, args: serde_json::Value) -> String {
         args["path"].as_str().unwrap_or(".").to_string()

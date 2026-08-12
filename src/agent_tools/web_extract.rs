@@ -11,7 +11,7 @@ impl Tool for WebExtract {
         "web_extract".to_string()
     }
     fn icon(&self) -> String {
-        "🪏".to_string()
+        "📥".to_string()
     }
     fn short(&self, args: serde_json::Value) -> String {
         args["url"].as_str().unwrap_or_default().to_string()
