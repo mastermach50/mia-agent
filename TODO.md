@@ -1,5 +1,6 @@
 # Check
 - Check if the reasoning levels for opencode zen are correct.
+- Is rate limit handling messages appearing correctly.
 
 # Short Term
 - Implement message history for input box
