@@ -501,13 +501,15 @@ impl AppState {
                         self.total_tokens = usage.total_tokens;
                     }
 
+                    // Clear any previous status if this message does not have any tool calls
+                    if msg.tool_calls.is_none() {
+                        self.status.clear();
+                        self.input.set_placeholder_text("Type Something...");
+                    }
+
                     // Append the message to the session history and save it
                     self.session.history.add_message(msg);
                     self.session.save()?;
-
-                    // Clear any previous status
-                    self.status.clear();
-                    self.input.set_placeholder_text("Type Something...");
                 }
                 AgentEvent::PartialAssistantMessage(msg) => {
                     if (msg.reasoning_chunk_index == 0 && msg.content_chunk_index == -1)
@@ -554,6 +556,8 @@ impl AppState {
                     if !self.status.is_empty() {
                         self.input
                             .set_placeholder_text("Executing, <Ctrl-C> to cancel");
+                    } else {
+                        self.input.set_placeholder_text("Type Something...");
                     }
                 }
                 AgentEvent::ToolResponseMessage(msg) => {
@@ -563,10 +567,9 @@ impl AppState {
                 }
                 AgentEvent::HarnessMessage(msg) => {
                     self.send_harness_message(&msg)?;
-                    self.status.clear();
-                    self.input.set_placeholder_text("Type Something...");
                 }
                 AgentEvent::HistoryUpdate(history) => {
+                    // Just to sync the history
                     self.session.history = history;
                     self.session.save()?;
                 }

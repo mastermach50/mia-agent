@@ -8,7 +8,6 @@
 - Implement session title generation
 - Make session pruning
 - Tool call status in tui
-- Implement exponential backoff for api rate limits
 - Context compression
 
 # Long Term

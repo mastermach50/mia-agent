@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use log::trace;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
+use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_tools::ToolRegistry;
@@ -161,10 +164,10 @@ pub async fn run_agent(
     let mut history = history;
 
     // Max number of iterations is configurable
-    for iterations in 1..=AppConfig::global().agent.max_iterations {
+    'agent_iteration: for iterations in 1..=AppConfig::global().agent.max_iterations {
         // Check if the request is cancelled
         if handle.cancel.is_cancelled() {
-            break;
+            break 'agent_iteration;
         }
 
         // Initially mark the assistant as waiting
@@ -181,34 +184,55 @@ pub async fn run_agent(
                 iterations,
                 AppConfig::global().agent.max_iterations
             ));
-            handle.assistant_status_update("Waiting");
         }
 
-        // Get the next message from the assistant and append it to the history
-        // Pass over the cancellation token and thinking notifier too
-        // Also accept Ctrl-C signal and break out of loop if it arises
-        let assistant_msg = match completion(
-            &history,
-            session_id,
-            stream,
-            &handle.cancel,
-            |kind: &str| handle.assistant_status_update(kind),
-            |msg: &PartialMessage| handle.partial_assistant_msg(msg),
-        )
-        .await
-        {
-            Ok(completion) => {
-                if let Completion::Completed(msg) = completion {
-                    msg
-                } else {
-                    handle.harness_msg("Assistant turn cancelled.");
-                    break;
+        let mut assistant_msg_mut: Option<Message> = None;
+        'retry_loop: for tries in 1..=10 {
+            handle.assistant_status_update("Waiting");
+            match completion(
+                &history,
+                session_id,
+                stream,
+                &handle.cancel,
+                |kind: &str| handle.assistant_status_update(kind),
+                |msg: &PartialMessage| handle.partial_assistant_msg(msg),
+            )
+            .await
+            {
+                Ok(completion) => match completion {
+                    Completion::Completed(msg) => {
+                        assistant_msg_mut = Some(msg);
+                        break 'retry_loop;
+                    }
+                    Completion::Cancelled => {
+                        handle.harness_msg("Assistant turn cancelled.");
+                        handle.assistant_status_update("");
+                        break 'agent_iteration;
+                    }
+                    Completion::RateLimited => {
+                        let exp_delay = 5 * 2_u64.saturating_pow(tries);
+                        let capped_delay = exp_delay.min(60);
+                        let wait_time = rand::random_range(1..=capped_delay);
+                        handle.harness_msg(format!(
+                            "Rate limited, retrying in {wait_time}s ({tries}/10)"
+                        ));
+                        handle.assistant_status_update("Waiting out Rate Limit");
+                        sleep(Duration::from_secs(wait_time)).await;
+                        continue 'retry_loop;
+                    }
+                },
+                Err(err) => {
+                    handle.harness_msg(format!("Assistant returned error:\n\t{err}"));
+                    handle.assistant_status_update("");
+                    break 'agent_iteration;
                 }
-            }
-            Err(err) => {
-                handle.harness_msg(format!("Assistant returned error:\n\t{err}"));
-                break;
-            }
+            };
+        }
+
+        let Some(assistant_msg) = assistant_msg_mut else {
+            handle.harness_msg("Exhausted all retries due to rate limits.");
+            handle.assistant_status_update("");
+            break 'agent_iteration;
         };
 
         // Forward the assistant's message
@@ -220,8 +244,8 @@ pub async fn run_agent(
         // If the assistant requested tool calls then do the tool calls
         // Append the result of the tool calls to the history and continue the loop
         if let Some(tool_calls) = assistant_msg.tool_calls {
+            handle.assistant_status_update("Calling Tools");
             for tool_call in tool_calls {
-                handle.assistant_status_update("Calling Tools");
                 let tool_name = tool_call.function.name.clone();
                 let tool_args = tool_call.function.arguments.clone();
                 let content = tokio::select! {
@@ -243,7 +267,8 @@ pub async fn run_agent(
                         history.add_message(tool_call_cancelled_message);
 
                         handle.harness_msg("Assistant turn cancelled during tool call.");
-                        break;
+                        handle.assistant_status_update("");
+                        break 'agent_iteration;
                     }
                 };
                 let tc_response =
@@ -260,6 +285,7 @@ pub async fn run_agent(
 
     // Return the updated history
     handle.update_history(history);
+    handle.assistant_status_update("");
 
     Ok(())
 }

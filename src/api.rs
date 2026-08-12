@@ -131,6 +131,7 @@ impl History {
 pub enum Completion {
     Completed(Message),
     Cancelled,
+    RateLimited
 }
 
 pub async fn completion(
@@ -182,6 +183,11 @@ pub async fn completion(
 
     // If the status shows some errors then bail
     if !response.status().is_success() {
+
+        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            return Ok(Completion::RateLimited);
+        }
+
         let status = response.status();
         let json = response.json::<Value>().await?;
         // Error log here causes ui glitches
