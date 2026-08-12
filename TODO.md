@@ -1,5 +1,5 @@
 # Check
-- Check if the reasoning levels for opencode zen are correct.
+- Check if the reasoning levels for opencode zen and nvidia nim are correct.
 - Is rate limit handling messages appearing correctly.
 
 # Short Term

@@ -1,3 +1,7 @@
+## v0.2.4
+### Added
+- New provider __Nvidia NIM__.
+
 ## v0.2.3
 ### Added
 - The scrollbar will not be shown when in selection mode so that multiline text can be selected properly.

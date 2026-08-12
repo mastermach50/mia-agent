@@ -23,6 +23,7 @@ pub enum Providers {
     Cerebras,
     GoogleAIStudio,
     OpenCodeZen,
+    NvidiaNIM,
 }
 
 impl Display for Providers {
@@ -34,6 +35,7 @@ impl Display for Providers {
             Providers::Cerebras => write!(f, "Cerebras.ai"),
             Providers::GoogleAIStudio => write!(f, "Google AI Studio"),
             Providers::OpenCodeZen => write!(f, "OpenCode Zen"),
+            Providers::NvidiaNIM => write!(f, "Nvidia NIM"),
         }
     }
 }
@@ -55,6 +57,7 @@ impl Providers {
             Providers::Cerebras => "cerebras",
             Providers::GoogleAIStudio => "google_ai_studio",
             Providers::OpenCodeZen => "opencode_zen",
+            Providers::NvidiaNIM => "nvidia_nim",
         }
     }
 
@@ -66,6 +69,7 @@ impl Providers {
             Providers::Cerebras => Some("CEREBRAS_API_KEY"),
             Providers::GoogleAIStudio => Some("GOOGLE_AI_STUDIO_API_KEY"),
             Providers::OpenCodeZen => Some("OPENCODE_ZEN_API_KEY"),
+            Providers::NvidiaNIM => Some("NVIDIA_NIM_API_KEY"),
         }
     }
 
@@ -79,6 +83,7 @@ impl Providers {
                 Ok("https://generativelanguage.googleapis.com/v1beta/openai")
             }
             Providers::OpenCodeZen => Ok("https://opencode.ai/zen/v1"),
+            Providers::NvidiaNIM => Ok("https://integrate.api.nvidia.com/v1"),
         }
     }
 }
@@ -250,7 +255,8 @@ async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
         Providers::Cerebras => vec!["high", "medium", "low", "none"],
         Providers::GoogleAIStudio => vec!["high", "medium", "low", "none"], // not verified
         Providers::Local => vec!["max", "high", "medium", "low", "none"],
-        Providers::OpenCodeZen => vec!["xhigh", "high", "medium", "low", "minimal", "none"],
+        Providers::OpenCodeZen => vec!["xhigh", "high", "medium", "low", "minimal", "none"], // not verified
+        Providers::NvidiaNIM => vec!["xhigh", "high", "medium", "low", "minimal", "none"], // not verified
     };
     let current_level = AppConfig::global().model.reasoning.clone();
     let starting_index = levels.iter().position(|i| i == &current_level).unwrap_or(0);
