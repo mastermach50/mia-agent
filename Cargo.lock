@@ -1980,7 +1980,7 @@ dependencies = [
 
 [[package]]
 name = "mia-agent"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
