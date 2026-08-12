@@ -357,11 +357,14 @@ impl AppState {
         self.chat_area_width = chat_area.width as usize;
         self.recalculate_scroll_offset();
 
-        frame.render_stateful_widget(
-            Scrollbar::new(ScrollbarOrientation::VerticalRight).track_symbol(Some("│")),
-            scrollbar_area,
-            &mut self.scrollbar_state,
-        );
+        // Scrollbar
+        if !self.selection_mode {
+            frame.render_stateful_widget(
+                Scrollbar::new(ScrollbarOrientation::VerticalRight).track_symbol(Some("│")),
+                scrollbar_area,
+                &mut self.scrollbar_state,
+            );
+        }
 
         let mut display_lines = Vec::new();
         for rendered_message in self.rendered_messages.iter() {

@@ -37,7 +37,7 @@ pub fn get_help_message() -> String {
         /new        Start a new session
         /model      Show the model information
         /yolo       Toggle YOLO mode
-        /copylast   Copy the last message to the clipboard
+        /copylast   Copy the last assistant message to the clipboard
         /reasoning  Toggle reasoning display
     "}
     .to_string()
@@ -80,16 +80,31 @@ pub fn execute_command(command: &str, state: &mut AppState) -> Result<()> {
             state.re_render_messages = true;
         }
         "/copylast" => {
-            if let Some(last_message) = state.session.history.messages.last() {
-                let mut clipboard = Clipboard::new()?;
-                match clipboard.set_text(last_message.content.as_ref().unwrap()) {
-                    Ok(_) => {
-                        state.send_harness_message("Last message copied to clipboard")?;
+            let mut idx = state.session.history.messages.len() - 1;
+            while idx > 0 {
+                if state.session.history.messages[idx].role == "assistant"
+                    && state.session.history.messages[idx].content.is_some()
+                {
+                    let mut clipboard = Clipboard::new()?;
+                    match clipboard.set_text(
+                        state.session.history.messages[idx]
+                            .content
+                            .as_ref()
+                            .unwrap(),
+                    ) {
+                        Ok(_) => {
+                            state.send_harness_message("Last message copied to clipboard")?;
+                        }
+                        Err(e) => {
+                            state.send_harness_message(&format!(
+                                "Failed to copy to clipboard: {}",
+                                e
+                            ))?;
+                        }
                     }
-                    Err(e) => {
-                        state
-                            .send_harness_message(&format!("Failed to copy to clipboard: {}", e))?;
-                    }
+                    break;
+                } else {
+                    idx -= 1;
                 }
             }
         }

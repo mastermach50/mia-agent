@@ -46,7 +46,7 @@ impl Tool for WebSearch {
                         },
                         "max_results": {
                             "type": "integer",
-                            "description": "Maximum number of results to return (default: 10)",
+                            "description": "Maximum number of results to return (default: 5)",
                             "default": 10
                         }
                     },

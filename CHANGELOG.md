@@ -1,6 +1,10 @@
 ## v0.2.3
+### Added
+- The scrollbar will not be shown when in selection mode so that multiline text can be selected properly.
+
 ### Fixed
 - Fixed token usage counts not being loaded when a session is loaded.
+- Fixed bug where `/copylast` copies the user message if it is the last one instead of the assistant message.
 
 ## v0.2.2
 ### Added

@@ -40,7 +40,8 @@ pub fn render_message(
         }
     };
 
-    let short_message = message.reasoning.is_none()
+    let short_message = (message.reasoning.is_none()
+        || message.reasoning.as_ref().unwrap().is_empty())
         && message.content.is_some()
         && !message.content.as_ref().unwrap().contains("\n")
         && sender.width() + 3 + message.content.as_ref().unwrap().chars().count() < width;
