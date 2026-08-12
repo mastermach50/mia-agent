@@ -4,6 +4,7 @@
 
 # Short Term
 - Add arrows to token counts
+- Optional Local/Custom endpoint api key
 - Cost estimation
 - Add AGENTS.md parsing
 - Implement message history for input box
