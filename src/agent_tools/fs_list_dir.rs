@@ -4,7 +4,7 @@ use indoc::indoc;
 use log::warn;
 use serde_json::json;
 use std::{fs, io};
-use tabled::grid::records::vec_records::Cell;
+use tabled::settings::Style;
 
 use crate::{agent_loop::AgentHandle, agent_tools::Tool};
 
@@ -48,19 +48,18 @@ impl Tool for FSListDir {
             }
         })
     }
-    async fn execute(&self, _handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
         let path = shellexpand::tilde(args["path"].as_str().unwrap_or(".")).to_string();
 
         match fs::read_dir(&path) {
             Ok(entries) => {
-                let mut md = String::new();
-                md.push_str("| Permission | Size | User | Group | Modified | Path |\n");
-                md.push_str("|---|---|---|---|---|---|\n");
+                let mut table = tabled::builder::Builder::new();
+                table.push_record(["Permission", "Size", "User", "Group", "Modified", "Path"]);
                 for entry in entries {
                     match entry {
                         Ok(entry) => {
                             let path = entry.path();
-                            let path_disp = path.display();
+                            let path_disp = path.display().to_string();
 
                             if let Ok(metadata) = entry.metadata() {
                                 let perms = permission_string(&metadata);
@@ -74,23 +73,28 @@ impl Tool for FSListDir {
                                             .to_string()
                                     })
                                     .unwrap_or("-".to_string());
-                                md.push_str(&format!("| {perms} | {size:<10} | {owner} | {group} | {modified} | {path_disp} |\n"));
+                                table.push_record([perms, size, owner, group, modified, path_disp]);
                             } else {
                                 warn!("Failed to read metadata for {path_disp}\n");
-                                md.push_str(&format!("(faild to get metadata) {path_disp}\n"));
+                                table.push_record(["[Failed to get metadata]", "", "", "", "", &path_disp]);
                             }
                         }
                         Err(e) => {
                             warn!("Failed to read directory entry: {:?}", e);
-                            md.push_str("(failed to read entry)\n");
+                            table.push_record(["[Failed to read entry]"]);
                         }
                     }
                 }
 
+                let record_count = table.count_records();
+                let string_table = table.build().with(Style::empty()).to_string();
+
+                handle.tool_output(&string_table, String::new());
+
                 return json!({
                     "status": "success",
-                    "output": md,
-                    "count": md.count_lines() - 2 // 1 line header, 1 line gap
+                    "output": &string_table,
+                    "count": record_count
                 });
             }
             Err(e) => match e.kind() {
