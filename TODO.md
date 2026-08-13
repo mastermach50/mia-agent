@@ -6,7 +6,6 @@
 - Add arrows to token counts
 - Optional Local/Custom endpoint api key
 - Cost estimation
-- Add AGENTS.md parsing
 - Implement message history for input box
 - Re implement single prompt command
 - Improve tui permission asking ui

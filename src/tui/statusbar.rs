@@ -42,10 +42,13 @@ pub fn create_statusbar(state: &mut AppState) -> Block<'static> {
         statusbar = statusbar.title(
             Line::from(vec![
                 "(".yellow(),
+                "↑".blue(),
                 state.prompt_tokens.to_string().blue(),
                 "|".yellow(),
+                "↓".blue(),
                 state.completion_tokens.to_string().blue(),
                 "|".yellow(),
+                "≈".blue(),
                 state.total_tokens.to_string().blue(),
                 ")".yellow(),
             ])

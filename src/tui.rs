@@ -279,7 +279,11 @@ impl AppState {
             self.rendered_permission_request_wrapped_line_count = 0;
             self.input
                 .set_placeholder_text("Executing, <Ctrl-C> to cancel");
-            self.status.clear();
+            if permission_granted {
+                self.status = "Calling Tools".to_string()
+            } else {
+                self.status = "Permission Denied".to_string()
+            }
 
             return Ok(());
         }

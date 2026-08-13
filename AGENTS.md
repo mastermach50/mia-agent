@@ -1,0 +1,2 @@
+Never use the git command, modify git related files or interact with git in any way. You should never control the vcs.
+Make a comment at the top of any AI generated file indicating the agent and model that created that file.

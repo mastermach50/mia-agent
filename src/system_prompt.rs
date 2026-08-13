@@ -34,8 +34,8 @@ pub fn get_system_prompt() -> Result<String> {
     let config_folder = AppConfig::internal().mia_dir.to_string_lossy();
     let model_name = AppConfig::global().model.name.clone();
     system_prompt.push_str(&indoc::formatdoc! {"
-    # Agent
-    Harness: mia-agent
+    # Agent Information
+    Harness: mia-agent (https://github.com/mastermach50/mia-agent)
     Config Folder: {config_folder}
     LLM: {model_name}
     Executable: {executable}
@@ -119,6 +119,13 @@ pub fn get_system_prompt() -> Result<String> {
     {system_memory}
     ", user_memory_file = user_memory_file.to_string_lossy(), system_memory_file = system_memory_file.to_string_lossy()});
     system_prompt.push('\n');
+
+    // Special Instructions
+    if let Ok(agents_md) = fs::read_to_string("AGENTS.md") {
+        system_prompt.push_str("# Agent Instructions (AGENTS.md)\n");
+        system_prompt.push_str(&agents_md);
+        system_prompt.push('\n');
+    }
 
     trace!("Retrieved system prompt");
 

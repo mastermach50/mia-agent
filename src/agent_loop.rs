@@ -4,7 +4,7 @@ use anyhow::Result;
 use log::trace;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
-use tokio::time::sleep;
+use tokio::time::{interval, sleep};
 use tokio_util::sync::CancellationToken;
 
 use crate::agent_tools::ToolRegistry;
@@ -163,12 +163,18 @@ pub async fn run_agent(
     // Make history mutable
     let mut history = history;
 
+    // Do i need this
+    let mut interval = interval(Duration::from_secs(2));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
     // Max number of iterations is configurable
     'agent_iteration: for iterations in 1..=AppConfig::global().agent.max_iterations {
         // Check if the request is cancelled
         if handle.cancel.is_cancelled() {
             break 'agent_iteration;
         }
+
+        interval.tick().await;
 
         // Initially mark the assistant as waiting
         handle.assistant_status_update("Waiting");

@@ -1,6 +1,10 @@
 ## v0.2.4
 ### Added
 - New provider __Nvidia NIM__.
+- Added AGENTS.md parsing support.
+
+### Fixed
+- Fixed status being cleared after requesting permission and getting any response.
 
 ## v0.2.3
 ### Added
