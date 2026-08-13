@@ -3,18 +3,25 @@
 - Is rate limit handling messages appearing correctly.
 
 # Short Term
-- Add arrows to token counts
+## Tools
+- Offset in fs_read_file and fs_write_file
+- Timeout in exec_shell
+- New fs_edit_file tool
+- Max results and include hidden options in fs search type tools
+
+## TUI
+- Implement message history for input box
+- Improve tui permission asking ui
+- Tool call status in tui
+
+## Other
 - Optional Local/Custom endpoint api key
 - Cost estimation
-- Implement message history for input box
 - Re implement single prompt command
-- Improve tui permission asking ui
 - Implement session title generation
 - Make session pruning
-- Tool call status in tui
 - Context compression
 - Ultra light mode
-- Command hilighting
 
 # Long Term
 - Graceful error handling in API calls
