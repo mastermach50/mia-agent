@@ -724,6 +724,28 @@ impl AppState {
                             self.selection_mode = false;
                             execute!(std::io::stdout(), EnableMouseCapture)?;
                         }
+                        KeyCode::PageUp => {
+                            self.auto_scroll = false;
+                            self.scroll_offset = self.scroll_offset.saturating_sub(self.chat_area_height);
+                            self.recalculate_scroll_offset();
+                            consumed = true;
+                        }
+                        KeyCode::PageDown => {
+                            self.scroll_offset = self.scroll_offset.saturating_add(self.chat_area_height);
+                            self.recalculate_scroll_offset();
+                            consumed = true;
+                        }
+                        KeyCode::Home => {
+                            self.auto_scroll = false;
+                            self.scroll_offset = 0;
+                            self.recalculate_scroll_offset();
+                            consumed = true;
+                        }
+                        KeyCode::End => {
+                            self.auto_scroll = true;
+                            self.recalculate_scroll_offset();
+                            consumed = true;
+                        }
                         _ => {}
                     }
 

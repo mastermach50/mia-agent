@@ -2,6 +2,7 @@
 ### Added
 - New provider __Nvidia NIM__.
 - Added AGENTS.md parsing support.
+- Added scroll keybindings (PageUp, PageDown, Home, End).
 
 ### Fixed
 - Fixed status being cleared after requesting permission and getting any response.
