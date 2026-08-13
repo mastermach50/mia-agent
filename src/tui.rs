@@ -679,7 +679,7 @@ impl AppState {
                         KeyCode::Tab => {
                             let full_input = self.input.lines().join("\n");
                             if full_input.starts_with("/") && !full_input.starts_with("//") {
-                                complete_command(&full_input, self);
+                                complete_command(&full_input.trim(), self);
                                 consumed = true;
                             }
                         }
@@ -757,7 +757,7 @@ impl AppState {
                     let full_input = self.input.lines().join("\n");
                     if full_input.starts_with("/") && !full_input.starts_with("//") {
                         // Could be a command
-                        if is_valid_command(&self.input.lines().join("\n")) {
+                        if is_valid_command(&self.input.lines().join("\n").trim()) {
                             // Is an actual command
                             self.input.set_style(Style::default().green().bold());
                         } else {

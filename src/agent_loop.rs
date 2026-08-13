@@ -222,8 +222,10 @@ pub async fn run_agent(
                         handle.harness_msg(format!(
                             "Rate limited, retrying in {wait_time}s ({tries}/10)"
                         ));
-                        handle.assistant_status_update(format!("Waiting out Rate Limit ({wait_time}s {tries}/10)"));
-                        sleep(Duration::from_secs(wait_time)).await;
+                        for to_wait in (1..=wait_time).rev() {
+                            handle.assistant_status_update(format!("Waiting out Rate Limit ({to_wait}s {tries}/10)"));
+                            sleep(Duration::from_secs(1)).await;
+                        }
                         continue 'retry_loop;
                     }
                 },
