@@ -21,7 +21,7 @@ pub fn create_statusbar(state: &mut AppState) -> Block<'static> {
     if !state.status.is_empty() {
         if AppConfig::global().tui.show_spinner && state.permission_request.is_none() {
             statusbar = statusbar
-                .title(Line::from(spinner_frames[state.spinner_idx].cyan()).left_aligned());
+                .title(Line::from(spinner_frames[state.spinner_idx].green()).left_aligned());
             state.spinner_idx = (state.spinner_idx + 1) % spinner_frames.len();
         }
 
@@ -42,13 +42,13 @@ pub fn create_statusbar(state: &mut AppState) -> Block<'static> {
         statusbar = statusbar.title(
             Line::from(vec![
                 "(".yellow(),
-                "↑".blue(),
+                "↑".green(),
                 state.prompt_tokens.to_string().blue(),
                 "|".yellow(),
-                "↓".blue(),
+                "↓".green(),
                 state.completion_tokens.to_string().blue(),
                 "|".yellow(),
-                "≈".blue(),
+                "≈".green(),
                 state.total_tokens.to_string().blue(),
                 ")".yellow(),
             ])
