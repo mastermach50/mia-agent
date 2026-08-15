@@ -24,7 +24,14 @@ mod tui;
 use agent_tools::ToolRegistry;
 use cli::Cli;
 use config::AppConfig;
+<<<<<<< New base: Minor Changes
 use log::info;
+||||||| Common ancestor
+use log::{info, trace};
+// use uuid::Uuid;
+=======
+use log::{info, trace};
+>>>>>>> Current commit: Minor Changes
 
 use crate::{
     sessions::list_sessions,
