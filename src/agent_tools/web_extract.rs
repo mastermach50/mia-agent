@@ -13,7 +13,7 @@ impl Tool for WebExtract {
     fn icon(&self) -> String {
         "📥".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         args["url"].as_str().unwrap_or_default().to_string()
     }
     fn availability(&self) -> Result<(), String> {

@@ -13,7 +13,7 @@ impl Tool for FSSearchDirs {
     fn icon(&self) -> String {
         "🗃️".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         let pattern = args["pattern"]
             .as_str()
             .unwrap_or("(no pattern provided)")

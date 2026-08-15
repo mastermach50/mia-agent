@@ -28,7 +28,7 @@ trait Tool: Send + Sync + std::fmt::Debug {
     // Emoji icon used in the UI
     fn icon(&self) -> String;
     // A short description of what the tool will do, on each tool call
-    fn short(&self, args: serde_json::Value) -> String;
+    fn call_summary(&self, args: serde_json::Value) -> String;
     // Check if the tool is available, if not, get a reason
     fn availability(&self) -> Result<(), String>;
     // OpenAI compatible tool schema
@@ -134,7 +134,7 @@ impl ToolRegistry {
     pub fn tool_short(name: &str, args: &str) -> String {
         if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
             match Self::global().get(name) {
-                Some(tool_entry) => tool_entry.tool.short(args),
+                Some(tool_entry) => tool_entry.tool.call_summary(args),
                 None => {
                     warn!("Unregistered tool short requested");
                     "❓".to_string()

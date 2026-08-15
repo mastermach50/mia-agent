@@ -18,7 +18,7 @@ impl Tool for FSWriteFile {
     fn icon(&self) -> String {
         "✍️".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         let path = args["path"].as_str().unwrap_or_default().to_string();
         let content_len = args["content"].as_str().unwrap_or_default().len();
         format!("{} ({} bytes)", path, content_len)

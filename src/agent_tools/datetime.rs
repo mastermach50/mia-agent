@@ -14,7 +14,7 @@ impl Tool for DateTime {
     fn icon(&self) -> String {
         "📅".to_string()
     }
-    fn short(&self, _args: serde_json::Value) -> String {
+    fn call_summary(&self, _args: serde_json::Value) -> String {
         Local::now().to_rfc2822()
     }
     fn availability(&self) -> Result<(), String> {
@@ -23,7 +23,7 @@ impl Tool for DateTime {
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
         Get the current local date and time in RFC 2822 format.
-        Use this tool whenever accurate date or time is required.
+        Use this tool whenever precise date or time is required.
         "};
         json!({
             "type": "function",

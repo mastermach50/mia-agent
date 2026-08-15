@@ -13,7 +13,7 @@ impl Tool for WebSearch {
     fn icon(&self) -> String {
         "🌐".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         let query = args["query"].as_str().unwrap_or_default().to_string();
         let max_results = args["max_results"].as_u64().unwrap_or(10);
         format!("{query} (top: {max_results})")

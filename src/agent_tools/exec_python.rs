@@ -22,7 +22,7 @@ impl Tool for ExecPython {
     fn icon(&self) -> String {
         "🐍".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         let lines = args["code"].as_str().unwrap_or_default().lines().count();
         format!("{lines} lines")
     }

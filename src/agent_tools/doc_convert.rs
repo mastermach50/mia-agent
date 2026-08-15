@@ -13,7 +13,7 @@ impl Tool for DocConvert {
     fn icon(&self) -> String {
         "📑".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         let src = args["input_path"].as_str().unwrap_or_default().to_string();
         let dest = args["output_path"].as_str().unwrap_or_default().to_string();
         format!("{src} -> {dest}")

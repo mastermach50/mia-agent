@@ -14,7 +14,7 @@ impl Tool for Memory {
     fn icon(&self) -> String {
         "🧠".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         let memory_type = args["memory_type"].as_str().unwrap_or_default();
         let operation = args["operation"].as_str().unwrap_or_default();
         let content = args["content"].as_str().unwrap_or_default();

@@ -16,7 +16,7 @@ impl Tool for DocCreate {
     fn icon(&self) -> String {
         "📝".to_string()
     }
-    fn short(&self, args: serde_json::Value) -> String {
+    fn call_summary(&self, args: serde_json::Value) -> String {
         let input_format = args["input_format"]
             .as_str()
             .unwrap_or_default()
