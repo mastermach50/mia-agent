@@ -26,7 +26,6 @@ use agent_tools::ToolRegistry;
 use cli::Cli;
 use config::AppConfig;
 use log::{info, trace};
-// use uuid::Uuid;
 
 use crate::{
     // api::History,

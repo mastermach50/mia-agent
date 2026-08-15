@@ -1,9 +1,8 @@
 <img width="2000" height="500" alt="Banner" src="./images/Banner.png" />
 
-
-
 # Mia Agent
 ![Build Status](https://github.com/mastermach50/mia-agent/actions/workflows/draft-release.yml/badge.svg)
+[![repostats](https://repostats.app/badge/mastermach50/mia-agent.svg?metric=loc)](https://repostats.app/r/mastermach50/mia-agent)
 
 Mia is a coding and personal assistant AI agent designed to be unobtrusive, configurable and easy to use. Mia grows _with_ you.
 
