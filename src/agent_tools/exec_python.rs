@@ -28,7 +28,13 @@ impl Tool for ExecPython {
     fn icon(&self) -> &'static str {
         ""
     }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn call_summary(&self, args: &Value) -> String {
+||||||| Common ancestor
+    fn short(&self, args: serde_json::Value) -> String {
+=======
+    fn call_summary(&self, args: serde_json::Value) -> String {
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
         let lines = args["code"].as_str().unwrap_or_default().lines().count();
         format!("{lines} lines")
     }

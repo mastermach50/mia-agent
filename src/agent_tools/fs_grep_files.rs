@@ -1,0 +1,96 @@
+use indoc::indoc;
+use serde_json::json;
+
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
+
+#[derive(Debug)]
+pub struct FSGrepFiles;
+#[async_trait::async_trait]
+impl Tool for FSGrepFiles {
+    fn name(&self) -> String {
+        "fs_grep_files".to_string()
+    }
+    fn icon(&self) -> String {
+        "🔍".to_string()
+    }
+    fn call_summary(&self, args: serde_json::Value) -> String {
+        let pattern = args["pattern"]
+            .as_str()
+            .unwrap_or("(no pattern)")
+            .to_string();
+        let path = args["path"].as_str().unwrap_or(".").to_string();
+        let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
+        format!("{} -> {} (depth: {})", pattern, path, max_depth)
+    }
+    fn availability(&self) -> Result<(), String> {
+        which::which("rg")
+            .map(|_| ())
+            .map_err(|_| "rg not found".to_string())
+    }
+    fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Search file contents using ripgrep (rg).
+        Applies smart-case matching, respects .gitignore, and skips hidden files by default.
+        Use to find where a string, function, symbol, or pattern appears across files.
+        Returns matching lines with file paths and line numbers.
+        "};
+        json!({
+            "type": "function",
+            "function": {
+                "name": &self.name(),
+                "description": description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": {
+                            "type": "string",
+                            "description": "The pattern to search for."
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "The path to search in (relative to current directory, defaults to . )"
+                        },
+                        "max_depth": {
+                            "type": "integer",
+                            "description": "Maximum depth on recurse into (default: 5)"
+                        }
+                    },
+                    "required": ["pattern"]
+                }
+            }
+        })
+    }
+    async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
+        let path = shellexpand::tilde(args["path"].as_str().unwrap_or(".")).to_string();
+        let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
+        if let Some(pattern) = args["pattern"].as_str() {
+            let output = std::process::Command::new("rg")
+                .args([
+                    "--color=never",
+                    &format!("--max-depth={max_depth}"),
+                    "--smart-case",
+                ])
+                .arg(pattern)
+                .arg(path)
+                .output()
+                .expect("Failed to execute rg");
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            handle.tool_output(&stdout, &stderr);
+
+            json!({
+                "status": if output.status.success() { "success" } else { "error" },
+                "exit_code": output.status.code().unwrap(),
+                "stdout": stdout,
+                "stderr": stderr
+            })
+        } else {
+            json!({
+                "status": "error",
+                "message": "pattern argument not found"
+            })
+        }
+    }
+}

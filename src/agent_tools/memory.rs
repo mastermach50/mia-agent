@@ -17,7 +17,13 @@ impl Tool for Memory {
     fn icon(&self) -> &'static str {
         ""
     }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn call_summary(&self, args: &Value) -> String {
+||||||| Common ancestor
+    fn short(&self, args: serde_json::Value) -> String {
+=======
+    fn call_summary(&self, args: serde_json::Value) -> String {
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
         let memory_type = args["memory_type"].as_str().unwrap_or_default();
         let operation = args["operation"].as_str().unwrap_or_default();
         let content = args["content"].as_str().unwrap_or_default();

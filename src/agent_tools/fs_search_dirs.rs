@@ -18,10 +18,30 @@ impl Tool for FSSearchDirs {
     fn icon(&self) -> &'static str {
         ""
     }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn call_summary(&self, args: &Value) -> String {
         let pattern = args["pattern"].as_str().unwrap_or("(no pattern)");
         let path = args["path"].as_str().unwrap_or(".");
         format!("{pattern} -> {path}")
+||||||| Common ancestor
+    fn short(&self, args: serde_json::Value) -> String {
+        let pattern = args["pattern"]
+            .as_str()
+            .unwrap_or("(no pattern provided)")
+            .to_string();
+        let path = args["path"].as_str().unwrap_or(".").to_string();
+        let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
+        format!("{} -> {} (depth: {})", pattern, path, max_depth)
+=======
+    fn call_summary(&self, args: serde_json::Value) -> String {
+        let pattern = args["pattern"]
+            .as_str()
+            .unwrap_or("(no pattern provided)")
+            .to_string();
+        let path = args["path"].as_str().unwrap_or(".").to_string();
+        let max_depth = args["max_depth"].as_u64().unwrap_or(5).to_string();
+        format!("{} -> {} (depth: {})", pattern, path, max_depth)
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
     }
     fn schema(&self) -> Value {
         json!({

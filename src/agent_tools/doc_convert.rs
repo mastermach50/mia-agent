@@ -19,9 +19,19 @@ impl Tool for DocConvert {
     fn icon(&self) -> &'static str {
         ""
     }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn call_summary(&self, args: &Value) -> String {
         let src = args["input_path"].as_str().unwrap_or_default();
         let dest = args["output_path"].as_str().unwrap_or_default();
+||||||| Common ancestor
+    fn short(&self, args: serde_json::Value) -> String {
+        let src = args["input_path"].as_str().unwrap_or_default().to_string();
+        let dest = args["output_path"].as_str().unwrap_or_default().to_string();
+=======
+    fn call_summary(&self, args: serde_json::Value) -> String {
+        let src = args["input_path"].as_str().unwrap_or_default().to_string();
+        let dest = args["output_path"].as_str().unwrap_or_default().to_string();
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
         format!("{src} -> {dest}")
     }
     fn schema(&self) -> Value {

@@ -61,6 +61,7 @@ pub enum PermissionClass {
 ///
 /// This must be implemented by all tools
 #[async_trait::async_trait]
+<<<<<<< New base: Rename tool::short to tool::call_summary
 pub trait Tool: Send + Sync + std::fmt::Debug {
     // --- Metadata ---
     /// Name of the tools.
@@ -70,6 +71,29 @@ pub trait Tool: Send + Sync + std::fmt::Debug {
     /// Short description of what this tool call does.
     fn call_summary(&self, args: &serde_json::Value) -> String;
     /// OpenAI function schema.
+||||||| Common ancestor
+trait Tool: Send + Sync + std::fmt::Debug {
+    // Name of the tool
+    fn name(&self) -> String;
+    // Emoji icon used in the UI
+    fn icon(&self) -> String;
+    // A short description of what the tool will do, on each tool call
+    fn short(&self, args: serde_json::Value) -> String;
+    // Check if the tool is available, if not, get a reason
+    fn availability(&self) -> Result<(), String>;
+    // OpenAI compatible tool schema
+=======
+trait Tool: Send + Sync + std::fmt::Debug {
+    // Name of the tool
+    fn name(&self) -> String;
+    // Emoji icon used in the UI
+    fn icon(&self) -> String;
+    // A short description of what the tool will do, on each tool call
+    fn call_summary(&self, args: serde_json::Value) -> String;
+    // Check if the tool is available, if not, get a reason
+    fn availability(&self) -> Result<(), String>;
+    // OpenAI compatible tool schema
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
     fn schema(&self) -> serde_json::Value;
     /// Permission class of the tool.
     fn permission(&self) -> PermissionClass;
@@ -224,6 +248,7 @@ impl ToolRegistry {
 
     /// Short info about what arguments went into a tool call (UI).
     pub fn tool_short(name: &str, args: &str) -> String {
+<<<<<<< New base: Rename tool::short to tool::call_summary
         let Ok(args) = Self::deserialize_tool_arguments(args) else {
             warn!("Invalid tool arguments for {name}");
             return "❓".to_string();
@@ -233,6 +258,23 @@ impl ToolRegistry {
             None => {
                 warn!("Unregistered tool short requested: {name}");
                 "❓".to_string()
+||||||| Common ancestor
+        if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
+            match Self::global().get(name) {
+                Some(tool_entry) => tool_entry.tool.short(args),
+                None => {
+                    warn!("Unregistered tool short requested");
+                    "❓".to_string()
+                }
+=======
+        if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
+            match Self::global().get(name) {
+                Some(tool_entry) => tool_entry.tool.call_summary(args),
+                None => {
+                    warn!("Unregistered tool short requested");
+                    "❓".to_string()
+                }
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
             }
         }
     }

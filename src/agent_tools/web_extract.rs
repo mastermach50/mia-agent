@@ -16,7 +16,13 @@ impl Tool for WebExtract {
     fn icon(&self) -> &'static str {
         ""
     }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn call_summary(&self, args: &Value) -> String {
+||||||| Common ancestor
+    fn short(&self, args: serde_json::Value) -> String {
+=======
+    fn call_summary(&self, args: serde_json::Value) -> String {
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
         args["url"].as_str().unwrap_or_default().to_string()
     }
     fn schema(&self) -> Value {

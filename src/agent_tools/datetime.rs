@@ -16,10 +16,38 @@ impl Tool for DateTime {
     fn icon(&self) -> &'static str {
         ""
     }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn call_summary(&self, _args: &Value) -> String {
         "datetime".to_string()
+||||||| Common ancestor
+    fn short(&self, _args: serde_json::Value) -> String {
+        Local::now().to_rfc2822()
     }
+    fn availability(&self) -> Result<(), String> {
+        Ok(())
+=======
+    fn call_summary(&self, _args: serde_json::Value) -> String {
+        Local::now().to_rfc2822()
+    }
+    fn availability(&self) -> Result<(), String> {
+        Ok(())
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
+    }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn schema(&self) -> Value {
+||||||| Common ancestor
+    fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Get the current local date and time in RFC 2822 format.
+        Use this tool whenever accurate date or time is required.
+        "};
+=======
+    fn schema(&self) -> serde_json::Value {
+        let description = indoc! {"
+        Get the current local date and time in RFC 2822 format.
+        Use this tool whenever precise date or time is required.
+        "};
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
         json!({
             "type": "function",
             "function": {

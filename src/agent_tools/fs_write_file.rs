@@ -21,10 +21,22 @@ impl Tool for FSWriteFile {
     fn icon(&self) -> &'static str {
         ""
     }
+<<<<<<< New base: Rename tool::short to tool::call_summary
     fn call_summary(&self, args: &Value) -> String {
         let path = args["path"].as_str().unwrap_or_default();
         let len = args["content"].as_str().unwrap_or_default().len();
         format!("{path} ({len} bytes)")
+||||||| Common ancestor
+    fn short(&self, args: serde_json::Value) -> String {
+        let path = args["path"].as_str().unwrap_or_default().to_string();
+        let content_len = args["content"].as_str().unwrap_or_default().len();
+        format!("{} ({} bytes)", path, content_len)
+=======
+    fn call_summary(&self, args: serde_json::Value) -> String {
+        let path = args["path"].as_str().unwrap_or_default().to_string();
+        let content_len = args["content"].as_str().unwrap_or_default().len();
+        format!("{} ({} bytes)", path, content_len)
+>>>>>>> Current commit: Rename tool::short to tool::call_summary
     }
     fn schema(&self) -> Value {
         json!({
