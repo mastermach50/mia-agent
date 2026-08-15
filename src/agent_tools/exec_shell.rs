@@ -1,5 +1,6 @@
 use indoc::indoc;
 use serde_json::json;
+use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 
@@ -33,10 +34,9 @@ impl Tool for ExecShell {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc! {"
-        Execute an arbitrary commands in bash (Unix) or PowerShell (Windows) and return stdout, stderr, and exit code.
-        Use this to do any task that is not possible using other existing tools.
-        Commands run in the current working directory.
-        For any filesystem operations use the fs_* tools, use this only if no other tools can do the job.
+        Execute bash (Unix) or PowerShell (Windows) commands and return stdout, stderr, and exit code.
+        The shell used is OS dependent.
+        Use this tool to do tasks that do can't be done using other tools.
         "};
 
         json!({
@@ -50,6 +50,10 @@ impl Tool for ExecShell {
                         "command": {
                             "type": "string",
                             "description": "The command to run."
+                        },
+                        "working_dir": {
+                            "type": "string",
+                            "description": "The working directory to run the command in. Defaults to current directory."
                         }
                     },
                     "required": [ "command" ]
@@ -58,49 +62,69 @@ impl Tool for ExecShell {
         })
     }
     async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
-        let command = args["command"]
-            .as_str()
-            .expect("Command argument not found");
-
-        if handle.ask_permission("Execute?", command).await {
-            #[cfg(unix)]
-            let mut child_process = Command::new("bash");
-            #[cfg(unix)]
-            child_process.arg("-c").arg(command);
-
-            #[cfg(windows)]
-            let mut child_process = Command::new("powershell");
-            #[cfg(windows)]
-            child_process.arg("-command").arg(command);
-
-            // Configure the process to inherit the current terminal's stdout/stderr
-            // AND pipe them if you still need to capture the text for the JSON return.
-            let mut child = child_process
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .expect("Failed to start command");
-
-            let (stdout_captured, stderr_captured) =
-                stdio_capture_and_send(&mut child, |stdout, stderr| {
-                    handle.partial_tool_output(stdout, stderr)
+        let cmd = match args["command"].as_str() {
+            Some(cmd) => cmd,
+            None => {
+                return json!({
+                    "status": "error",
+                    "message": "command argument not found"
                 });
+            }
+        };
 
-            let status = child.wait().expect("Failed to wait on child process");
+        let working_dir = match args["working_dir"].as_str() {
+            Some(dir) => PathBuf::from(shellexpand::tilde(dir).to_string()),
+            None => {
+                if let Ok(cwd) = std::env::current_dir() {
+                    cwd
+                } else {
+                    return json!({
+                        "status": "error",
+                        "message": "Failed to get current working directory"
+                    });
+                }
+            }
+        };
 
-            handle.tool_output(&stdout_captured, &stderr_captured);
-
-            json!({
-                "status": if status.success() { "success" } else { "error" },
-                "exit_code": status.code().unwrap_or(-1), // handle potential None if signaled on Unix
-                "stdout": stdout_captured,
-                "stderr": stderr_captured
-            })
-        } else {
-            json!({
+        if !handle.ask_permission("Execute?", cmd).await {
+            return json!({
                 "status": "error",
                 "message": "User declined to execute command"
-            })
+            });
         }
+
+        #[cfg(unix)]
+        let mut shell = Command::new("bash");
+        #[cfg(unix)]
+        shell.arg("-c").arg(cmd);
+
+        #[cfg(windows)]
+        let mut shell = Command::new("powershell");
+        #[cfg(windows)]
+        shell.arg("-command").arg(cmd);
+
+        shell.current_dir(working_dir);
+
+        let mut child = shell
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to start command");
+
+        let (stdout_captured, stderr_captured) =
+            stdio_capture_and_send(&mut child, |stdout, stderr| {
+                handle.partial_tool_output(stdout, stderr)
+            });
+
+        let status = child.wait().expect("Failed to wait on child process");
+
+        handle.tool_output(&stdout_captured, &stderr_captured);
+
+        json!({
+            "status": if status.success() { "success" } else { "error" },
+            "exit_code": status.code().unwrap_or(-1),
+            "stdout": stdout_captured,
+            "stderr": stderr_captured
+        })
     }
 }

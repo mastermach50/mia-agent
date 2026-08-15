@@ -5,9 +5,10 @@
 # Short Term
 ## Tools
 - Offset in fs_read_file and fs_write_file
-- Timeout in exec_shell
+- Timeout in exec_shell and exec_python
 - New fs_edit_file tool
 - Max results and include hidden options in fs search type tools
+- Stateful shell
 
 ## TUI
 - Implement message history for input box

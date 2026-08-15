@@ -1,4 +1,5 @@
 use serde_json::json;
+use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 
@@ -33,8 +34,8 @@ impl Tool for ExecPython {
     }
     fn schema(&self) -> serde_json::Value {
         let description = indoc::indoc! {"
-        Executes Python 3 code snippet and returns stdout, stderr, and exit code.
-        Use this for tasks that require some scripting or deterministic output.
+        Execute Python 3 code snippet and get the stdout, stderr, and exit code.
+        Use this for tasks that require some scripting or deterministic output such as math.
         Runs in a fresh interpreter — no state persists between calls.
         "};
         json!({
@@ -48,6 +49,10 @@ impl Tool for ExecPython {
                         "code": {
                             "type": "string",
                             "description": "The code to run."
+                        },
+                        "working_dir": {
+                            "type": "string",
+                            "description": "The working directory. Defaults to current directory"
                         }
                     },
                     "required": [ "code" ]
@@ -57,43 +62,66 @@ impl Tool for ExecPython {
     }
     // TODO refactor this and the shell code
     async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
-        let code = args["code"].as_str().expect("Code argument not found");
+        let code = match args["code"].as_str() {
+            Some(code) => code,
+            None => {
+                return json!({
+                    "status": "error",
+                    "message": "code argument not found"
+                });
+            }
+        };
+
+        let working_dir = match args["working_dir"].as_str() {
+            Some(dir) => PathBuf::from(shellexpand::tilde(dir).to_string()),
+            None => {
+                if let Ok(cwd) = std::env::current_dir() {
+                    cwd
+                } else {
+                    return json!({
+                        "status": "error",
+                        "message": "Failed to get current working directory"
+                    });
+                }
+            }
+        };
 
         let colored_code = highlight_text("something.py", code);
 
-        if handle
+        if !handle
             .ask_permission("Execute Python?", &colored_code)
             .await
         {
-            let mut child_process = Command::new(PYTHON_CMD);
-            child_process.arg("-c").arg(code);
-
-            let mut child = child_process
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .expect("Failed to start command");
-
-            let (stdout_captured, stderr_captured) =
-                stdio_capture_and_send(&mut child, |stdout, stderr| {
-                    handle.partial_tool_output(stdout, stderr)
-                });
-
-            let status = child.wait().expect("Failed to wait on child process");
-
-            handle.tool_output(&stdout_captured, &stderr_captured);
-
-            json!({
-                "status": if status.success() { "success" } else { "error" },
-                "command_status_code": status.code().unwrap_or(-1),
-                "stdout": stdout_captured,
-                "stderr": stderr_captured
-            })
-        } else {
-            json!({
+            return json!({
                 "status": "error",
                 "message": "User declined to execute Python code"
-            })
+            });
         }
+
+        let mut python = Command::new(PYTHON_CMD);
+        python.current_dir(working_dir);
+        python.arg("-c").arg(code);
+
+        let mut child = python
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to start command");
+
+        let (stdout_captured, stderr_captured) =
+            stdio_capture_and_send(&mut child, |stdout, stderr| {
+                handle.partial_tool_output(stdout, stderr)
+            });
+
+        let status = child.wait().expect("Failed to wait on child process");
+
+        handle.tool_output(&stdout_captured, &stderr_captured);
+
+        json!({
+            "status": if status.success() { "success" } else { "error" },
+            "command_status_code": status.code().unwrap_or(-1),
+            "stdout": stdout_captured,
+            "stderr": stderr_captured
+        })
     }
 }
