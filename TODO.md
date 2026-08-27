@@ -16,6 +16,7 @@
 - Tool call status in tui
 
 ## Other
+- Provider registry similar to tool registry
 - Optional Local/Custom endpoint api key
 - Cost estimation
 - Re implement single prompt command
