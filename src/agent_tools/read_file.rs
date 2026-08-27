@@ -127,6 +127,7 @@ async fn extract_with_xberg(path: String) -> serde_json::Value {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

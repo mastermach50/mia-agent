@@ -28,6 +28,7 @@
 - setup.rs is very fragile, needs to be reimplemented after provider registry
 
 ## Features
+- Provider registry similar to tool registry
 - Optional Local/Custom endpoint api key
 - Cost estimation
 - Re implement single prompt command
