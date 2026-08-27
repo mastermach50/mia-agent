@@ -31,13 +31,19 @@
       craneLib = (crane.mkLib pkgs).overrideToolchain fenixComplete.toolchain;
     in
     {
-      devShells."${system}".mia-dev= pkgs.mkShell {
+      devShells."${system}".default= pkgs.mkShell {
         name = "mia-shell";
 
         nativeBuildInputs = with pkgs; [
           fenixComplete.toolchain
           fenixComplete.rust-analyzer
           lldb
+          pkg-config
+          cmake
+        ];
+
+        buildInputs = with pkgs; [
+          libheif
         ];
       };
 

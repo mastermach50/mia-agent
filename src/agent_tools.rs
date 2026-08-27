@@ -12,10 +12,10 @@ mod exec_python;
 mod exec_shell;
 mod fs_grep_files;
 mod fs_list_dir;
-mod fs_read_file;
 mod fs_search_dirs;
 mod fs_write_file;
 mod memory;
+mod read_file;
 mod web_extract;
 mod web_search;
 
@@ -60,10 +60,10 @@ impl ToolRegistry {
         Self::register(&mut registry, exec_shell::ExecShell);
         Self::register(&mut registry, fs_grep_files::FSGrepFiles);
         Self::register(&mut registry, fs_list_dir::FSListDir);
-        Self::register(&mut registry, fs_read_file::FSReadFile);
         Self::register(&mut registry, fs_search_dirs::FSSearchDirs);
         Self::register(&mut registry, fs_write_file::FSWriteFile);
         Self::register(&mut registry, memory::Memory);
+        Self::register(&mut registry, read_file::ReadFile);
         Self::register(&mut registry, web_extract::WebExtract);
         Self::register(&mut registry, web_search::WebSearch);
 

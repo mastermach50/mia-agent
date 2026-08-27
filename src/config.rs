@@ -62,19 +62,20 @@ pub struct TuiConfig {
     pub show_spinner: bool,
     pub render_markdown: bool,
     pub show_tool_output: bool,
+    pub use_nerdfont: bool,
 }
 
 impl Default for TuiConfig {
     fn default() -> Self {
         Self {
             username: "user".to_string(),
-            // history_file: ".mia_tui_history".to_string(),
             max_history: 1000,
             show_reasoning: true,
             streaming: true,
             show_spinner: true,
             render_markdown: true,
             show_tool_output: true,
+            use_nerdfont: false,
         }
     }
 }
