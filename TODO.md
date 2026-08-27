@@ -11,7 +11,7 @@
 ## TUI
 =======
 ## Tools
-- Offset in fs_read_file and fs_write_file
+- Truncation and offset in read_file and fs_write_file
 - Timeout in exec_shell and exec_python
 - New fs_edit_file tool
 - Max results and include hidden options in fs search type tools

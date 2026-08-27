@@ -16,13 +16,17 @@ mod exec_shell;
 mod fs_edit_file;
 mod fs_file_ops;
 mod fs_list_dir;
-mod fs_read_file;
 mod fs_search_dirs;
 mod fs_search_files;
 mod fs_tree;
 mod fs_write_file;
 mod memory;
+<<<<<<< New base: Added to read_file tool to replace the fs_read_file tools
 mod notify;
+||||||| Common ancestor
+=======
+mod read_file;
+>>>>>>> Current commit: Added to read_file tool to replace the fs_read_file tools
 mod web_extract;
 mod web_search;
 
@@ -132,8 +136,28 @@ impl ToolRegistry {
     pub fn init() {
         let mut registry = HashMap::new();
         Self::register(&mut registry, datetime::DateTime);
+<<<<<<< New base: Added to read_file tool to replace the fs_read_file tools
         Self::register(&mut registry, fs_read_file::FSReadFile);
+||||||| Common ancestor
+        Self::register(&mut registry, doc_convert::DocConvert);
+        Self::register(&mut registry, doc_create::DocCreate);
+        Self::register(&mut registry, exec_python::ExecPython);
+        Self::register(&mut registry, exec_shell::ExecShell);
+        Self::register(&mut registry, fs_grep_files::FSGrepFiles);
+        Self::register(&mut registry, fs_list_dir::FSListDir);
+        Self::register(&mut registry, fs_read_file::FSReadFile);
+        Self::register(&mut registry, fs_search_dirs::FSSearchDirs);
+=======
+        Self::register(&mut registry, doc_convert::DocConvert);
+        Self::register(&mut registry, doc_create::DocCreate);
+        Self::register(&mut registry, exec_python::ExecPython);
+        Self::register(&mut registry, exec_shell::ExecShell);
+        Self::register(&mut registry, fs_grep_files::FSGrepFiles);
+        Self::register(&mut registry, fs_list_dir::FSListDir);
+        Self::register(&mut registry, fs_search_dirs::FSSearchDirs);
+>>>>>>> Current commit: Added to read_file tool to replace the fs_read_file tools
         Self::register(&mut registry, fs_write_file::FSWriteFile);
+<<<<<<< New base: Added to read_file tool to replace the fs_read_file tools
         Self::register(&mut registry, fs_search_files::FSSearchFiles);
         Self::register(&mut registry, fs_search_dirs::FSSearchDirs);
         Self::register(&mut registry, fs_tree::FSTree);
@@ -145,6 +169,14 @@ impl ToolRegistry {
         Self::register(&mut registry, notify::Notify);
         Self::register(&mut registry, doc_create::DocCreate);
         Self::register(&mut registry, doc_convert::DocConvert);
+||||||| Common ancestor
+        Self::register(&mut registry, memory::Memory);
+        Self::register(&mut registry, web_extract::WebExtract);
+=======
+        Self::register(&mut registry, memory::Memory);
+        Self::register(&mut registry, read_file::ReadFile);
+        Self::register(&mut registry, web_extract::WebExtract);
+>>>>>>> Current commit: Added to read_file tool to replace the fs_read_file tools
         Self::register(&mut registry, web_search::WebSearch);
         Self::register(&mut registry, web_extract::WebExtract);
         Self::register(&mut registry, memory::Memory);

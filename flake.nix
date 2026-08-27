@@ -38,12 +38,22 @@
           fenixComplete.toolchain
           fenixComplete.rust-analyzer
           lldb
+<<<<<<< New base: Added to read_file tool to replace the fs_read_file tools
           pkg-config
           # cmake
         ];
 
         buildInputs = with pkgs; [
           libheif
+||||||| Common ancestor
+=======
+          pkg-config
+          cmake
+        ];
+
+        buildInputs = with pkgs; [
+          libheif
+>>>>>>> Current commit: Added to read_file tool to replace the fs_read_file tools
         ];
       };
 
