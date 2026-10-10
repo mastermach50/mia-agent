@@ -48,7 +48,7 @@
 ||||||| Common ancestor
 =======
           pkg-config
-          cmake
+          # cmake
         ];
 
         buildInputs = with pkgs; [

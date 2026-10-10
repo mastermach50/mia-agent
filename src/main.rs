@@ -24,6 +24,7 @@ mod tui;
 use agent_tools::ToolRegistry;
 use cli::Cli;
 use config::AppConfig;
+<<<<<<< New base: Remove legacy tui, add debugchat
 <<<<<<< New base: Minor Changes
 use log::info;
 ||||||| Common ancestor
@@ -32,6 +33,11 @@ use log::{info, trace};
 =======
 use log::{info, trace};
 >>>>>>> Current commit: Minor Changes
+||||||| Common ancestor
+use log::{info, trace};
+=======
+use log::info;
+>>>>>>> Current commit: Remove legacy tui, add debugchat
 
 use crate::{
     sessions::list_sessions,

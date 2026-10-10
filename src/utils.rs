@@ -1,4 +1,5 @@
 use anyhow::Context;
+<<<<<<< New base: Remove legacy tui, add debugchat
 // use log::trace;
 // use std::{
 //     // cmp::max,
@@ -81,6 +82,167 @@ use anyhow::Context;
 
 //     input == "y" || input == "yes" || input.chars().all(|c| c == 'y')
 // }
+||||||| Common ancestor
+use log::trace;
+use std::{
+    cmp::max,
+    io::{Read, Write, stdout},
+    path::PathBuf,
+    process::Child,
+    sync::Mutex,
+    time::Duration,
+};
+use syntect::{
+    easy::HighlightLines,
+    highlighting::Style,
+    highlighting::ThemeSet,
+    parsing::SyntaxSet,
+    util::{LinesWithEndings, as_24_bit_terminal_escaped},
+};
+use termimad::crossterm::style::{ResetColor, Stylize};
+use textwrap::{self, core::display_width, termwidth, wrap};
+use tokio::task::JoinHandle;
+
+pub fn generate_think_lines(thinking: &str) -> String {
+    let left_gap = "> ";
+    let width = termwidth() - 2;
+    left_gap.to_string() + &wrap(thinking, width).join(&("\n".to_owned() + left_gap))
+}
+
+pub fn stdio_ask_permission(prompt: impl ToString, content: &str) -> bool {
+    let term_width = termwidth();
+    let max_content_width = term_width - 4;
+
+    let wrapped = wrap(content, max_content_width);
+
+    // Prompt's width after wrapping
+    let prompt_width = if display_width(&prompt.to_string()) > max_content_width {
+        max_content_width
+    } else {
+        display_width(&prompt.to_string())
+    };
+
+    // Content's width after wrapping
+    let content_width = wrapped
+        .iter()
+        .map(|l| display_width(l))
+        .max()
+        .unwrap_or(max_content_width);
+
+    // The larger of prompt_width or content_width will be the inner width of the box (excluding padding)
+    let inner_width = max(prompt_width, content_width);
+
+    for line in wrap(&prompt.to_string(), max_content_width) {
+        println!(
+            "╭─{}{}─╮",
+            line,
+            "─".repeat(inner_width - display_width(&line))
+        );
+    }
+    for line in wrapped {
+        let line_width = display_width(&line);
+        println!("│ {}{} │", line, " ".repeat(inner_width - line_width));
+    }
+    for line in wrap(&prompt.to_string(), max_content_width) {
+        println!(
+            "├─{}{}─╯",
+            line,
+            "─".repeat(inner_width - display_width(&line))
+        );
+    }
+    print!("╰─[y/n]: ");
+    stdout().flush().unwrap();
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+    input = input.trim().to_string().to_lowercase();
+
+    input == "y" || input == "yes" || input.chars().all(|c| c == 'y')
+}
+=======
+// use log::trace;
+use std::{
+    // cmp::max,
+    io::{
+        Read,
+        // Write, stdout
+    },
+    path::PathBuf,
+    process::Child,
+    // sync::Mutex,
+    // time::Duration,
+};
+use syntect::{
+    easy::HighlightLines,
+    highlighting::Style,
+    highlighting::ThemeSet,
+    parsing::SyntaxSet,
+    util::{LinesWithEndings, as_24_bit_terminal_escaped},
+};
+use termimad::crossterm::style::{
+    ResetColor,
+    // Stylize
+};
+// use textwrap::{self, core::display_width, termwidth, wrap};
+// use tokio::task::JoinHandle;
+
+// pub fn generate_think_lines(thinking: &str) -> String {
+//     let left_gap = "> ";
+//     let width = termwidth() - 2;
+//     left_gap.to_string() + &wrap(thinking, width).join(&("\n".to_owned() + left_gap))
+// }
+
+// pub fn stdio_ask_permission(prompt: impl ToString, content: &str) -> bool {
+//     let term_width = termwidth();
+//     let max_content_width = term_width - 4;
+
+//     let wrapped = wrap(content, max_content_width);
+
+//     // Prompt's width after wrapping
+//     let prompt_width = if display_width(&prompt.to_string()) > max_content_width {
+//         max_content_width
+//     } else {
+//         display_width(&prompt.to_string())
+//     };
+
+//     // Content's width after wrapping
+//     let content_width = wrapped
+//         .iter()
+//         .map(|l| display_width(l))
+//         .max()
+//         .unwrap_or(max_content_width);
+
+//     // The larger of prompt_width or content_width will be the inner width of the box (excluding padding)
+//     let inner_width = max(prompt_width, content_width);
+
+//     for line in wrap(&prompt.to_string(), max_content_width) {
+//         println!(
+//             "╭─{}{}─╮",
+//             line,
+//             "─".repeat(inner_width - display_width(&line))
+//         );
+//     }
+//     for line in wrapped {
+//         let line_width = display_width(&line);
+//         println!("│ {}{} │", line, " ".repeat(inner_width - line_width));
+//     }
+//     for line in wrap(&prompt.to_string(), max_content_width) {
+//         println!(
+//             "├─{}{}─╯",
+//             line,
+//             "─".repeat(inner_width - display_width(&line))
+//         );
+//     }
+//     print!("╰─[y/n]: ");
+//     stdout().flush().unwrap();
+
+//     let mut input = String::new();
+//     std::io::stdin().read_line(&mut input).unwrap();
+//     input = input.trim().to_string().to_lowercase();
+
+//     input == "y" || input == "yes" || input.chars().all(|c| c == 'y')
+// }
+>>>>>>> Current commit: Remove legacy tui, add debugchat
 
 /// Returns colored text based on the file extension from the path
 // pub fn highlight_text(filename: &str, text: &str) -> String {
