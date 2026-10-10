@@ -61,12 +61,6 @@ impl Session {
             history: History::new(),
         };
 
-        // For internal testing purposes only, length of session id can only be influenced by
-        // platform and channel name, which can only be set by developers
-        if session.get_extended_session_id().len() > 256 {
-            panic!("Session ID is too long");
-        }
-
         debug!("New session created");
 
         session
@@ -119,13 +113,12 @@ impl Session {
     }
 
     pub fn get_extended_session_id(&self) -> String {
-        // Lengths
-        // mia_agent_:_ = 12
-        // {platform}   = 104
-        // {channel}    = 104
-        // {id}         = 36
-        // Total        = 256
-        format!("mia-agent_{}:{}_{}", self.platform, self.channel, self.id)
+        let mut extended_session_id = format!(
+            "{}@mia-agent_{}:{}_{}",
+            self.owner, self.platform, self.channel, self.id
+        );
+        extended_session_id.truncate(256);
+        extended_session_id
     }
 }
 

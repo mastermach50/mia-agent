@@ -39,7 +39,7 @@
           fenixComplete.rust-analyzer
           lldb
           pkg-config
-          cmake
+          # cmake
         ];
 
         buildInputs = with pkgs; [

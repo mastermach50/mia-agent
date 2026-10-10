@@ -40,19 +40,19 @@ pub struct TokenUsage {
 /// A message structure that can hold any type of message from any role
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Message {
-    pub role: String,
+    pub role: String, // assistant / user / tool
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning: Option<String>,
+    pub reasoning: Option<String>, // assistant
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
+    pub content: Option<String>, // assistant / user / tool
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<ToolCall>>,
+    pub tool_calls: Option<Vec<ToolCall>>, // assistant
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_call_id: Option<String>,
+    pub tool_call_id: Option<String>, // assistant / tool
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage: Option<TokenUsage>,
+    pub usage: Option<TokenUsage>, // assistant
 }
 
 impl Message {

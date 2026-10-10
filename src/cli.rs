@@ -1,18 +1,18 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "Mia Agent", version, about = "Your personal agent")]
+#[command(
+    name = "Mia Agent",
+    version,
+    about = "Your personal, customizable agent"
+)]
 pub struct Cli {
     #[command(subcommand)]
-    pub sub_command: Option<MainSubCommands>,
-
-    /// Run a command/prompt without entering into the tui
-    #[arg(short, long)]
-    pub command: Option<String>,
+    pub sub_command: Option<SubCommands>,
 }
 
 #[derive(Subcommand)]
-pub enum MainSubCommands {
+pub enum SubCommands {
     /// Model commands
     #[command(visible_alias = "models")]
     Model {
@@ -40,13 +40,8 @@ pub enum MainSubCommands {
         new: bool,
     },
 
-    /// Run the old, direct stdio tui
-    #[command(hide(true))]
-    OldTui {
-        /// Start a new session
-        #[arg(short, long)]
-        new: bool,
-    },
+    /// Start a minimal chat session for debugging
+    DebugChat,
 }
 
 #[derive(Subcommand)]

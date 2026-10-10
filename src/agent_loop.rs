@@ -163,7 +163,7 @@ pub async fn run_agent(
     // Make history mutable
     let mut history = history;
 
-    // Do i need this
+    // Do i need this?
     let mut interval = interval(Duration::from_secs(2));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 

@@ -14,7 +14,7 @@ mod agent_tools;
 mod api;
 mod cli;
 mod config;
-mod legacy_tui;
+mod debugchat;
 mod sessions;
 mod setup;
 mod system_prompt;
@@ -25,7 +25,7 @@ mod tui;
 use agent_tools::ToolRegistry;
 use cli::Cli;
 use config::AppConfig;
-use log::{info, trace};
+use log::info;
 
 use crate::{
     // api::History,
@@ -50,28 +50,8 @@ async fn main() -> Result<()> {
     // Load agent tools
     ToolRegistry::init();
 
-    // Print config
-    trace!("Model: {:?}", AppConfig::global().model);
-
-    // if let Some(command) = cli.command {
-    //     let mut history = History::new();
-    //     history.set_system_prompt(get_tui_system_prompt(None)?);
-    //     history.add_message(api::Message::new("user", &command));
-    //     let session_id = format!("mia-agent_{}", Uuid::now_v7().to_string());
-    //     agent_loop::run_agent(
-    //         history,
-    //         &session_id,
-    //         AppConfig::global().tui.streaming,
-    //         tui::on_assistant_message,
-    //         tui::on_partial_assistant_message,
-    //         tui::on_assistant_status_update,
-    //         tui::on_system_message,
-    //     )
-    //     .await?;
-    // }
-
     match cli.sub_command {
-        Some(cli::MainSubCommands::Model { sub_command }) => match sub_command {
+        Some(cli::SubCommands::Model { sub_command }) => match sub_command {
             Some(cli::ModelSubCommands::List(args)) => {
                 list_models(args).await?;
             }
@@ -84,7 +64,7 @@ async fn main() -> Result<()> {
                 println!("No subcommand provided. Use --help for usage.");
             }
         },
-        Some(cli::MainSubCommands::Session { sub_command }) => match sub_command {
+        Some(cli::SubCommands::Session { sub_command }) => match sub_command {
             Some(cli::SessionSubCommands::List) => {
                 let sessions = list_sessions(true)?;
                 if sessions.is_empty() {
@@ -113,11 +93,11 @@ async fn main() -> Result<()> {
                 println!("No subcommand provided. Use --help for usage.");
             }
         },
-        Some(cli::MainSubCommands::Setup(args)) => {
+        Some(cli::SubCommands::Setup(args)) => {
             info!("Starting agent setup...");
             setup::setup(args).await?;
         }
-        Some(cli::MainSubCommands::Tools) => {
+        Some(cli::SubCommands::Tools) => {
             println!("Available Tools:");
             for (tool_name, is_available, reason) in ToolRegistry::tools_status() {
                 println!(
@@ -133,13 +113,13 @@ async fn main() -> Result<()> {
                 );
             }
         }
-        Some(cli::MainSubCommands::Tui { new }) => {
+        Some(cli::SubCommands::Tui { new }) => {
             info!("Starting TUI...");
             tui::run(new).await?;
         }
-        Some(cli::MainSubCommands::OldTui { new }) => {
-            info!("Starting Legacy TUI...");
-            legacy_tui::run(new).await?;
+        Some(cli::SubCommands::DebugChat) => {
+            info!("Starting debug chat...");
+            debugchat::run().await?;
         }
         None => {
             println!("No command provided. Use --help for usage.");

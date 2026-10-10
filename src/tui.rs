@@ -6,7 +6,7 @@ use crossterm::{
     event::{
         self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
         Event, KeyModifiers, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
-        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags, KeyCode
     },
     execute,
     terminal::supports_keyboard_enhancement,
@@ -19,7 +19,6 @@ use ratatui::{
     widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
 };
 use ratatui_textarea::{TextArea, WrapMode};
-use reedline::KeyCode;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::{

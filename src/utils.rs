@@ -1,12 +1,15 @@
 use anyhow::Context;
-use log::trace;
+// use log::trace;
 use std::{
-    cmp::max,
-    io::{Read, Write, stdout},
+    // cmp::max,
+    io::{
+        Read,
+        // Write, stdout
+    },
     path::PathBuf,
     process::Child,
-    sync::Mutex,
-    time::Duration,
+    // sync::Mutex,
+    // time::Duration,
 };
 use syntect::{
     easy::HighlightLines,
@@ -15,66 +18,69 @@ use syntect::{
     parsing::SyntaxSet,
     util::{LinesWithEndings, as_24_bit_terminal_escaped},
 };
-use termimad::crossterm::style::{ResetColor, Stylize};
-use textwrap::{self, core::display_width, termwidth, wrap};
-use tokio::task::JoinHandle;
+use termimad::crossterm::style::{
+    ResetColor,
+    // Stylize
+};
+// use textwrap::{self, core::display_width, termwidth, wrap};
+// use tokio::task::JoinHandle;
 
-pub fn generate_think_lines(thinking: &str) -> String {
-    let left_gap = "> ";
-    let width = termwidth() - 2;
-    left_gap.to_string() + &wrap(thinking, width).join(&("\n".to_owned() + left_gap))
-}
+// pub fn generate_think_lines(thinking: &str) -> String {
+//     let left_gap = "> ";
+//     let width = termwidth() - 2;
+//     left_gap.to_string() + &wrap(thinking, width).join(&("\n".to_owned() + left_gap))
+// }
 
-pub fn stdio_ask_permission(prompt: impl ToString, content: &str) -> bool {
-    let term_width = termwidth();
-    let max_content_width = term_width - 4;
+// pub fn stdio_ask_permission(prompt: impl ToString, content: &str) -> bool {
+//     let term_width = termwidth();
+//     let max_content_width = term_width - 4;
 
-    let wrapped = wrap(content, max_content_width);
+//     let wrapped = wrap(content, max_content_width);
 
-    // Prompt's width after wrapping
-    let prompt_width = if display_width(&prompt.to_string()) > max_content_width {
-        max_content_width
-    } else {
-        display_width(&prompt.to_string())
-    };
+//     // Prompt's width after wrapping
+//     let prompt_width = if display_width(&prompt.to_string()) > max_content_width {
+//         max_content_width
+//     } else {
+//         display_width(&prompt.to_string())
+//     };
 
-    // Content's width after wrapping
-    let content_width = wrapped
-        .iter()
-        .map(|l| display_width(l))
-        .max()
-        .unwrap_or(max_content_width);
+//     // Content's width after wrapping
+//     let content_width = wrapped
+//         .iter()
+//         .map(|l| display_width(l))
+//         .max()
+//         .unwrap_or(max_content_width);
 
-    // The larger of prompt_width or content_width will be the inner width of the box (excluding padding)
-    let inner_width = max(prompt_width, content_width);
+//     // The larger of prompt_width or content_width will be the inner width of the box (excluding padding)
+//     let inner_width = max(prompt_width, content_width);
 
-    for line in wrap(&prompt.to_string(), max_content_width) {
-        println!(
-            "╭─{}{}─╮",
-            line,
-            "─".repeat(inner_width - display_width(&line))
-        );
-    }
-    for line in wrapped {
-        let line_width = display_width(&line);
-        println!("│ {}{} │", line, " ".repeat(inner_width - line_width));
-    }
-    for line in wrap(&prompt.to_string(), max_content_width) {
-        println!(
-            "├─{}{}─╯",
-            line,
-            "─".repeat(inner_width - display_width(&line))
-        );
-    }
-    print!("╰─[y/n]: ");
-    stdout().flush().unwrap();
+//     for line in wrap(&prompt.to_string(), max_content_width) {
+//         println!(
+//             "╭─{}{}─╮",
+//             line,
+//             "─".repeat(inner_width - display_width(&line))
+//         );
+//     }
+//     for line in wrapped {
+//         let line_width = display_width(&line);
+//         println!("│ {}{} │", line, " ".repeat(inner_width - line_width));
+//     }
+//     for line in wrap(&prompt.to_string(), max_content_width) {
+//         println!(
+//             "├─{}{}─╯",
+//             line,
+//             "─".repeat(inner_width - display_width(&line))
+//         );
+//     }
+//     print!("╰─[y/n]: ");
+//     stdout().flush().unwrap();
 
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
-    input = input.trim().to_string().to_lowercase();
+//     let mut input = String::new();
+//     std::io::stdin().read_line(&mut input).unwrap();
+//     input = input.trim().to_string().to_lowercase();
 
-    input == "y" || input == "yes" || input.chars().all(|c| c == 'y')
-}
+//     input == "y" || input == "yes" || input.chars().all(|c| c == 'y')
+// }
 
 /// Returns colored text based on the file extension from the path
 pub fn highlight_text(filename: &str, text: &str) -> String {
@@ -167,41 +173,41 @@ pub fn parse_human_number(s: &str) -> anyhow::Result<i64> {
     Ok((value * multiplier as f64).round() as i64)
 }
 
-/// Join handle to the tokio task showing the spinner
-static SPINNER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+// /// Join handle to the tokio task showing the spinner
+// static SPINNER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
-/// Start showing a thinking spinner
-pub fn start_spinner(kind: &str) {
-    // Stop any previous spinner
-    if let Some(handle) = SPINNER.lock().unwrap().take() {
-        handle.abort();
-    }
+// /// Start showing a thinking spinner
+// pub fn start_spinner(kind: &str) {
+//     // Stop any previous spinner
+//     if let Some(handle) = SPINNER.lock().unwrap().take() {
+//         handle.abort();
+//     }
 
-    let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
-    let frames = ["⠇", "⠋", "⠙", "⠸", "⠼", "⠴", "⠦"];
-    let kind = kind.to_string();
+//     let mia_colored = format!("{}  {}", "Mia".red(), ">".cyan());
+//     let frames = ["⠇", "⠋", "⠙", "⠸", "⠼", "⠴", "⠦"];
+//     let kind = kind.to_string();
 
-    let handle = tokio::spawn(async move {
-        let mut i = 0;
-        loop {
-            print!("\r{} {} {}...", mia_colored, frames[i], kind);
-            stdout().flush().unwrap();
-            tokio::time::sleep(Duration::from_millis(80)).await;
-            i = (i + 1) % frames.len();
-        }
-    });
-    *SPINNER.lock().unwrap() = Some(handle);
+//     let handle = tokio::spawn(async move {
+//         let mut i = 0;
+//         loop {
+//             print!("\r{} {} {}...", mia_colored, frames[i], kind);
+//             stdout().flush().unwrap();
+//             tokio::time::sleep(Duration::from_millis(80)).await;
+//             i = (i + 1) % frames.len();
+//         }
+//     });
+//     *SPINNER.lock().unwrap() = Some(handle);
 
-    trace!("TUI spinner started");
-}
+//     trace!("TUI spinner started");
+// }
 
-/// Stop showing the thinking spinner
-pub fn stop_spinner() {
-    if let Some(handle) = SPINNER.lock().unwrap().take() {
-        handle.abort();
-        print!("\r{}\r", " ".repeat(20));
-        stdout().flush().unwrap();
-    }
+// /// Stop showing the thinking spinner
+// pub fn stop_spinner() {
+//     if let Some(handle) = SPINNER.lock().unwrap().take() {
+//         handle.abort();
+//         print!("\r{}\r", " ".repeat(20));
+//         stdout().flush().unwrap();
+//     }
 
-    trace!("TUI spinner stopped");
-}
+//     trace!("TUI spinner stopped");
+// }
