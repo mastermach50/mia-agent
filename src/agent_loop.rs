@@ -1,20 +1,20 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use log::trace;
+use log::{trace, warn};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
 use tokio::time::{interval, sleep};
 use tokio_util::sync::CancellationToken;
 
-use crate::agent_tools::ToolRegistry;
+use crate::agent_tools::{ToolContext, ToolRegistry, ToolStatus};
 use crate::api::{Completion, History, Message, PartialMessage, completion};
 use crate::config::AppConfig;
 
 /// A handle to the agent's thread.
 ///
 /// Can be used to cancel execution.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AgentHandle {
     tx: UnboundedSender<AgentEvent>,
     pub cancel: CancellationToken,
@@ -256,13 +256,17 @@ pub async fn run_agent(
             for tool_call in tool_calls {
                 let tool_name = tool_call.function.name.clone();
                 let tool_args = tool_call.function.arguments.clone();
-                let content = tokio::select! {
-                    content = ToolRegistry::call(
-                        &handle,
+                let ctx = ToolContext {
+                    handle: &handle,
+                    session_id,
+                };
+                let (status, payload) = tokio::select! {
+                    result = ToolRegistry::call(
+                        &ctx,
                         &tool_name,
                         &tool_args
                     ) => {
-                        content
+                        result
                     },
                     _ = handle.cancel.cancelled() => {
                         // Even if the tool call is cancelled generate a tool response message so that
@@ -279,8 +283,15 @@ pub async fn run_agent(
                         break 'agent_iteration;
                     }
                 };
+                match &status {
+                    ToolStatus::Success => trace!("Tool {tool_name} succeeded"),
+                    ToolStatus::Error(reason) => {
+                        warn!("Tool {tool_name} failed: {reason}");
+                    }
+                    ToolStatus::Denied => warn!("Tool {tool_name} denied by user"),
+                }
                 let tc_response =
-                    Message::new_tool_call_response(tool_call.id.clone(), content.to_string());
+                    Message::new_tool_call_response(tool_call.id.clone(), payload.to_string());
                 handle.tool_response_msg(&tc_response);
                 history.add_message(tc_response);
             }

@@ -2,7 +2,7 @@ use chrono::Local;
 use indoc::indoc;
 use serde_json::json;
 
-use crate::{agent_loop::AgentHandle, agent_tools::Tool};
+use crate::{agent_loop::AgentHandle, old_agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct DateTime;

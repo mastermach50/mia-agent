@@ -1,44 +1,43 @@
-use indoc::indoc;
 use serde_json::json;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 
 use crate::agent_loop::AgentHandle;
-use crate::agent_tools::Tool;
 use crate::utils::stdio_capture_and_send;
+use crate::{old_agent_tools::Tool, utils::highlight_text};
+
+#[cfg(unix)]
+static PYTHON_CMD: &str = "python3";
+
+#[cfg(windows)]
+static PYTHON_CMD: &str = "python";
 
 #[derive(Debug)]
-pub struct ExecShell;
+pub struct ExecPython;
 #[async_trait::async_trait]
-impl Tool for ExecShell {
+impl Tool for ExecPython {
     fn name(&self) -> String {
-        "exec_shell".to_string()
+        "exec_python".to_string()
     }
     fn icon(&self) -> String {
-        "🐚".to_string()
+        "🐍".to_string()
     }
     fn call_summary(&self, args: serde_json::Value) -> String {
-        args["command"].as_str().unwrap_or_default().to_string()
+        let lines = args["code"].as_str().unwrap_or_default().lines().count();
+        format!("{lines} lines")
     }
     fn availability(&self) -> Result<(), String> {
-        #[cfg(unix)]
-        return which::which("bash")
+        which::which(PYTHON_CMD)
             .map(|_| ())
-            .map_err(|_| "bash not found".to_string());
-
-        #[cfg(windows)]
-        return which::which("powershell")
-            .map(|_| ())
-            .map_err(|_| "powershell not found".to_string());
+            .map_err(|_| "python3 not found".to_string())
     }
     fn schema(&self) -> serde_json::Value {
-        let description = indoc! {"
-        Execute bash (Unix) or PowerShell (Windows) commands and return stdout, stderr, and exit code.
-        The shell used is OS dependent.
-        Use this tool to do tasks that do can't be done using other tools.
+        let description = indoc::indoc! {"
+        Execute Python 3 code snippet and get the stdout, stderr, and exit code.
+        Use this for tasks that require some scripting or deterministic output such as math.
+        Runs in a fresh interpreter — no state persists between calls.
         "};
-
         json!({
             "type": "function",
             "function": {
@@ -47,27 +46,28 @@ impl Tool for ExecShell {
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "command": {
+                        "code": {
                             "type": "string",
-                            "description": "The command to run."
+                            "description": "The code to run."
                         },
                         "working_dir": {
                             "type": "string",
-                            "description": "The working directory to run the command in. Defaults to current directory."
+                            "description": "The working directory. Defaults to current directory"
                         }
                     },
-                    "required": [ "command" ]
+                    "required": [ "code" ]
                 }
             }
         })
     }
+    // TODO refactor this and the shell code
     async fn execute(&self, handle: &AgentHandle, args: serde_json::Value) -> serde_json::Value {
-        let cmd = match args["command"].as_str() {
-            Some(cmd) => cmd,
+        let code = match args["code"].as_str() {
+            Some(code) => code,
             None => {
                 return json!({
                     "status": "error",
-                    "message": "command argument not found"
+                    "message": "code argument not found"
                 });
             }
         };
@@ -86,26 +86,23 @@ impl Tool for ExecShell {
             }
         };
 
-        if !handle.ask_permission("Execute?", cmd).await {
+        let colored_code = highlight_text("something.py", code);
+
+        if !handle
+            .ask_permission("Execute Python?", &colored_code)
+            .await
+        {
             return json!({
                 "status": "error",
-                "message": "User declined to execute command"
+                "message": "User declined to execute Python code"
             });
         }
 
-        #[cfg(unix)]
-        let mut shell = Command::new("bash");
-        #[cfg(unix)]
-        shell.arg("-c").arg(cmd);
+        let mut python = Command::new(PYTHON_CMD);
+        python.current_dir(working_dir);
+        python.arg("-c").arg(code);
 
-        #[cfg(windows)]
-        let mut shell = Command::new("powershell");
-        #[cfg(windows)]
-        shell.arg("-command").arg(cmd);
-
-        shell.current_dir(working_dir);
-
-        let mut child = shell
+        let mut child = python
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -122,7 +119,7 @@ impl Tool for ExecShell {
 
         json!({
             "status": if status.success() { "success" } else { "error" },
-            "exit_code": status.code().unwrap_or(-1),
+            "command_status_code": status.code().unwrap_or(-1),
             "stdout": stdout_captured,
             "stderr": stderr_captured
         })

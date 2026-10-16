@@ -4,7 +4,7 @@ use indoc::indoc;
 use log::debug;
 use serde_json::json;
 
-use crate::agent_tools::Tool;
+use crate::old_agent_tools::Tool;
 
 #[derive(Debug)]
 pub struct DocCreate;

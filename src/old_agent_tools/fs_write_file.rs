@@ -4,7 +4,7 @@ use std::fs;
 
 use crate::{
     agent_loop::AgentHandle,
-    agent_tools::Tool,
+    old_agent_tools::Tool,
     utils::{self},
 };
 

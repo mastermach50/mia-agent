@@ -6,7 +6,7 @@ use serde_json::json;
 use std::{fs, io};
 use tabled::settings::Style;
 
-use crate::{agent_loop::AgentHandle, agent_tools::Tool};
+use crate::{agent_loop::AgentHandle, old_agent_tools::Tool};
 
 #[derive(Debug)]
 pub struct FSListDir;
