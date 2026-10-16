@@ -7,6 +7,7 @@ use std::{
 
 use crate::agent_loop::AgentHandle;
 
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
 pub mod common;
 mod datetime;
 mod doc_convert;
@@ -64,7 +65,61 @@ pub enum PermissionClass {
 /// The tool trait
 ///
 /// This must be implemented by all tools
+||||||| Common ancestor
+mod datetime;
+mod doc_convert;
+mod doc_create;
+mod exec_python;
+mod exec_shell;
+mod fs_grep_files;
+mod fs_list_dir;
+mod fs_search_dirs;
+mod fs_write_file;
+mod memory;
+mod read_file;
+mod web_extract;
+mod web_search;
+
+/// All tools must have this trait implemented
+/// Individual tools can be defined in agent_tools
+=======
+/// The result of a tool call
+/// Only for use within the codebase, the LLM never sees this
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolStatus {
+    /// The tool call succeeded
+    Success,
+    /// Tool call failed
+    Error(String),
+    /// The tool call was denied by the user
+    Denied,
+}
+
+/// The session related context passed to the tool
+#[derive(Debug)]
+pub struct ToolContext<'a> {
+    pub handle: &'a AgentHandle,
+    pub session_id: &'a str,
+}
+
+/// The permission class of the tool
+/// Decided whether the tool requires a permission prompt
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PermissionClass {
+    /// Zero side effects
+    ReadOnly,
+    /// Has side effects, but limited to a single file
+    Write,
+    /// Arbitrary side effects as a result of some command execution
+    Execute,
+}
+
+/// The tool trait
+///
+/// This must be implemented by all tools
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
 #[async_trait::async_trait]
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
 <<<<<<< New base: Rename tool::short to tool::call_summary
 pub trait Tool: Send + Sync + std::fmt::Debug {
     // --- Metadata ---
@@ -98,6 +153,28 @@ trait Tool: Send + Sync + std::fmt::Debug {
     fn availability(&self) -> Result<(), String>;
     // OpenAI compatible tool schema
 >>>>>>> Current commit: Rename tool::short to tool::call_summary
+||||||| Common ancestor
+trait Tool: Send + Sync + std::fmt::Debug {
+    // Name of the tool
+    fn name(&self) -> String;
+    // Emoji icon used in the UI
+    fn icon(&self) -> String;
+    // A short description of what the tool will do, on each tool call
+    fn call_summary(&self, args: serde_json::Value) -> String;
+    // Check if the tool is available, if not, get a reason
+    fn availability(&self) -> Result<(), String>;
+    // OpenAI compatible tool schema
+=======
+pub trait Tool: Send + Sync + std::fmt::Debug {
+    // --- Metadata ---
+    /// Name of the tools.
+    fn name(&self) -> &'static str;
+    /// Icon of the tool.
+    fn icon(&self) -> &'static str;
+    /// Short description of what this tool call does.
+    fn call_summary(&self, args: &serde_json::Value) -> String;
+    /// OpenAI function schema.
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
     fn schema(&self) -> serde_json::Value;
     /// Permission class of the tool.
     fn permission(&self) -> PermissionClass;
@@ -135,6 +212,7 @@ impl ToolRegistry {
     /// Tools are registered here as they are authored against the new architecture.
     pub fn init() {
         let mut registry = HashMap::new();
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
         Self::register(&mut registry, datetime::DateTime);
 <<<<<<< New base: Added to read_file tool to replace the fs_read_file tools
         Self::register(&mut registry, fs_read_file::FSReadFile);
@@ -189,6 +267,39 @@ impl ToolRegistry {
     /// Get the cached tool registry.
     fn global() -> &'static RegistryType {
         REGISTRY.get().expect("Tool registry not initialized")
+||||||| Common ancestor
+
+        Self::register(&mut registry, datetime::DateTime);
+        Self::register(&mut registry, doc_convert::DocConvert);
+        Self::register(&mut registry, doc_create::DocCreate);
+        Self::register(&mut registry, exec_python::ExecPython);
+        Self::register(&mut registry, exec_shell::ExecShell);
+        Self::register(&mut registry, fs_grep_files::FSGrepFiles);
+        Self::register(&mut registry, fs_list_dir::FSListDir);
+        Self::register(&mut registry, fs_search_dirs::FSSearchDirs);
+        Self::register(&mut registry, fs_write_file::FSWriteFile);
+        Self::register(&mut registry, memory::Memory);
+        Self::register(&mut registry, read_file::ReadFile);
+        Self::register(&mut registry, web_extract::WebExtract);
+        Self::register(&mut registry, web_search::WebSearch);
+
+        TOOL_REGISTRY
+            .set(registry)
+            .expect("Failed to set TOOL_REGISTRY");
+=======
+        // Register tools here as they are rewritten, e.g.:
+        //   Self::register(&mut registry, datetime::DateTime);
+        let _ = &mut registry; // placeholder until tools are ported
+        assert!(
+            REGISTRY.set(registry).is_ok(),
+            "Failed to set REGISTRY (init called twice)"
+        );
+    }
+
+    /// Get the cached tool registry.
+    fn global() -> &'static RegistryType {
+        REGISTRY.get().expect("Tool registry not initialized")
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
     }
 
     /// Register a tool.
@@ -222,6 +333,34 @@ impl ToolRegistry {
         json!(&schema_list)
     }
 
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
+    /// Call a tool by its function name.
+    ///
+    /// Flow: parse args -> lookup -> permission gate (non-ReadOnly) -> execute.
+    pub async fn call(
+        ctx: &ToolContext<'_>,
+        name: &str,
+        args: &str,
+    ) -> (ToolStatus, serde_json::Value) {
+        let args = match Self::deserialize_tool_arguments(args) {
+            Ok(args) => args,
+            Err(_) => {
+                warn!("Invalid tool arguments for {name}");
+                return err("Invalid tool arguments or malformed json");
+||||||| Common ancestor
+    /// Call a tool by its function name
+    pub async fn call(handle: &AgentHandle, name: &str, args: &str) -> serde_json::Value {
+        if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
+            match Self::global().get(name) {
+                Some(tool_entry) => tool_entry.tool.execute(handle, args).await,
+                None => {
+                    warn!("Unregistered tool requested");
+                    json!({
+                        "status": "error",
+                        "message": "Unregistered tool requested"
+                    })
+                }
+=======
     /// Call a tool by its function name.
     ///
     /// Flow: parse args -> lookup -> permission gate (non-ReadOnly) -> execute.
@@ -251,6 +390,42 @@ impl ToolRegistry {
             return err("Tool is disabled");
         }
 
+        // Clone the Arc so the registry borrow ends before we await.
+        let tool = entry.tool.clone();
+
+        if tool.permission() != PermissionClass::ReadOnly {
+            let (header, content) = tool.permission_prompt(&args);
+            if !ctx.handle.ask_permission(header, content).await {
+                warn!("Permission denied for tool {name}");
+                return denied();
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
+            }
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
+        };
+
+        let entry = match Self::global().get(name) {
+            Some(entry) => entry,
+            None => {
+                warn!("Unregistered tool requested: {name}");
+                return err("Unregistered tool requested");
+            }
+        };
+
+        if !entry.is_enabled {
+            warn!("Disabled tool requested: {name}");
+            return err("Tool is disabled");
+||||||| Common ancestor
+        } else {
+            warn!("Invalid tool arguments");
+            json!({
+                "status": "error",
+                "message": "Invalid tool arguments or malformed json"
+            })
+=======
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
+        }
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
+
         trace!("Calling tool {name} in session {}", ctx.session_id);
 
         // Clone the Arc so the registry borrow ends before we await.
@@ -265,6 +440,11 @@ impl ToolRegistry {
         }
 
         tool.execute(ctx, args).await
+||||||| Common ancestor
+=======
+
+        tool.execute(ctx, args).await
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
     }
 
     /// Emoji associated with a tool (UI).
@@ -280,6 +460,7 @@ impl ToolRegistry {
 
     /// Short info about what arguments went into a tool call (UI).
     pub fn tool_short(name: &str, args: &str) -> String {
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
 <<<<<<< New base: Rename tool::short to tool::call_summary
         let Ok(args) = Self::deserialize_tool_arguments(args) else {
             warn!("Invalid tool arguments for {name}");
@@ -307,6 +488,25 @@ impl ToolRegistry {
                     "❓".to_string()
                 }
 >>>>>>> Current commit: Rename tool::short to tool::call_summary
+||||||| Common ancestor
+        if let Ok(args) = Self::deserialize_tool_arguments(args.to_string()) {
+            match Self::global().get(name) {
+                Some(tool_entry) => tool_entry.tool.call_summary(args),
+                None => {
+                    warn!("Unregistered tool short requested");
+                    "❓".to_string()
+                }
+=======
+        let Ok(args) = Self::deserialize_tool_arguments(args) else {
+            warn!("Invalid tool arguments for {name}");
+            return "❓".to_string();
+        };
+        match Self::global().get(name) {
+            Some(entry) => entry.tool.call_summary(&args),
+            None => {
+                warn!("Unregistered tool short requested: {name}");
+                "❓".to_string()
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
             }
         }
     }
@@ -358,6 +558,284 @@ pub fn denied() -> (ToolStatus, serde_json::Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
+    use crate::agent_loop::AgentEvent;
+    use std::sync::Once;
+
+    // The registry is a process-wide OnceLock; the first test to run seeds it with
+    // the dummy tools and every other test reuses it.
+    fn init_test_registry() {
+        static ONCE: Once = Once::new();
+        ONCE.call_once(|| {
+            let mut registry = HashMap::new();
+            ToolRegistry::register(&mut registry, DummyTool);
+            ToolRegistry::register(&mut registry, WriteDummyTool);
+            ToolRegistry::register(&mut registry, UnavailableDummyTool);
+            ToolRegistry::register_with(&mut registry, DisabledDummyTool, false);
+            assert!(
+                REGISTRY.set(registry).is_ok(),
+                "Test registry already initialized"
+            );
+        });
+    }
+
+    #[derive(Debug)]
+    struct DummyTool;
+
+    #[async_trait::async_trait]
+    impl Tool for DummyTool {
+        fn name(&self) -> &'static str {
+            "dummy"
+        }
+        fn icon(&self) -> &'static str {
+            "🛠️"
+        }
+        fn call_summary(&self, args: &serde_json::Value) -> String {
+            args["query"].as_str().unwrap_or_default().to_string()
+        }
+        fn schema(&self) -> serde_json::Value {
+            json!({
+                "type": "function",
+                "function": {
+                    "name": self.name(),
+                    "description": "A dummy read-only tool for registry tests.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": { "type": "string" }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            })
+        }
+        fn permission(&self) -> PermissionClass {
+            PermissionClass::ReadOnly
+        }
+        fn permission_prompt(&self, _args: &serde_json::Value) -> (String, String) {
+            ("dummy".to_string(), "dummy".to_string())
+        }
+        fn availability(&self) -> Result<(), String> {
+            Ok(())
+        }
+        async fn execute(
+            &self,
+            _ctx: &ToolContext,
+            args: serde_json::Value,
+        ) -> (ToolStatus, serde_json::Value) {
+            ok(json!({ "status": "success", "query": args["query"] }))
+        }
+    }
+
+    #[derive(Debug)]
+    struct WriteDummyTool;
+
+    #[async_trait::async_trait]
+    impl Tool for WriteDummyTool {
+        fn name(&self) -> &'static str {
+            "write_dummy"
+        }
+        fn icon(&self) -> &'static str {
+            "✍️"
+        }
+        fn call_summary(&self, _args: &serde_json::Value) -> String {
+            "write_dummy".to_string()
+        }
+        fn schema(&self) -> serde_json::Value {
+            json!({
+                "type": "function",
+                "function": {
+                    "name": self.name(),
+                    "description": "A dummy write tool for registry tests.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            })
+        }
+        fn permission(&self) -> PermissionClass {
+            PermissionClass::Write
+        }
+        fn permission_prompt(&self, _args: &serde_json::Value) -> (String, String) {
+            ("Write?".to_string(), "dummy write".to_string())
+        }
+        fn availability(&self) -> Result<(), String> {
+            Ok(())
+        }
+        async fn execute(
+            &self,
+            _ctx: &ToolContext,
+            _args: serde_json::Value,
+        ) -> (ToolStatus, serde_json::Value) {
+            ok(json!({ "status": "success", "executed": true }))
+        }
+    }
+
+    #[derive(Debug)]
+    struct DisabledDummyTool;
+
+    #[async_trait::async_trait]
+    impl Tool for DisabledDummyTool {
+        fn name(&self) -> &'static str {
+            "disabled_dummy"
+        }
+        fn icon(&self) -> &'static str {
+            "🚫"
+        }
+        fn call_summary(&self, _args: &serde_json::Value) -> String {
+            "disabled_dummy".to_string()
+        }
+        fn schema(&self) -> serde_json::Value {
+            json!({
+                "type": "function",
+                "function": {
+                    "name": self.name(),
+                    "description": "A dummy tool registered as disabled by the user.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            })
+        }
+        fn permission(&self) -> PermissionClass {
+            PermissionClass::ReadOnly
+        }
+        fn permission_prompt(&self, _args: &serde_json::Value) -> (String, String) {
+            ("dummy".to_string(), "dummy".to_string())
+        }
+        fn availability(&self) -> Result<(), String> {
+            Ok(())
+        }
+        async fn execute(
+            &self,
+            _ctx: &ToolContext,
+            _args: serde_json::Value,
+        ) -> (ToolStatus, serde_json::Value) {
+            ok(json!({ "status": "success" }))
+        }
+    }
+
+    #[derive(Debug)]
+    struct UnavailableDummyTool;
+
+    #[async_trait::async_trait]
+    impl Tool for UnavailableDummyTool {
+        fn name(&self) -> &'static str {
+            "unavailable_dummy"
+        }
+        fn icon(&self) -> &'static str {
+            "⚠️"
+        }
+        fn call_summary(&self, _args: &serde_json::Value) -> String {
+            "unavailable_dummy".to_string()
+        }
+        fn schema(&self) -> serde_json::Value {
+            json!({
+                "type": "function",
+                "function": {
+                    "name": self.name(),
+                    "description": "A dummy tool whose dependency is missing.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            })
+        }
+        fn permission(&self) -> PermissionClass {
+            PermissionClass::ReadOnly
+        }
+        fn permission_prompt(&self, _args: &serde_json::Value) -> (String, String) {
+            ("dummy".to_string(), "dummy".to_string())
+        }
+        fn availability(&self) -> Result<(), String> {
+            Err("missing dependency: rg".to_string())
+        }
+        async fn execute(
+            &self,
+            _ctx: &ToolContext,
+            _args: serde_json::Value,
+        ) -> (ToolStatus, serde_json::Value) {
+            ok(json!({ "status": "success" }))
+        }
+    }
+
+    fn ctx(handle: &AgentHandle) -> ToolContext<'_> {
+        ToolContext {
+            handle,
+            session_id: "test-session",
+        }
+    }
+
+    #[tokio::test]
+    async fn call_success_readonly() {
+        init_test_registry();
+        let (_rx, handle) = AgentHandle::new();
+        let (status, payload) =
+            ToolRegistry::call(&ctx(&handle), "dummy", r#"{"query":"hi"}"#).await;
+        assert_eq!(status, ToolStatus::Success);
+        assert_eq!(payload["query"], "hi");
+    }
+
+    #[tokio::test]
+    async fn call_unknown_tool_returns_error() {
+        init_test_registry();
+        let (_rx, handle) = AgentHandle::new();
+        let (status, payload) = ToolRegistry::call(&ctx(&handle), "does_not_exist", "{}").await;
+        assert_eq!(
+            status,
+            ToolStatus::Error("Unregistered tool requested".to_string())
+        );
+        assert_eq!(payload["message"], "Unregistered tool requested");
+    }
+
+    #[tokio::test]
+    async fn call_malformed_args_returns_error() {
+        init_test_registry();
+        let (_rx, handle) = AgentHandle::new();
+        let (status, payload) = ToolRegistry::call(&ctx(&handle), "dummy", "not json").await;
+        assert!(matches!(status, ToolStatus::Error(_)));
+        assert_eq!(
+            payload["message"],
+            "Invalid tool arguments or malformed json"
+        );
+    }
+
+    #[tokio::test]
+    async fn write_tool_denied_when_receiver_dropped() {
+        init_test_registry();
+        // Dropping the receiver makes ask_permission fail (channel closed) -> denied.
+        let (rx, handle) = AgentHandle::new();
+        drop(rx);
+        let (status, payload) = ToolRegistry::call(&ctx(&handle), "write_dummy", "{}").await;
+        assert_eq!(status, ToolStatus::Denied);
+        assert_eq!(payload["message"], "User declined");
+        // The tool's own payload must never leak through for a denied call.
+        assert_eq!(payload.get("executed"), None);
+    }
+
+    #[tokio::test]
+    async fn write_tool_approved_runs_execute() {
+        init_test_registry();
+        let (mut rx, handle) = AgentHandle::new();
+        // Respond "yes" to every permission request.
+        let responder = tokio::spawn(async move {
+            while let Some(event) = rx.recv().await {
+                if let AgentEvent::PermissionRequest(request) = event {
+                    let _ = request.response.send(true);
+                }
+            }
+        });
+        let (status, payload) = ToolRegistry::call(&ctx(&handle), "write_dummy", "{}").await;
+        assert_eq!(status, ToolStatus::Success);
+        // `executed: true` only appears if the tool's execute actually ran.
+        assert_eq!(payload["executed"], true);
+        responder.abort();
+    }
+||||||| Common ancestor
+=======
     use crate::agent_loop::AgentEvent;
     use std::sync::Once;
 
@@ -649,6 +1127,32 @@ mod tests {
         // A tool whose dependency is missing is excluded by the live probe.
         assert!(!names.contains(&"unavailable_dummy".to_string()));
     }
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
+
+    #[test]
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
+    fn schema_includes_only_available_tools() {
+        init_test_registry();
+||||||| Common ancestor
+    fn tools_call_schema() {
+        ToolRegistry::init();
+=======
+    fn disabled_tools_excluded_from_schema() {
+        init_test_registry();
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
+        let schema = ToolRegistry::schema();
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
+        let names = schema
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["function"]["name"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"dummy".to_string()));
+        assert!(names.contains(&"write_dummy".to_string()));
+        // A tool whose dependency is missing is excluded by the live probe.
+        assert!(!names.contains(&"unavailable_dummy".to_string()));
+    }
 
     #[test]
     fn disabled_tools_excluded_from_schema() {
@@ -713,5 +1217,68 @@ mod tests {
         let (status, payload) = denied();
         assert_eq!(status, ToolStatus::Denied);
         assert_eq!(payload["message"], "User declined");
+||||||| Common ancestor
+        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+=======
+        let names = schema
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["function"]["name"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>();
+        // A user-disabled tool's schema must never reach the LLM.
+        assert!(!names.contains(&"disabled_dummy".to_string()));
+    }
+
+    #[tokio::test]
+    async fn call_disabled_tool_returns_error() {
+        init_test_registry();
+        let (_rx, handle) = AgentHandle::new();
+        let (status, payload) = ToolRegistry::call(&ctx(&handle), "disabled_dummy", "{}").await;
+        assert_eq!(status, ToolStatus::Error("Tool is disabled".to_string()));
+        assert_eq!(payload["message"], "Tool is disabled");
+    }
+
+    #[test]
+    fn tool_icon_and_short() {
+        init_test_registry();
+        assert_eq!(ToolRegistry::tool_icon("dummy"), "🛠️");
+        assert_eq!(ToolRegistry::tool_icon("nope"), "❓");
+        assert_eq!(
+            ToolRegistry::tool_short("dummy", r#"{"query":"hello"}"#),
+            "hello"
+        );
+        assert_eq!(ToolRegistry::tool_short("dummy", "bad json"), "❓");
+    }
+
+    #[test]
+    fn tools_status_probes_availability() {
+        init_test_registry();
+        let status = ToolRegistry::tools_status();
+        let dummy = status.iter().find(|(name, _, _)| name == "dummy").unwrap();
+        assert_eq!(dummy.1, true);
+        assert_eq!(dummy.2, "");
+
+        let unavailable = status
+            .iter()
+            .find(|(name, _, _)| name == "unavailable_dummy")
+            .unwrap();
+        assert_eq!(unavailable.1, false);
+        assert_eq!(unavailable.2, "missing dependency: rg");
+    }
+
+    #[test]
+    fn helpers_pair_status_with_payload() {
+        let (status, _payload) = ok(json!({"status": "success"}));
+        assert_eq!(status, ToolStatus::Success);
+
+        let (status, payload) = err("boom");
+        assert_eq!(status, ToolStatus::Error("boom".to_string()));
+        assert_eq!(payload["message"], "boom");
+
+        let (status, payload) = denied();
+        assert_eq!(status, ToolStatus::Denied);
+        assert_eq!(payload["message"], "User declined");
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
     }
 }

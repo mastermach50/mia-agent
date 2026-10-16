@@ -6,8 +6,14 @@ use bytesize::ByteSize;
 use chrono::{DateTime, Local};
 use serde_json::{json, Value};
 
+<<<<<<< New base: New agent_tools schema made, rewriting all tools
 use crate::agent_tools::common::expand_tilde;
 use crate::agent_tools::{PermissionClass, Tool, ToolContext, ToolStatus, err, ok};
+||||||| Common ancestor
+use crate::{agent_loop::AgentHandle, agent_tools::Tool};
+=======
+use crate::{agent_loop::AgentHandle, old_agent_tools::Tool};
+>>>>>>> Current commit: New agent_tools schema made, rewriting all tools
 
 #[derive(Debug)]
 pub struct FSListDir;

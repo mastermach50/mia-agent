@@ -10,6 +10,7 @@ use termimad::crossterm::style::Stylize;
 
 mod agent_loop;
 mod agent_tools;
+mod old_agent_tools; // legacy tool implementations, kept for reference during the rewrite
 mod api;
 mod cli;
 mod config;

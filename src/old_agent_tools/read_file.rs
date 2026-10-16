@@ -4,7 +4,7 @@ use indoc::indoc;
 use serde_json::json;
 use xberg::{ExtractInput, ExtractionConfig};
 
-use crate::{agent_loop::AgentHandle, agent_tools::Tool, config::AppConfig};
+use crate::{agent_loop::AgentHandle, old_agent_tools::Tool, config::AppConfig};
 
 #[derive(Debug)]
 pub struct ReadFile;
