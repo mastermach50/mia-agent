@@ -7,6 +7,7 @@ use std::{
 
 use crate::agent_loop::AgentHandle;
 
+<<<<<<< New base: Rewrote tools, added edit and notify tools
 <<<<<<< New base: New agent_tools schema made, rewriting all tools
 pub mod common;
 mod datetime;
@@ -31,6 +32,28 @@ mod read_file;
 mod web_extract;
 mod web_search;
 
+||||||| Common ancestor
+=======
+pub mod common;
+mod datetime;
+mod doc_convert;
+mod doc_create;
+mod exec_python;
+mod exec_shell;
+mod fs_edit_file;
+mod fs_file_ops;
+mod fs_list_dir;
+mod fs_read_file;
+mod fs_search_dirs;
+mod fs_search_files;
+mod fs_tree;
+mod fs_write_file;
+mod memory;
+mod notify;
+mod web_extract;
+mod web_search;
+
+>>>>>>> Current commit: Rewrote tools, added edit and notify tools
 /// The result of a tool call
 /// Only for use within the codebase, the LLM never sees this
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -212,6 +235,7 @@ impl ToolRegistry {
     /// Tools are registered here as they are authored against the new architecture.
     pub fn init() {
         let mut registry = HashMap::new();
+<<<<<<< New base: Rewrote tools, added edit and notify tools
 <<<<<<< New base: New agent_tools schema made, rewriting all tools
         Self::register(&mut registry, datetime::DateTime);
 <<<<<<< New base: Added to read_file tool to replace the fs_read_file tools
@@ -290,6 +314,29 @@ impl ToolRegistry {
         // Register tools here as they are rewritten, e.g.:
         //   Self::register(&mut registry, datetime::DateTime);
         let _ = &mut registry; // placeholder until tools are ported
+||||||| Common ancestor
+        // Register tools here as they are rewritten, e.g.:
+        //   Self::register(&mut registry, datetime::DateTime);
+        let _ = &mut registry; // placeholder until tools are ported
+=======
+        Self::register(&mut registry, datetime::DateTime);
+        Self::register(&mut registry, fs_read_file::FSReadFile);
+        Self::register(&mut registry, fs_write_file::FSWriteFile);
+        Self::register(&mut registry, fs_search_files::FSSearchFiles);
+        Self::register(&mut registry, fs_search_dirs::FSSearchDirs);
+        Self::register(&mut registry, fs_tree::FSTree);
+        Self::register(&mut registry, fs_list_dir::FSListDir);
+        Self::register(&mut registry, fs_edit_file::FSEditFile);
+        Self::register(&mut registry, fs_file_ops::FSFileOps);
+        Self::register(&mut registry, exec_shell::ExecShell);
+        Self::register(&mut registry, exec_python::ExecPython);
+        Self::register(&mut registry, notify::Notify);
+        Self::register(&mut registry, doc_create::DocCreate);
+        Self::register(&mut registry, doc_convert::DocConvert);
+        Self::register(&mut registry, web_search::WebSearch);
+        Self::register(&mut registry, web_extract::WebExtract);
+        Self::register(&mut registry, memory::Memory);
+>>>>>>> Current commit: Rewrote tools, added edit and notify tools
         assert!(
             REGISTRY.set(registry).is_ok(),
             "Failed to set REGISTRY (init called twice)"
@@ -425,6 +472,8 @@ impl ToolRegistry {
 >>>>>>> Current commit: New agent_tools schema made, rewriting all tools
         }
 <<<<<<< New base: New agent_tools schema made, rewriting all tools
+
+        trace!("Calling tool {name} in session {}", ctx.session_id);
 
         trace!("Calling tool {name} in session {}", ctx.session_id);
 
