@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::env::consts::OS;
+use std::{collections::HashMap, env::consts::ARCH};
 use std::result::Result::Ok;
 
 use anyhow::{Context, Result};
@@ -6,7 +7,7 @@ use futures_util::StreamExt;
 use log::{debug, error, trace, warn};
 use reqwest::{
     Client,
-    header::{AUTHORIZATION, HeaderMap, REFERER},
+    header::{AUTHORIZATION, HeaderMap, REFERER, USER_AGENT},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -131,7 +132,7 @@ impl History {
 pub enum Completion {
     Completed(Message),
     Cancelled,
-    RateLimited
+    RateLimited,
 }
 
 pub async fn completion(
@@ -183,7 +184,6 @@ pub async fn completion(
 
     // If the status shows some errors then bail
     if !response.status().is_success() {
-
         if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
             return Ok(Completion::RateLimited);
         }
@@ -477,6 +477,7 @@ pub async fn models(base_url: &str, api_key_name: Option<&str>) -> Result<Vec<Mo
 fn get_default_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(REFERER, "https://mathewma3.in".parse().unwrap());
+    headers.insert(USER_AGENT, format!("mia_agent/{} ({}-{})", env!("CARGO_PKG_VERSION"), ARCH, OS).parse().unwrap());
 
     let provider_name = AppConfig::global().model.provider.clone();
     let provider = Providers::from_name(&provider_name).unwrap();
@@ -493,12 +494,15 @@ fn get_default_headers() -> HeaderMap {
         );
     }
 
-    if AppConfig::global().model.provider == "openrouter" {
-        headers.insert("X-OpenRouter-Title", "Mia Agent".parse().unwrap());
-        headers.insert(
-            "X-OpenRouter-Categories",
-            "cli-agent,personal-agent".parse().unwrap(),
-        );
+    match provider {
+        Providers::Openrouter => {
+            headers.insert("X-OpenRouter-Title", "Mia Agent".parse().unwrap());
+            headers.insert(
+                "X-OpenRouter-Categories",
+                "cli-agent,personal-agent".parse().unwrap(),
+            );
+        }
+        _ => {}
     }
 
     headers
