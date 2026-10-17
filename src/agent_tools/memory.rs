@@ -86,11 +86,11 @@ impl Tool for Memory {
         }
 
         let path = if memory_type == "user" {
-            crate::config::AppConfig::internal()
+            crate::config::AppConfig::tree()
                 .user_memory_file
                 .clone()
         } else {
-            crate::config::AppConfig::internal()
+            crate::config::AppConfig::tree()
                 .system_memory_file
                 .clone()
         };

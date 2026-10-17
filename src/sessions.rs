@@ -70,7 +70,7 @@ impl Session {
         self.modified = Local::now();
 
         let filename = self.id.clone() + ".json";
-        let session_dir = AppConfig::internal().sessions_dir.clone();
+        let session_dir = AppConfig::tree().sessions_dir.clone();
         let filepath = session_dir.join(&filename);
 
         fs::write(
@@ -85,7 +85,7 @@ impl Session {
     }
 
     pub fn load(id: &str) -> Result<Self> {
-        let session_file = AppConfig::internal()
+        let session_file = AppConfig::tree()
             .sessions_dir
             .join(id.to_owned() + ".json");
         let session: Session = serde_json::from_str(
@@ -123,7 +123,7 @@ impl Session {
 }
 
 pub fn list_sessions(keep_invalid: bool) -> Result<Vec<PartialSession>> {
-    let sessions_dir = AppConfig::internal().sessions_dir.clone();
+    let sessions_dir = AppConfig::tree().sessions_dir.clone();
     let mut sessions = Vec::new();
 
     for file in sessions_dir.read_dir()?.flatten() {
