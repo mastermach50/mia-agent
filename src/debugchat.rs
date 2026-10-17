@@ -14,14 +14,14 @@ use crate::{
 };
 
 pub async fn run() -> Result<()> {
-    let mut session = Session::new(&AppConfig::global().tui.username, "debug-chat", "nil");
+    let mut session = Session::new(&AppConfig::config().tui.username, "debug-chat", "nil");
     session
         .history
         .set_system_prompt(system_prompt::get_system_prompt()?);
 
-    println!("{}", AppConfig::global().model.name);
-    println!("{}", AppConfig::global().model.provider);
-    println!("{}", AppConfig::global().model.base_url);
+    println!("{}", AppConfig::config().model.name);
+    println!("{}", AppConfig::config().model.provider);
+    println!("{}", AppConfig::config().model.base_url);
 
     let mut query = String::new();
 

@@ -31,7 +31,7 @@ pub fn render_message(
     let mut text = Text::default();
 
     let sender = match message.role.as_str() {
-        "user" => AppConfig::global().tui.username.clone().green(),
+        "user" => AppConfig::config().tui.username.clone().green(),
         "assistant" => "Mia".cyan(),
         "harness" => "Harness".yellow(),
         _ => {
@@ -74,7 +74,7 @@ pub fn render_message(
     if let Some(content) = &message.content
         && !content.is_empty()
     {
-        if AppConfig::global().tui.render_markdown {
+        if AppConfig::config().tui.render_markdown {
             let skin = MadSkin::default_dark();
             let formatted = skin.text(content, Some(width));
             let ansi_string = formatted.to_string();

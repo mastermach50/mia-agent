@@ -12,9 +12,9 @@ pub fn get_system_prompt() -> Result<String> {
     let mut system_prompt = String::new();
 
     // Soul
-    if !AppConfig::internal().soul_file.exists() {
+    if !AppConfig::tree().soul_file.exists() {
         fs::write(
-            &AppConfig::internal().soul_file,
+            &AppConfig::tree().soul_file,
             indoc::indoc! {"
             You are Mia, a personal, capable AI agent running on the user's workstation.
             "},
@@ -22,7 +22,7 @@ pub fn get_system_prompt() -> Result<String> {
         .context("Failed to create soul file")?;
     };
     let soul =
-        fs::read_to_string(&AppConfig::internal().soul_file).context("Failed to read soul file")?;
+        fs::read_to_string(&AppConfig::tree().soul_file).context("Failed to read soul file")?;
     system_prompt.push_str(&soul);
     system_prompt.push('\n');
 
@@ -31,8 +31,8 @@ pub fn get_system_prompt() -> Result<String> {
         .context("Failed to get current exe")?
         .into_string()
         .unwrap();
-    let config_folder = AppConfig::internal().mia_dir.to_string_lossy();
-    let model_name = AppConfig::global().model.name.clone();
+    let config_folder = AppConfig::tree().mia_dir.into_string().unwrap();
+    let model_name = AppConfig::config().model.name.clone();
     system_prompt.push_str(&indoc::formatdoc! {"
     # Agent Runtime Information
     - Harness: mia-agent (https://github.com/mastermach50/mia-agent)
@@ -73,7 +73,7 @@ pub fn get_system_prompt() -> Result<String> {
     system_prompt.push('\n');
 
     // Memory
-    let user_memory_file = AppConfig::internal().user_memory_file.clone();
+    let user_memory_file = AppConfig::tree().user_memory_file.clone();
     if !user_memory_file.exists() {
         fs::File::create(&user_memory_file).context("Failed to create user memory file")?;
         debug!("Created user memory file {:?}", user_memory_file);
@@ -84,7 +84,7 @@ pub fn get_system_prompt() -> Result<String> {
         .filter(|&f| f != "§")
         .collect::<Vec<&str>>()
         .join("\n");
-    let system_memory_file = AppConfig::internal().system_memory_file.clone();
+    let system_memory_file = AppConfig::tree().system_memory_file.clone();
     if !system_memory_file.exists() {
         fs::File::create(&system_memory_file).context("Failed to create system memory file")?;
         debug!("Created system memory file {:?}", system_memory_file);
@@ -129,7 +129,7 @@ pub fn tui_system_prompt(help_msg: Option<&str>) -> Result<String> {
     system_prompt.push_str( &indoc::formatdoc! {"
         # Terminal Interface Session
         Active TUI User: {}
-        ", AppConfig::global().tui.username}
+        ", AppConfig::config().tui.username}
     );
     system_prompt.push('\n');
     if let Some(help_msg) = help_msg {
