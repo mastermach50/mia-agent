@@ -1,27 +1,27 @@
 use anyhow::Context;
 // use log::trace;
-use std::{
-    // cmp::max,
-    io::{
-        Read,
-        // Write, stdout
-    },
-    path::PathBuf,
-    process::Child,
-    // sync::Mutex,
-    // time::Duration,
-};
-use syntect::{
-    easy::HighlightLines,
-    highlighting::Style,
-    highlighting::ThemeSet,
-    parsing::SyntaxSet,
-    util::{LinesWithEndings, as_24_bit_terminal_escaped},
-};
-use termimad::crossterm::style::{
-    ResetColor,
-    // Stylize
-};
+// use std::{
+//     // cmp::max,
+//     io::{
+//         Read,
+//         // Write, stdout
+//     },
+//     path::PathBuf,
+//     process::Child,
+//     // sync::Mutex,
+//     // time::Duration,
+// };
+// use syntect::{
+//     easy::HighlightLines,
+//     highlighting::Style,
+//     highlighting::ThemeSet,
+//     parsing::SyntaxSet,
+//     util::{LinesWithEndings, as_24_bit_terminal_escaped},
+// };
+// use termimad::crossterm::style::{
+//     ResetColor,
+//     // Stylize
+// };
 // use textwrap::{self, core::display_width, termwidth, wrap};
 // use tokio::task::JoinHandle;
 
@@ -83,69 +83,69 @@ use termimad::crossterm::style::{
 // }
 
 /// Returns colored text based on the file extension from the path
-pub fn highlight_text(filename: &str, text: &str) -> String {
-    let ps = SyntaxSet::load_defaults_newlines();
-    let ts = ThemeSet::load_defaults();
+// pub fn highlight_text(filename: &str, text: &str) -> String {
+//     let ps = SyntaxSet::load_defaults_newlines();
+//     let ts = ThemeSet::load_defaults();
 
-    // Get syntax reference based on file extension
-    let pathbuf = PathBuf::from(filename);
-    let extension = pathbuf
-        .extension()
-        .map(|s| s.to_str().unwrap())
-        .unwrap_or("txt");
-    let syntax = ps
-        .find_syntax_by_extension(extension)
-        .unwrap_or(ps.find_syntax_plain_text());
+//     // Get syntax reference based on file extension
+//     let pathbuf = PathBuf::from(filename);
+//     let extension = pathbuf
+//         .extension()
+//         .map(|s| s.to_str().unwrap())
+//         .unwrap_or("txt");
+//     let syntax = ps
+//         .find_syntax_by_extension(extension)
+//         .unwrap_or(ps.find_syntax_plain_text());
 
-    // Highlight the content (copied straight from docs example)
-    let mut h = HighlightLines::new(syntax, &ts.themes["base16-eighties.dark"]);
-    let mut colored_text = String::new();
-    for line in LinesWithEndings::from(text) {
-        let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
-        let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
-        colored_text.push_str(&escaped);
-    }
-    colored_text.push_str(&ResetColor.to_string());
+//     // Highlight the content (copied straight from docs example)
+//     let mut h = HighlightLines::new(syntax, &ts.themes["base16-eighties.dark"]);
+//     let mut colored_text = String::new();
+//     for line in LinesWithEndings::from(text) {
+//         let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
+//         let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
+//         colored_text.push_str(&escaped);
+//     }
+//     colored_text.push_str(&ResetColor.to_string());
 
-    colored_text
-}
+//     colored_text
+// }
 
-/// Used by tools that use the shell
-pub fn stdio_capture_and_send<T: Fn(Option<String>, Option<String>)>(
-    child: &mut Child,
-    partial: T,
-) -> (String, String) {
-    let mut stdout_captured = String::new();
-    let mut stderr_captured = String::new();
+// /// Used by tools that use the shell
+// pub fn stdio_capture_and_send<T: Fn(Option<String>, Option<String>)>(
+//     child: &mut Child,
+//     partial: T,
+// ) -> (String, String) {
+//     let mut stdout_captured = String::new();
+//     let mut stderr_captured = String::new();
 
-    if let Some(mut stdout) = child.stdout.take() {
-        let mut buffer = [0; u8::MAX as usize];
-        while let Ok(bytes_read) = stdout.read(&mut buffer) {
-            if bytes_read == 0 {
-                break;
-            }
-            if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                partial(Some(text.to_string()), None);
-                stdout_captured.push_str(text);
-            }
-        }
-    }
+//     if let Some(mut stdout) = child.stdout.take() {
+//         let mut buffer = [0; u8::MAX as usize];
+//         while let Ok(bytes_read) = stdout.read(&mut buffer) {
+//             if bytes_read == 0 {
+//                 break;
+//             }
+//             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
+//                 partial(Some(text.to_string()), None);
+//                 stdout_captured.push_str(text);
+//             }
+//         }
+//     }
 
-    if let Some(mut stderr) = child.stderr.take() {
-        let mut buffer = [0; u8::MAX as usize];
-        while let Ok(bytes_read) = stderr.read(&mut buffer) {
-            if bytes_read == 0 {
-                break;
-            }
-            if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
-                partial(None, Some(text.to_string()));
-                stderr_captured.push_str(text);
-            }
-        }
-    }
+//     if let Some(mut stderr) = child.stderr.take() {
+//         let mut buffer = [0; u8::MAX as usize];
+//         while let Ok(bytes_read) = stderr.read(&mut buffer) {
+//             if bytes_read == 0 {
+//                 break;
+//             }
+//             if let Ok(text) = std::str::from_utf8(&buffer[..bytes_read]) {
+//                 partial(None, Some(text.to_string()));
+//                 stderr_captured.push_str(text);
+//             }
+//         }
+//     }
 
-    (stdout_captured, stderr_captured)
-}
+//     (stdout_captured, stderr_captured)
+// }
 
 /// Format a number to a human readable form
 /// Mainly used for formattiong model context length

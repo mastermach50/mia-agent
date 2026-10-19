@@ -1,2 +1,5 @@
-Never use the git command, modify git related files or interact with git in any way. You should never control the vcs.
-Make a comment at the top of any AI generated file indicating the agent and model that created that file.
+This is the repository for mia, a heavily customizable AI agent being created by Mathew (Mach50).
+
+Never use git. The agent should never touch the version control system.
+
+When creating new files always add a comment at the top indicating the agent and the model that created the file.

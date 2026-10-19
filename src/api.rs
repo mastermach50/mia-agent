@@ -148,8 +148,7 @@ pub async fn completion(
         .default_headers(get_default_headers())
         .build()?;
 
-    let provider_name = AppConfig::config().model.provider.clone();
-    let provider = Providers::from_name(&provider_name).unwrap();
+    let provider = AppConfig::data().provider;
 
     // Generate the payload
     let mut payload = json!({
@@ -479,8 +478,7 @@ fn get_default_headers() -> HeaderMap {
     headers.insert(REFERER, "https://mathewma3.in".parse().unwrap());
     headers.insert(USER_AGENT, format!("mia_agent/{} ({}-{})", env!("CARGO_PKG_VERSION"), ARCH, OS).parse().unwrap());
 
-    let provider_name = AppConfig::config().model.provider.clone();
-    let provider = Providers::from_name(&provider_name).unwrap();
+    let provider = AppConfig::data().provider;
 
     if provider != Providers::Local {
         headers.insert(

@@ -1,4 +1,3 @@
-#![feature(iter_intersperse)]
 #![feature(pathbuf_into_string)]
 #![feature(file_buffered)]
 
@@ -28,10 +27,7 @@ use config::AppConfig;
 use log::info;
 
 use crate::{
-    // api::History,
     sessions::list_sessions,
-    setup::Providers,
-    // system_prompt::get_tui_system_prompt,
     utils::{format_number, parse_human_number},
 };
 
@@ -43,9 +39,6 @@ async fn main() -> Result<()> {
 
     // Parse CLI args
     let cli = Cli::parse();
-
-    // Load configs from config.toml (to global cache)
-    AppConfig::load()?;
 
     // Load agent tools
     ToolRegistry::init();
@@ -131,8 +124,7 @@ async fn main() -> Result<()> {
 
 async fn list_models(args: cli::ModelListArgs) -> Result<()> {
     let base_url = AppConfig::config().model.base_url.clone();
-    let provider_name = AppConfig::config().model.provider.clone();
-    let provider = Providers::from_name(&provider_name).unwrap();
+    let provider = AppConfig::data().provider;
 
     let models = api::models(&base_url, provider.api_key_name()).await?;
 
