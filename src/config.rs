@@ -7,6 +7,7 @@ use config::{Config, Environment, File, FileFormat};
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use struct_iterable::Iterable;
+use toml_edit::DocumentMut;
 
 use crate::setup::Providers;
 
@@ -94,6 +95,10 @@ pub struct ConfigTree {
     pub tui_history_file: PathBuf,
 }
 
+pub struct AppData {
+    pub provider: Providers,
+}
+
 impl AppConfig {
     /// Returns the paths to all the files and folders that are required for the
     /// agent to function.
@@ -144,7 +149,7 @@ impl AppConfig {
     /// Loads the app config using
     /// Env variables > config.toml > internal defaults
     /// and returns it.
-    pub fn load() -> Result<Self> {
+    fn load() -> Result<Self> {
         // Load environment variables from .env file
         let env_file = AppConfig::tree().env_file;
         dotenvy::from_path(AppConfig::tree().env_file).context("Failed to load .env file")?;
@@ -174,6 +179,15 @@ impl AppConfig {
         APP_CONFIG_CACHE.read().unwrap().clone()
     }
 
+    /// Get data associated with the config
+    pub fn data() -> AppData {
+        let provider_name = Self::config().model.provider;
+        let provider =
+            Providers::from_name(&provider_name).expect("Invalid provider specified in config");
+
+        AppData { provider }
+    }
+
     /// Validate the app config
     fn validate_config(config: AppConfig) -> Result<()> {
         // Validate provider and check if api key is present
@@ -200,9 +214,31 @@ impl AppConfig {
         Ok(())
     }
 
-    /// Process the app config into usable values
-    /// These processed values are stored in
-    fn process_config(config: AppConfig) -> Result<()> {
+    /// Save the current config to the config file
+    #[allow(dead_code)]
+    pub fn save(&self) -> Result<()> {
+        fs::write(Self::tree().config_file, toml::to_string_pretty(self)?)?;
+
+        *APP_CONFIG_CACHE.write().unwrap() = Self::load().unwrap();
+
+        Ok(())
+    }
+
+    /// Save exact config change using toml_edit
+    pub fn edit_exact<F>(edit: F) -> anyhow::Result<()>
+    where
+        F: FnOnce(&mut DocumentMut),
+    {
+        let config_file_path = Self::tree().config_file;
+
+        let config = fs::read_to_string(&config_file_path)?;
+        let mut doc = config.parse::<DocumentMut>()?;
+
+        edit(&mut doc);
+
+        fs::write(&config_file_path, doc.to_string())?;
+
+        *APP_CONFIG_CACHE.write().unwrap() = AppConfig::load()?;
         Ok(())
     }
 }

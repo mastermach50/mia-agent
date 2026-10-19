@@ -19,7 +19,6 @@ static PYTHON_CMD: &str = "python";
 pub struct ExecPython;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
-const MAX_TIMEOUT_SECS: u64 = 300;
 
 #[async_trait::async_trait]
 impl Tool for ExecPython {

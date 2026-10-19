@@ -1,15 +1,14 @@
-# Check
-- Check if the reasoning levels for opencode zen and nvidia nim are correct.
-- Is rate limit handling messages appearing correctly.
-
 # Short Term
-## TUI
+<!--## TUI
 - Implement message history for input box
 - Improve tui permission asking ui
-- Tool call status in tui
+- Tool call status in tui-->
 
-## Other
+## Code Quality
 - Provider registry similar to tool registry
+- setup.rs is very fragile, needs to be reimplemented after provider registry
+
+## Features
 - Optional Local/Custom endpoint api key
 - Cost estimation
 - Re implement single prompt command
@@ -19,6 +18,8 @@
 - Ultra light mode
 
 # Long Term
+## Features
+- Diffed config edits
 - Graceful error handling in API calls
 - Setup custom colors
 - Add skills support

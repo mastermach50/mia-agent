@@ -10,7 +10,7 @@ use std::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 use termimad::crossterm::style::Stylize;
-use toml_edit::{DocumentMut, value};
+use toml_edit::value;
 
 use crate::cli::SetupArgs;
 use crate::{api, config::AppConfig};
@@ -106,38 +106,32 @@ impl Display for EditModes {
 pub async fn setup(args: SetupArgs) -> Result<()> {
     let noargs = !(args.agent || args.model || args.tui);
 
-    let config = fs::read_to_string(AppConfig::tree().config_file.clone())?;
-    let mut doc = config.parse::<DocumentMut>()?;
-
     if noargs || args.model {
         println!("{}", "Model Options".yellow());
-        set_model_provider(&mut doc).await?;
-        set_model_name(&mut doc).await?;
-        set_model_reasoning(&mut doc).await?;
+        set_model_provider().await?;
+        set_model_name().await?;
+        set_model_reasoning().await?;
     }
 
     if noargs || args.tui {
         println!("\n{}", "TUI Options".yellow());
-        set_tui_username(&mut doc).await?;
-        set_tui_streaming(&mut doc).await?;
-        set_tui_reasoning(&mut doc).await?;
-        set_tui_render_markdown(&mut doc).await?;
-        set_tui_show_tool_output(&mut doc).await?;
+        set_tui_username().await?;
+        set_tui_streaming().await?;
+        set_tui_reasoning().await?;
+        set_tui_render_markdown().await?;
+        set_tui_show_tool_output().await?;
     }
 
     if noargs || args.agent {
         println!("\n{}", "Agent Options".yellow());
-        set_max_iterations(&mut doc).await?;
+        set_max_iterations().await?;
     }
-
-    fs::write(AppConfig::tree().config_file.clone(), doc.to_string())?;
 
     Ok(())
 }
 
-async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
-    let current_provider_name = AppConfig::config().model.provider.clone();
-    let current_provider = Providers::from_name(&current_provider_name).unwrap();
+async fn set_model_provider() -> Result<()> {
+    let current_provider = AppConfig::data().provider;
 
     let provider = Providers::select("Provider:")
         .with_starting_cursor(current_provider.index())
@@ -145,13 +139,15 @@ async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
         .prompt()?;
 
     // Only provide the current base url as default if the provider was already "local"
-    let default_base_url = if doc["model"]["provider"].as_str().unwrap() == "local" {
-        doc["model"]["base_url"].as_str().unwrap().to_string()
+    let default_base_url = if AppConfig::config().model.provider == "local" {
+        AppConfig::config().model.base_url
     } else {
         String::new()
     };
 
-    doc["model"]["provider"] = value(provider.name());
+    AppConfig::edit_exact(|doc| {
+        doc["model"]["provider"] = value(provider.name());
+    })?;
     match provider {
         Providers::Local => {
             println!("{}", "No API key required".blue());
@@ -164,11 +160,15 @@ async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
                     "Must include the api version at the end, if present. (Like /v1)",
                 )
                 .prompt()?;
-            doc["model"]["base_url"] = value(base_url);
+            AppConfig::edit_exact(|doc| {
+                doc["model"]["base_url"] = value(base_url);
+            })?;
         }
         _ => {
             println!("Base URL found ({})", provider.base_url()?.blue());
-            doc["model"]["base_url"] = value(provider.base_url()?);
+            AppConfig::edit_exact(|doc| {
+                doc["model"]["base_url"] = value(provider.base_url().unwrap());
+            })?;
             set_api_key(provider.api_key_name().unwrap()).await?;
         }
     }
@@ -208,10 +208,9 @@ async fn set_api_key(key: &str) -> Result<()> {
     Ok(())
 }
 
-async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
-    let base_url = doc["model"]["base_url"].as_str().unwrap();
-    let provider_name = doc["model"]["provider"].as_str().unwrap();
-    let provider = Providers::from_name(provider_name).unwrap();
+async fn set_model_name() -> Result<()> {
+    let base_url = &AppConfig::config().model.base_url;
+    let provider = AppConfig::data().provider;
     let api_key_name = provider.api_key_name();
 
     // Fetch the models
@@ -231,7 +230,7 @@ async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
             .collect())
     };
 
-    let default_model_name = if provider_name == AppConfig::config().model.provider {
+    let default_model_name = if provider.name() == AppConfig::config().model.provider {
         AppConfig::config().model.name.clone()
     } else {
         String::new()
@@ -241,13 +240,14 @@ async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
         .with_autocomplete(model_suggester)
         .with_default(&default_model_name)
         .prompt()?;
-    doc["model"]["name"] = value(model);
-
+    AppConfig::edit_exact(|doc| {
+        doc["model"]["name"] = value(model);
+    })?;
     Ok(())
 }
 
-async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
-    let provider = Providers::from_name(doc["model"]["provider"].as_str().unwrap()).unwrap();
+async fn set_model_reasoning() -> Result<()> {
+    let provider = AppConfig::data().provider;
 
     let levels = match provider {
         Providers::Openrouter => vec!["xhigh", "high", "medium", "low", "minimal", "none"],
@@ -264,19 +264,22 @@ async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
     let reasoning = Select::new("Model reasoning level:", levels)
         .with_starting_cursor(starting_index)
         .prompt()?;
-    doc["model"]["reasoning"] = value(reasoning);
-
+    AppConfig::edit_exact(|doc| {
+        doc["model"]["reasoning"] = value(reasoning);
+    })?;
     Ok(())
 }
 
-async fn set_tui_username(doc: &mut DocumentMut) -> Result<()> {
+async fn set_tui_username() -> Result<()> {
     let username = Text::new("Username:")
         .with_help_message("This is what the assistant will call you")
         .with_default(&AppConfig::config().tui.username)
         .prompt_skippable()?;
     match username {
         Some(username) => {
-            doc["tui"]["username"] = value(username);
+            AppConfig::edit_exact(|doc| {
+                doc["tui"]["username"] = value(username);
+            })?;
         }
         None => {
             println!("Username unchanged");
@@ -286,14 +289,16 @@ async fn set_tui_username(doc: &mut DocumentMut) -> Result<()> {
     Ok(())
 }
 
-async fn set_tui_streaming(doc: &mut DocumentMut) -> Result<()> {
+async fn set_tui_streaming() -> Result<()> {
     let streaming = Confirm::new("Streaming:")
         .with_help_message("Whether to stream content in the tui")
         .with_default(AppConfig::config().tui.streaming)
         .prompt_skippable()?;
     match streaming {
         Some(streaming) => {
-            doc["tui"]["streaming"] = value(streaming);
+            AppConfig::edit_exact(|doc| {
+                doc["tui"]["streaming"] = value(streaming);
+            })?;
         }
         None => {
             println!("Value unchanged");
@@ -303,14 +308,16 @@ async fn set_tui_streaming(doc: &mut DocumentMut) -> Result<()> {
     Ok(())
 }
 
-async fn set_tui_reasoning(doc: &mut DocumentMut) -> Result<()> {
+async fn set_tui_reasoning() -> Result<()> {
     let reasoning = Confirm::new("Show reasoning:")
         .with_help_message("Show the reasoning content from the model, if any")
         .with_default(AppConfig::config().tui.show_reasoning)
         .prompt_skippable()?;
     match reasoning {
         Some(reasoning) => {
-            doc["tui"]["show_reasoning"] = value(reasoning);
+            AppConfig::edit_exact(|doc| {
+                doc["tui"]["show_reasoning"] = value(reasoning);
+            })?;
         }
         None => {
             println!("Value unchanged");
@@ -320,14 +327,16 @@ async fn set_tui_reasoning(doc: &mut DocumentMut) -> Result<()> {
     Ok(())
 }
 
-async fn set_tui_render_markdown(doc: &mut DocumentMut) -> Result<()> {
+async fn set_tui_render_markdown() -> Result<()> {
     let render_markdown = Confirm::new("Render markdown:")
         .with_help_message("Render markdown content with formatting")
         .with_default(AppConfig::config().tui.render_markdown)
         .prompt_skippable()?;
     match render_markdown {
         Some(render_markdown) => {
-            doc["tui"]["render_markdown"] = value(render_markdown);
+            AppConfig::edit_exact(|doc| {
+                doc["tui"]["render_markdown"] = value(render_markdown);
+            })?;
         }
         None => {
             println!("Value unchanged");
@@ -337,14 +346,16 @@ async fn set_tui_render_markdown(doc: &mut DocumentMut) -> Result<()> {
     Ok(())
 }
 
-async fn set_tui_show_tool_output(doc: &mut DocumentMut) -> Result<()> {
+async fn set_tui_show_tool_output() -> Result<()> {
     let show_tool_output = Confirm::new("Show tool output:")
         .with_help_message("Display the ouputs of tools called by the agent")
         .with_default(AppConfig::config().tui.show_tool_output)
         .prompt_skippable()?;
     match show_tool_output {
         Some(show_tool_output) => {
-            doc["tui"]["show_tool_output"] = value(show_tool_output);
+            AppConfig::edit_exact(|doc| {
+                doc["tui"]["show_tool_output"] = value(show_tool_output);
+            })?;
         }
         None => {
             println!("Value unchanged");
@@ -354,7 +365,7 @@ async fn set_tui_show_tool_output(doc: &mut DocumentMut) -> Result<()> {
     Ok(())
 }
 
-async fn set_max_iterations(doc: &mut DocumentMut) -> Result<()> {
+async fn set_max_iterations() -> Result<()> {
     let num_validator = |input: &str| {
         if input.parse::<u64>().is_ok() {
             Ok(Validation::Valid)
@@ -372,7 +383,9 @@ async fn set_max_iterations(doc: &mut DocumentMut) -> Result<()> {
         .prompt_skippable()?;
     match max_iter {
         Some(max_iter) => {
-            doc["agent"]["max_iterations"] = value(max_iter.parse::<i64>().unwrap());
+            AppConfig::edit_exact(|doc| {
+                doc["agent"]["max_iterations"] = value(max_iter.parse::<i64>().unwrap());
+            })?;
         }
         None => {
             println!("Max iterations unchanged");
