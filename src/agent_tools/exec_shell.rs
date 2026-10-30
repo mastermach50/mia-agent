@@ -13,7 +13,7 @@ use crate::agent_tools::{PermissionClass, Tool, ToolContext, ToolStatus, err, ok
 pub struct ExecShell;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
-const MAX_TIMEOUT_SECS: u64 = 300;
+// const MAX_TIMEOUT_SECS: u64 = 300;
 
 #[async_trait::async_trait]
 impl Tool for ExecShell {

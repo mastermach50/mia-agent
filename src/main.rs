@@ -1,4 +1,3 @@
-#![feature(iter_intersperse)]
 #![feature(pathbuf_into_string)]
 #![feature(file_buffered)]
 
@@ -11,7 +10,6 @@ use termimad::crossterm::style::Stylize;
 
 mod agent_loop;
 mod agent_tools;
-mod old_agent_tools; // legacy tool implementations, kept for reference during the rewrite
 mod api;
 mod cli;
 mod config;
@@ -29,10 +27,8 @@ use config::AppConfig;
 use log::info;
 
 use crate::{
-    // api::History,
     sessions::list_sessions,
     setup::Providers,
-    // system_prompt::get_tui_system_prompt,
     utils::{format_number, parse_human_number},
 };
 
