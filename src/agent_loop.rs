@@ -168,7 +168,7 @@ pub async fn run_agent(
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
     // Max number of iterations is configurable
-    'agent_iteration: for iterations in 1..=AppConfig::global().agent.max_iterations {
+    'agent_iteration: for iterations in 1..=AppConfig::config().agent.max_iterations {
         // Check if the request is cancelled
         if handle.cancel.is_cancelled() {
             break 'agent_iteration;
@@ -183,12 +183,12 @@ pub async fn run_agent(
         if iterations >= 3
             && (iterations % 10 == 0
                 || iterations == 3
-                || iterations == AppConfig::global().agent.max_iterations)
+                || iterations == AppConfig::config().agent.max_iterations)
         {
             handle.harness_msg(format!(
                 "🔁 Iteration {}/{}",
                 iterations,
-                AppConfig::global().agent.max_iterations
+                AppConfig::config().agent.max_iterations
             ));
         }
 

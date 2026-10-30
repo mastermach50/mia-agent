@@ -148,14 +148,13 @@ pub async fn completion(
         .default_headers(get_default_headers())
         .build()?;
 
-    let provider_name = AppConfig::global().model.provider.clone();
-    let provider = Providers::from_name(&provider_name).unwrap();
+    let provider = AppConfig::data().provider;
 
     // Generate the payload
     let mut payload = json!({
         "messages": history.clean_messages(),
-        "model": AppConfig::global().model.name,
-        "reasoning_effort": AppConfig::global().model.reasoning,
+        "model": AppConfig::config().model.name,
+        "reasoning_effort": AppConfig::config().model.reasoning,
         "tools": ToolRegistry::schema(),
         "stream": stream,
         "stream_options": {
@@ -167,7 +166,7 @@ pub async fn completion(
     }
 
     // Generate the request url
-    let request_url = AppConfig::global().model.base_url.clone() + "/chat/completions";
+    let request_url = AppConfig::config().model.base_url.clone() + "/chat/completions";
 
     // Send the request
     let response = tokio::select! {
@@ -435,7 +434,7 @@ pub struct ModelPricing {
 pub async fn models(base_url: &str, api_key_name: Option<&str>) -> Result<Vec<Model>> {
     let client = Client::new();
 
-    dotenvy::from_path(AppConfig::internal().env_file.clone())?;
+    dotenvy::from_path(AppConfig::tree().env_file.clone())?;
 
     let params = [
         ("output_modalities", "text"),
@@ -479,8 +478,7 @@ fn get_default_headers() -> HeaderMap {
     headers.insert(REFERER, "https://mathewma3.in".parse().unwrap());
     headers.insert(USER_AGENT, format!("mia_agent/{} ({}-{})", env!("CARGO_PKG_VERSION"), ARCH, OS).parse().unwrap());
 
-    let provider_name = AppConfig::global().model.provider.clone();
-    let provider = Providers::from_name(&provider_name).unwrap();
+    let provider = AppConfig::data().provider;
 
     if provider != Providers::Local {
         headers.insert(

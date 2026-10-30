@@ -19,7 +19,7 @@ pub fn create_statusbar(state: &mut AppState) -> Block<'static> {
     let mut statusbar = Block::new().border_type(border_type).borders(Borders::TOP);
 
     if !state.status.is_empty() {
-        if AppConfig::global().tui.show_spinner && state.permission_request.is_none() {
+        if AppConfig::config().tui.show_spinner && state.permission_request.is_none() {
             statusbar = statusbar
                 .title(Line::from(spinner_frames[state.spinner_idx].green()).left_aligned());
             state.spinner_idx = (state.spinner_idx + 1) % spinner_frames.len();

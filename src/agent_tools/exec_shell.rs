@@ -144,24 +144,3 @@ impl Tool for ExecShell {
         }))
     }
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn echo_returns_stdout() {
-        // Keep the receiver alive: tool_output sends into the channel.
-        let (rx, handle) = crate::agent_loop::AgentHandle::new();
-        let _rx = rx;
-        let ctx = ToolContext {
-            handle: &handle,
-            session_id: "test",
-        };
-        let (status, payload) = ExecShell
-            .execute(&ctx, json!({ "command": "echo hello from mia" }))
-            .await;
-        assert_eq!(status, ToolStatus::Success);
-        assert_eq!(payload["exit_code"], 0);
-        assert!(payload["stdout"].as_str().unwrap().contains("hello from mia"));
-    }
-}

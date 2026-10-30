@@ -43,6 +43,7 @@ rust_decimal = "1.42.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 shellexpand = "3.1.2"
+struct_iterable = "0.1.1"
 strum = { version = "0.28.0", features = ["derive"] }
 syntect = "5.3.0"
 tabled = "0.21.0"

@@ -187,7 +187,7 @@ impl AppState {
 
         let (agent_event_rx, agent_handle) = AgentHandle::new();
 
-        let model = AppConfig::global().model.name.clone();
+        let model = AppConfig::config().model.name.clone();
 
         let (term_width, term_height) =
             crossterm::terminal::size().expect("Failed to get terminal size");
@@ -213,7 +213,7 @@ impl AppState {
             permission_request: None,
             rendered_permission_request: None,
             rendered_permission_request_wrapped_line_count: 0,
-            show_reasoning: AppConfig::global().tui.show_reasoning,
+            show_reasoning: AppConfig::config().tui.show_reasoning,
             scroll_offset: 0,
             auto_scroll: true,
             scrollbar_state,
@@ -317,7 +317,7 @@ impl AppState {
         self.agent_handle.reset_cancellation();
         let history = self.session.history.clone();
         let session_id = self.session.get_extended_session_id();
-        let stream = AppConfig::global().tui.streaming;
+        let stream = AppConfig::config().tui.streaming;
         let handle = self.agent_handle.clone();
         tokio::spawn(async move {
             crate::agent_loop::run_agent(history, &session_id, stream, handle)
@@ -612,7 +612,7 @@ impl AppState {
                     self.input.set_placeholder_text("y/n, <Ctrl-C> to cancel");
                 }
                 AgentEvent::PartialToolOutput { stdout, stderr } => {
-                    if AppConfig::global().tui.show_tool_output {
+                    if AppConfig::config().tui.show_tool_output {
                         if self.partial_tool_output.is_none() {
                             self.partial_tool_output = Some(String::new());
                         }
@@ -633,7 +633,7 @@ impl AppState {
                     }
                 }
                 AgentEvent::ToolOutput { stdout, stderr } => {
-                    if AppConfig::global().tui.show_tool_output {
+                    if AppConfig::config().tui.show_tool_output {
                         self.partial_tool_output = None;
                         self.partial_tool_output_wrapped_line_count = 0;
                         self.recalculate_scroll_offset();

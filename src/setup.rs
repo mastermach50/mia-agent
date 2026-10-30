@@ -106,7 +106,7 @@ impl Display for EditModes {
 pub async fn setup(args: SetupArgs) -> Result<()> {
     let noargs = !(args.agent || args.model || args.tui);
 
-    let config = fs::read_to_string(AppConfig::internal().config_file.clone())?;
+    let config = fs::read_to_string(AppConfig::tree().config_file.clone())?;
     let mut doc = config.parse::<DocumentMut>()?;
 
     if noargs || args.model {
@@ -130,13 +130,13 @@ pub async fn setup(args: SetupArgs) -> Result<()> {
         set_max_iterations(&mut doc).await?;
     }
 
-    fs::write(AppConfig::internal().config_file.clone(), doc.to_string())?;
+    fs::write(AppConfig::tree().config_file.clone(), doc.to_string())?;
 
     Ok(())
 }
 
 async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
-    let current_provider_name = AppConfig::global().model.provider.clone();
+    let current_provider_name = AppConfig::config().model.provider.clone();
     let current_provider = Providers::from_name(&current_provider_name).unwrap();
 
     let provider = Providers::select("Provider:")
@@ -177,7 +177,7 @@ async fn set_model_provider(doc: &mut DocumentMut) -> Result<()> {
 }
 
 async fn set_api_key(key: &str) -> Result<()> {
-    let env = fs::read_to_string(AppConfig::internal().env_file.clone())?;
+    let env = fs::read_to_string(AppConfig::tree().env_file.clone())?;
 
     // TODO fix
     // Could fail if there is a space before key name
@@ -196,13 +196,13 @@ async fn set_api_key(key: &str) -> Result<()> {
                         }
                     })
                     .join("\n");
-                fs::write(AppConfig::internal().env_file.clone(), new_env)?;
+                fs::write(AppConfig::tree().env_file.clone(), new_env)?;
             }
         }
     } else {
         let api_key = Password::new("Enter API key:").prompt()?;
         let new_env = env.trim_end().to_owned() + &format!("\n{key}={api_key}");
-        fs::write(AppConfig::internal().env_file.clone(), new_env)?;
+        fs::write(AppConfig::tree().env_file.clone(), new_env)?;
     }
 
     Ok(())
@@ -231,8 +231,8 @@ async fn set_model_name(doc: &mut DocumentMut) -> Result<()> {
             .collect())
     };
 
-    let default_model_name = if provider_name == AppConfig::global().model.provider {
-        AppConfig::global().model.name.clone()
+    let default_model_name = if provider_name == AppConfig::config().model.provider {
+        AppConfig::config().model.name.clone()
     } else {
         String::new()
     };
@@ -258,7 +258,7 @@ async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
         Providers::OpenCodeZen => vec!["xhigh", "high", "medium", "low", "minimal", "none"], // not verified
         Providers::NvidiaNIM => vec!["xhigh", "high", "medium", "low", "minimal", "none"], // not verified
     };
-    let current_level = AppConfig::global().model.reasoning.clone();
+    let current_level = AppConfig::config().model.reasoning.clone();
     let starting_index = levels.iter().position(|i| i == &current_level).unwrap_or(0);
 
     let reasoning = Select::new("Model reasoning level:", levels)
@@ -272,7 +272,7 @@ async fn set_model_reasoning(doc: &mut DocumentMut) -> Result<()> {
 async fn set_tui_username(doc: &mut DocumentMut) -> Result<()> {
     let username = Text::new("Username:")
         .with_help_message("This is what the assistant will call you")
-        .with_default(&AppConfig::global().tui.username)
+        .with_default(&AppConfig::config().tui.username)
         .prompt_skippable()?;
     match username {
         Some(username) => {
@@ -289,7 +289,7 @@ async fn set_tui_username(doc: &mut DocumentMut) -> Result<()> {
 async fn set_tui_streaming(doc: &mut DocumentMut) -> Result<()> {
     let streaming = Confirm::new("Streaming:")
         .with_help_message("Whether to stream content in the tui")
-        .with_default(AppConfig::global().tui.streaming)
+        .with_default(AppConfig::config().tui.streaming)
         .prompt_skippable()?;
     match streaming {
         Some(streaming) => {
@@ -306,7 +306,7 @@ async fn set_tui_streaming(doc: &mut DocumentMut) -> Result<()> {
 async fn set_tui_reasoning(doc: &mut DocumentMut) -> Result<()> {
     let reasoning = Confirm::new("Show reasoning:")
         .with_help_message("Show the reasoning content from the model, if any")
-        .with_default(AppConfig::global().tui.show_reasoning)
+        .with_default(AppConfig::config().tui.show_reasoning)
         .prompt_skippable()?;
     match reasoning {
         Some(reasoning) => {
@@ -323,7 +323,7 @@ async fn set_tui_reasoning(doc: &mut DocumentMut) -> Result<()> {
 async fn set_tui_render_markdown(doc: &mut DocumentMut) -> Result<()> {
     let render_markdown = Confirm::new("Render markdown:")
         .with_help_message("Render markdown content with formatting")
-        .with_default(AppConfig::global().tui.render_markdown)
+        .with_default(AppConfig::config().tui.render_markdown)
         .prompt_skippable()?;
     match render_markdown {
         Some(render_markdown) => {
@@ -340,7 +340,7 @@ async fn set_tui_render_markdown(doc: &mut DocumentMut) -> Result<()> {
 async fn set_tui_show_tool_output(doc: &mut DocumentMut) -> Result<()> {
     let show_tool_output = Confirm::new("Show tool output:")
         .with_help_message("Display the ouputs of tools called by the agent")
-        .with_default(AppConfig::global().tui.show_tool_output)
+        .with_default(AppConfig::config().tui.show_tool_output)
         .prompt_skippable()?;
     match show_tool_output {
         Some(show_tool_output) => {
@@ -366,7 +366,7 @@ async fn set_max_iterations(doc: &mut DocumentMut) -> Result<()> {
     };
 
     let max_iter = Text::new("Max iterations:")
-        .with_default(&AppConfig::global().agent.max_iterations.to_string())
+        .with_default(&AppConfig::config().agent.max_iterations.to_string())
         .with_help_message("Maximum number of turns the agent can have before stopping and waiting for user input, higher values required for longer tasks")
         .with_validator(num_validator)
         .prompt_skippable()?;

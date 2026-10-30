@@ -28,7 +28,6 @@ use log::info;
 
 use crate::{
     sessions::list_sessions,
-    setup::Providers,
     utils::{format_number, parse_human_number},
 };
 
@@ -41,9 +40,6 @@ async fn main() -> Result<()> {
     // Parse CLI args
     let cli = Cli::parse();
 
-    // Load configs from config.toml (to global cache)
-    AppConfig::load()?;
-
     // Load agent tools
     ToolRegistry::init();
 
@@ -53,9 +49,9 @@ async fn main() -> Result<()> {
                 list_models(args).await?;
             }
             Some(cli::ModelSubCommands::Show) => {
-                println!("Model     : {}", AppConfig::global().model.name);
-                println!("Reasoning : {}", AppConfig::global().model.reasoning);
-                println!("Base URL  : {}", AppConfig::global().model.base_url);
+                println!("Model     : {}", AppConfig::config().model.name);
+                println!("Reasoning : {}", AppConfig::config().model.reasoning);
+                println!("Base URL  : {}", AppConfig::config().model.base_url);
             }
             None => {
                 println!("No subcommand provided. Use --help for usage.");
@@ -75,7 +71,7 @@ async fn main() -> Result<()> {
                     .with_default(false)
                     .prompt()?;
                 if clear {
-                    let sessions_dir = AppConfig::internal().sessions_dir.clone();
+                    let sessions_dir = AppConfig::tree().sessions_dir.clone();
                     for file in sessions_dir.read_dir()? {
                         let file = file?;
                         std::fs::remove_file(file.path()).context(format!(
@@ -127,9 +123,8 @@ async fn main() -> Result<()> {
 }
 
 async fn list_models(args: cli::ModelListArgs) -> Result<()> {
-    let base_url = AppConfig::global().model.base_url.clone();
-    let provider_name = AppConfig::global().model.provider.clone();
-    let provider = Providers::from_name(&provider_name).unwrap();
+    let base_url = AppConfig::config().model.base_url.clone();
+    let provider = AppConfig::data().provider;
 
     let models = api::models(&base_url, provider.api_key_name()).await?;
 

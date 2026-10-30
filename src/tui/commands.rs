@@ -65,7 +65,7 @@ pub fn execute_command(command: &str, state: &mut AppState) -> Result<()> {
         }
         "/model" => {
             let mut text = String::new();
-            let model_config = AppConfig::global().model.clone();
+            let model_config = AppConfig::config().model.clone();
             text.push_str(&format!("Model     : {}\n", model_config.name));
             text.push_str(&format!("Provider  : {}\n", model_config.provider));
             text.push_str(&format!("Base URL  : {}\n", model_config.base_url));

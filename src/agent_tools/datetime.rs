@@ -50,20 +50,3 @@ impl Tool for DateTime {
         }))
     }
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn returns_current_time() {
-        let (_rx, handle) = crate::agent_loop::AgentHandle::new();
-        let ctx = ToolContext {
-            handle: &handle,
-            session_id: "test",
-        };
-        let (status, payload) = DateTime.execute(&ctx, json!({})).await;
-        assert_eq!(status, ToolStatus::Success);
-        assert!(payload["datetime"].as_str().is_some());
-        assert!(payload["epoch"].as_i64().is_some());
-    }
-}

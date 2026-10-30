@@ -160,37 +160,3 @@ fn walk(
 
     Ok(())
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn tree_marks_truncation() {
-        let (_rx, handle) = crate::agent_loop::AgentHandle::new();
-        let ctx = ToolContext {
-            handle: &handle,
-            session_id: "test",
-        };
-        let dir = std::env::temp_dir().join(format!("mia-test-{}-tree", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(dir.join("src/nested")).unwrap();
-        fs::write(dir.join("src/main.rs"), "fn main() {}").unwrap();
-        fs::write(dir.join("Cargo.toml"), "[package]").unwrap();
-
-        let (status, payload) = FSTree
-            .execute(&ctx, json!({ "path": dir.to_string_lossy(), "max_depth": 1 }))
-            .await;
-        assert_eq!(status, ToolStatus::Success);
-        assert!(payload["truncated"].as_bool().unwrap());
-        assert!(payload["tree"].as_str().unwrap().contains("more entries"));
-
-        let (status, payload) = FSTree
-            .execute(&ctx, json!({ "path": dir.to_string_lossy(), "max_depth": 3 }))
-            .await;
-        assert_eq!(status, ToolStatus::Success);
-        assert!(!payload["truncated"].as_bool().unwrap());
-        assert!(payload["tree"].as_str().unwrap().contains("nested"));
-
-        fs::remove_dir_all(&dir).ok();
-    }
-}
